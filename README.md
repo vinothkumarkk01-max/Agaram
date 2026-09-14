@@ -1,36 +1,99 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Agaram — Project Scaffold (V0, Phase 1)
 
-## Getting Started
+This is the first phase of the build order from `Agaram_Solo_Founder_Build_Plan.md`:
+a working Next.js + Supabase scaffold with real signup/login/logout, nothing
+product-specific yet. It proves the basic pipes work before any product
+screens get built on top.
 
-First, run the development server:
+What's here:
+- `/` — landing page with links to sign up / sign in
+- `/signup`, `/login` — email + password forms wired to Supabase Auth
+- `/dashboard` — a protected page; you can only reach it while signed in
+- `src/proxy.ts` — keeps the session refreshed and redirects signed-out
+  users away from `/dashboard` (and signed-in users away from `/login`)
+- Colors, type, and the brand mark already match `Agaram_Visual_Design_System_v1.md`
+
+Phone-number OTP sign-in is deferred to the next phase — it needs an SMS
+provider (Twilio/MSG91) wired into Supabase's Auth settings first.
+
+---
+
+## 1. Create your Supabase project (free)
+
+1. Go to [supabase.com](https://supabase.com) and sign up with your GitHub
+   account.
+2. Click **New project**. Name it (e.g. `agaram`), set a database password
+   (save it somewhere safe), pick a region close to India if offered, and
+   wait ~2 minutes for it to provision.
+3. Go to **Project Settings → API**. Copy the **Project URL** and the
+   **anon / public** key.
+4. In this project folder, copy `.env.local.example` to `.env.local` and
+   paste those two values in:
+
+   ```
+   NEXT_PUBLIC_SUPABASE_URL=https://your-project-ref.supabase.co
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-public-key
+   ```
+
+   `.env.local` is already in `.gitignore` — it will never be committed to
+   GitHub. Never put the **service_role** key here or anywhere in this app.
+
+5. By default, Supabase requires email confirmation before a new account
+   can sign in. For quick local testing, you can turn this off temporarily
+   under **Authentication → Providers → Email → Confirm email** (toggle
+   off), or just click the confirmation link Supabase emails you.
+
+## 2. Run it locally
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open the local URL it prints, click **Create account**, sign up with a
+real email + password, confirm the email if required, and you should land
+on `/dashboard` signed in.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 3. Push to GitHub
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Your repo already exists at `https://github.com/vinothkumarkk01-max/Agaram`.
+From inside this project folder:
 
-## Learn More
+```bash
+git remote add origin https://github.com/vinothkumarkk01-max/Agaram.git
+git add -A
+git commit -m "Project scaffold: Next.js + Supabase auth"
+git branch -M main
+git push -u origin main
+```
 
-To learn more about Next.js, take a look at the following resources:
+(If `git remote add origin` says the remote already exists, run
+`git remote set-url origin https://github.com/vinothkumarkk01-max/Agaram.git`
+instead.) GitHub will prompt you to sign in the first time you push —
+follow its prompts (it may open a browser window or ask for a
+personal access token instead of your password).
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 4. Deploy to Vercel (free)
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+1. Go to [vercel.com](https://vercel.com) and sign up with your GitHub
+   account.
+2. Click **Add New… → Project**, then **Import** next to your `Agaram`
+   repo.
+3. Before clicking Deploy, expand **Environment Variables** and add the
+   same two values from your `.env.local`:
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+4. Click **Deploy**. In a minute or two you'll have a live URL
+   (`agaram-xxxx.vercel.app`) that anyone can open.
+5. One more Supabase step once you have that URL: go to your Supabase
+   project → **Authentication → URL Configuration**, and add your Vercel
+   URL to **Site URL** and **Redirect URLs**. Without this, email
+   confirmation links will point at the wrong address.
 
-## Deploy on Vercel
+## What's next
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Per the build plan's suggested order: profile model & onboarding (writing
+real data to Supabase instead of this bare auth flow), then identity
+verification, the matching feed, payments, messaging, and admin basics.
+Bring this repo and `Agaram_Premium_PRD_v2.md` / the clickable prototype
+into your next session and we'll build the next phase on top of this.
