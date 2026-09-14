@@ -112,5 +112,5 @@ export async function savePreferences(
     return { error: error.message };
   }
 
-  redirect("/dashboard");
+  redirect("/onboarding/verification");
 }

@@ -89,10 +89,42 @@ personal access token instead of your password).
    URL to **Site URL** and **Redirect URLs**. Without this, email
    confirmation links will point at the wrong address.
 
+## Identity verification (Phase 3) — mock vendor, real flow
+
+After profile + preferences, members hit `/onboarding/verification`: a
+consent + Aadhaar-number form, a "verifying…" screen, then a
+Verified badge on the dashboard. The pending → verified transition is
+real — but the actual identity check is currently a **mock** (it
+always resolves to "verified" after ~2 seconds), because Agaram
+doesn't have a real e-KYC vendor account yet:
+
+- **HyperVerge** (the vendor picked earlier) has no self-serve
+  sandbox — you need to email `contact@hyperverge.co` and ask for
+  sandbox access to their Aadhaar e-KYC verification API. Do this
+  whenever you get a chance; it can take a few days for them to
+  respond, so it's worth starting even if you're not ready to wire it
+  in yet.
+- Once you have real sandbox credentials (`appId`/`appKey`) and their
+  actual e-KYC API docs, the only file that needs to change is
+  `src/app/actions/verification.ts` — specifically the
+  `resolveMockVerification` function. Everything else (the form, the
+  status page, the dashboard badge) just reads the
+  `identity_verifications.status` column in Supabase, so it keeps
+  working unchanged.
+- Only the **last 4 digits** of the Aadhaar number are ever stored in
+  the database, per the PRD's own data-minimization guidance — the
+  full number is used for the one request and discarded.
+
+**Database:** the `identity_verifications` table is at the bottom of
+`supabase/schema.sql`. If your Supabase project already has the
+Phase 2 tables, just re-run the whole file in the SQL Editor — every
+statement is safe to re-run (`create table if not exists`, etc.), so
+it will only add what's new.
+
 ## What's next
 
-Per the build plan's suggested order: profile model & onboarding (writing
-real data to Supabase instead of this bare auth flow), then identity
-verification, the matching feed, payments, messaging, and admin basics.
-Bring this repo and `Agaram_Premium_PRD_v2.md` / the clickable prototype
-into your next session and we'll build the next phase on top of this.
+Per the build plan's suggested order: the matching feed, payments,
+messaging, and admin basics — plus swapping in the real HyperVerge
+call above once their sandbox access comes through. Bring this repo
+and `Agaram_Premium_PRD_v2.md` / the clickable prototype into your
+next session and we'll build the next phase on top of this.

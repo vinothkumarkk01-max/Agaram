@@ -68,3 +68,42 @@ drop policy if exists "Users can update own preferences" on public.preferences;
 create policy "Users can update own preferences"
   on public.preferences for update
   using (auth.uid() = profile_id);
+
+-- ============================================================
+-- Phase 3 — Identity verification
+-- ============================================================
+
+-- One row per user: status of their identity check. V0 supports one
+-- verification signal (Aadhaar, India-only — see PRD §13); the
+-- diaspora passport path is deferred. Per the PRD's own data-
+-- minimization guidance (§14: "store only a verification boolean plus
+-- minimum matching fields... rather than the full API response"),
+-- only the LAST 4 DIGITS of the Aadhaar number are ever stored here —
+-- never the full number.
+create table if not exists public.identity_verifications (
+  profile_id uuid primary key references public.profiles (id) on delete cascade,
+  status text not null default 'pending' check (status in ('pending', 'verified', 'failed')),
+  method text not null default 'aadhaar' check (method in ('aadhaar')),
+  provider text not null default 'mock',
+  aadhaar_last4 text,
+  submitted_at timestamptz not null default now(),
+  verified_at timestamptz,
+  updated_at timestamptz not null default now()
+);
+
+alter table public.identity_verifications enable row level security;
+
+drop policy if exists "Users can view own verification" on public.identity_verifications;
+create policy "Users can view own verification"
+  on public.identity_verifications for select
+  using (auth.uid() = profile_id);
+
+drop policy if exists "Users can insert own verification" on public.identity_verifications;
+create policy "Users can insert own verification"
+  on public.identity_verifications for insert
+  with check (auth.uid() = profile_id);
+
+drop policy if exists "Users can update own verification" on public.identity_verifications;
+create policy "Users can update own verification"
+  on public.identity_verifications for update
+  using (auth.uid() = profile_id);

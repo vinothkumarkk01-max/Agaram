@@ -24,6 +24,14 @@ export default async function DashboardPage() {
         .maybeSingle()
     : { data: null };
 
+  const { data: verification } = user
+    ? await supabase
+        .from("identity_verifications")
+        .select("status")
+        .eq("profile_id", user.id)
+        .maybeSingle()
+    : { data: null };
+
   return (
     <div
       className="min-h-screen w-full flex items-center justify-center px-4 py-10"
@@ -135,9 +143,29 @@ export default async function DashboardPage() {
                   : "Any education"}
               </div>
             </div>
+            <div
+              className="rounded-xl p-4 mb-4 text-sm flex items-center justify-between gap-3"
+              style={
+                verification?.status === "verified"
+                  ? { background: "var(--ok-soft)", color: "var(--ok)" }
+                  : { background: "var(--accent-soft)", color: "var(--accent-strong)" }
+              }
+            >
+              <span className="font-semibold">
+                {verification?.status === "verified"
+                  ? "✓ Identity verified"
+                  : verification?.status === "pending"
+                  ? "Identity check pending"
+                  : "Identity not verified yet"}
+              </span>
+              {verification?.status !== "verified" && (
+                <Link href="/onboarding/verification" className="underline font-semibold">
+                  {verification?.status === "pending" ? "Check status" : "Verify now"}
+                </Link>
+              )}
+            </div>
             <p className="text-xs mb-6" style={{ color: "var(--text-soft)" }}>
-              Profile complete. Identity verification and the matching feed
-              come next — not built yet in this V0.
+              The matching feed comes next — not built yet in this V0.
             </p>
             <Link
               href="/onboarding/basic-info"
