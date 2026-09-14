@@ -56,13 +56,12 @@ on `/dashboard` signed in.
 
 ## 3. Push to GitHub
 
-Your repo already exists at `https://github.com/vinothkumarkk01-max/Agaram`.
+Your repo already exists at `https://github.com/vinothkumarkk01-max/Agaram`,
+and this folder is already a git repo with everything committed locally.
 From inside this project folder:
 
 ```bash
 git remote add origin https://github.com/vinothkumarkk01-max/Agaram.git
-git add -A
-git commit -m "Project scaffold: Next.js + Supabase auth"
 git branch -M main
 git push -u origin main
 ```
