@@ -11,7 +11,7 @@ export default async function DashboardPage() {
   const { data: profile } = user
     ? await supabase
         .from("profiles")
-        .select("full_name, profile_type, age, about_me")
+        .select("full_name, profile_type, age, location, about_me")
         .eq("id", user.id)
         .maybeSingle()
     : { data: null };
@@ -164,9 +164,22 @@ export default async function DashboardPage() {
                 </Link>
               )}
             </div>
-            <p className="text-xs mb-6" style={{ color: "var(--text-soft)" }}>
-              The matching feed comes next — not built yet in this V0.
-            </p>
+            {verification?.status === "verified" ? (
+              <Link
+                href="/matches"
+                className="block text-center rounded-xl py-3 font-bold text-white text-sm mb-3"
+                style={{
+                  background:
+                    "linear-gradient(135deg, var(--accent), var(--accent-strong))",
+                }}
+              >
+                Browse matches
+              </Link>
+            ) : (
+              <p className="text-xs mb-6" style={{ color: "var(--text-soft)" }}>
+                Verify your identity to unlock the matching feed.
+              </p>
+            )}
             <Link
               href="/onboarding/basic-info"
               className="block text-center rounded-xl py-2.5 text-sm font-semibold mb-3"

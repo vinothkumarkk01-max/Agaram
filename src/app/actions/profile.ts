@@ -30,6 +30,7 @@ export async function saveBasicInfo(
   const fullName = String(formData.get("full_name") ?? "").trim();
   const profileType = String(formData.get("profile_type") ?? "");
   const ageRaw = String(formData.get("age") ?? "");
+  const location = String(formData.get("location") ?? "").trim();
   const aboutMe = String(formData.get("about_me") ?? "").trim();
 
   if (!fullName) {
@@ -42,12 +43,16 @@ export async function saveBasicInfo(
   if (!Number.isInteger(age) || age < 18 || age > 100) {
     return { error: "Please enter a valid age between 18 and 100." };
   }
+  if (!location) {
+    return { error: "Please enter your city — matches are filtered by location." };
+  }
 
   const { error } = await supabase.from("profiles").upsert({
     id: user.id,
     full_name: fullName,
     profile_type: profileType,
     age,
+    location,
     about_me: aboutMe || null,
     updated_at: new Date().toISOString(),
   });

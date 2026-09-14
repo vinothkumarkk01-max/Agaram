@@ -30,6 +30,7 @@ export function BasicInfoForm({
     full_name?: string;
     profile_type?: string;
     age?: number;
+    location?: string;
     about_me?: string;
   };
 }) {
@@ -71,6 +72,20 @@ export function BasicInfoForm({
           required
           style={{ ...inputStyle, maxWidth: "160px" }}
         />
+      </div>
+
+      <div>
+        <div style={fieldLabel}>City</div>
+        <input
+          name="location"
+          defaultValue={defaults?.location}
+          required
+          style={inputStyle}
+          placeholder="Chennai"
+        />
+        <p className="text-xs mt-2" style={{ color: "var(--text-soft)" }}>
+          Used to match you with candidates in — or open to — your area.
+        </p>
       </div>
 
       <div>

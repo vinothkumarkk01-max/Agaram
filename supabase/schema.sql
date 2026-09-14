@@ -107,3 +107,228 @@ drop policy if exists "Users can update own verification" on public.identity_ver
 create policy "Users can update own verification"
   on public.identity_verifications for update
   using (auth.uid() = profile_id);
+
+-- ============================================================
+-- Phase 4 — Matching feed
+-- ============================================================
+
+-- Candidates now record their own location, one of the "must-have"
+-- match factors (age range, location, preferences) from the build
+-- plan's cut-down V0 scope — this was missing from Phase 2.
+alter table public.profiles add column if not exists location text;
+
+-- One row per matched PAIR, never per direction. candidate_a is
+-- always the lexicographically-smaller UUID of the two, enforced by
+-- the check constraint below, so a pair can never end up with two
+-- rows no matter who acts first.
+create table if not exists public.matches (
+  id uuid primary key default gen_random_uuid(),
+  candidate_a uuid not null references public.profiles (id) on delete cascade,
+  candidate_b uuid not null references public.profiles (id) on delete cascade,
+  status text not null default 'interest_sent' check (status in ('interest_sent', 'mutual', 'declined')),
+  initiated_by uuid not null references public.profiles (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint matches_pair_order check (candidate_a < candidate_b),
+  constraint matches_unique_pair unique (candidate_a, candidate_b)
+);
+
+alter table public.matches enable row level security;
+
+drop policy if exists "Users can view own matches" on public.matches;
+create policy "Users can view own matches"
+  on public.matches for select
+  using (auth.uid() = candidate_a or auth.uid() = candidate_b);
+
+drop policy if exists "Users can create matches they are part of" on public.matches;
+create policy "Users can create matches they are part of"
+  on public.matches for insert
+  with check (
+    auth.uid() = initiated_by
+    and (auth.uid() = candidate_a or auth.uid() = candidate_b)
+  );
+
+drop policy if exists "Users can update own matches" on public.matches;
+create policy "Users can update own matches"
+  on public.matches for update
+  using (auth.uid() = candidate_a or auth.uid() = candidate_b);
+
+-- Everything below is a SECURITY DEFINER function, deliberately NOT
+-- a broad RLS policy on profiles/preferences. profiles stays locked
+-- to "only I can read my own row" (Phase 2's policy, unchanged) —
+-- these four functions are the ONLY way another member's data is
+-- ever exposed, and each one hand-picks exactly which columns come
+-- back, scoped internally to auth.uid(). There is no way to use
+-- these to read an arbitrary member's full profile from outside the
+-- flow each one implements.
+
+-- Browse feed: opposite profile type, within my age (and, if I set
+-- one, location) preference, not already matched/declined with me.
+-- Masked down to first-initial — no full name, no about_me.
+create or replace function public.get_match_candidates()
+returns table (
+  id uuid,
+  age integer,
+  location text,
+  initial text,
+  is_verified boolean
+)
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  with me as (
+    select profile_type from public.profiles where id = auth.uid()
+  ),
+  my_prefs as (
+    select age_min, age_max, preferred_locations
+    from public.preferences
+    where profile_id = auth.uid()
+  )
+  select
+    p.id,
+    p.age,
+    p.location,
+    left(p.full_name, 1) as initial,
+    coalesce(iv.status = 'verified', false) as is_verified
+  from public.profiles p
+  left join public.identity_verifications iv on iv.profile_id = p.id
+  cross join me
+  left join my_prefs on true
+  where p.id <> auth.uid()
+    and p.profile_type <> me.profile_type
+    and not exists (
+      select 1 from public.matches m
+      where (m.candidate_a = auth.uid() and m.candidate_b = p.id)
+         or (m.candidate_a = p.id and m.candidate_b = auth.uid())
+    )
+    and p.age between coalesce(my_prefs.age_min, 18) and coalesce(my_prefs.age_max, 100)
+    and (
+      my_prefs.preferred_locations is null
+      or cardinality(my_prefs.preferred_locations) = 0
+      or exists (
+        select 1 from unnest(my_prefs.preferred_locations) loc
+        where p.location is not null and lower(loc) = lower(p.location)
+      )
+    )
+  order by p.created_at desc
+  limit 30;
+$$;
+
+grant execute on function public.get_match_candidates() to authenticated;
+
+-- "Interest you've sent" — masked info only (not mutual yet). Shows
+-- both still-pending and already-mutual sends; declined ones drop
+-- off the list.
+create or replace function public.get_sent_interests()
+returns table (
+  match_id uuid,
+  candidate_id uuid,
+  age integer,
+  location text,
+  initial text,
+  is_verified boolean,
+  status text,
+  created_at timestamptz
+)
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select
+    m.id as match_id,
+    p.id as candidate_id,
+    p.age,
+    p.location,
+    left(p.full_name, 1) as initial,
+    coalesce(iv.status = 'verified', false) as is_verified,
+    m.status,
+    m.created_at
+  from public.matches m
+  join public.profiles p
+    on p.id = (case when m.candidate_a = auth.uid() then m.candidate_b else m.candidate_a end)
+  left join public.identity_verifications iv on iv.profile_id = p.id
+  where m.initiated_by = auth.uid()
+    and (m.candidate_a = auth.uid() or m.candidate_b = auth.uid())
+    and m.status in ('interest_sent', 'mutual')
+  order by m.created_at desc;
+$$;
+
+grant execute on function public.get_sent_interests() to authenticated;
+
+-- "Interested in you" — pending ones only, still masked, mine to
+-- accept or decline.
+create or replace function public.get_received_interests()
+returns table (
+  match_id uuid,
+  candidate_id uuid,
+  age integer,
+  location text,
+  initial text,
+  is_verified boolean,
+  created_at timestamptz
+)
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select
+    m.id as match_id,
+    p.id as candidate_id,
+    p.age,
+    p.location,
+    left(p.full_name, 1) as initial,
+    coalesce(iv.status = 'verified', false) as is_verified,
+    m.created_at
+  from public.matches m
+  join public.profiles p
+    on p.id = (case when m.candidate_a = auth.uid() then m.candidate_b else m.candidate_a end)
+  left join public.identity_verifications iv on iv.profile_id = p.id
+  where m.initiated_by <> auth.uid()
+    and (m.candidate_a = auth.uid() or m.candidate_b = auth.uid())
+    and m.status = 'interest_sent'
+  order by m.created_at desc;
+$$;
+
+grant execute on function public.get_received_interests() to authenticated;
+
+-- Mutual matches — the "unlock" moment: full name + about_me become
+-- visible now, exactly as the PRD's reveal-on-mutual-match describes.
+create or replace function public.get_mutual_matches()
+returns table (
+  match_id uuid,
+  candidate_id uuid,
+  full_name text,
+  age integer,
+  location text,
+  about_me text,
+  is_verified boolean,
+  matched_at timestamptz
+)
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select
+    m.id as match_id,
+    p.id as candidate_id,
+    p.full_name,
+    p.age,
+    p.location,
+    p.about_me,
+    coalesce(iv.status = 'verified', false) as is_verified,
+    m.updated_at as matched_at
+  from public.matches m
+  join public.profiles p
+    on p.id = (case when m.candidate_a = auth.uid() then m.candidate_b else m.candidate_a end)
+  left join public.identity_verifications iv on iv.profile_id = p.id
+  where (m.candidate_a = auth.uid() or m.candidate_b = auth.uid())
+    and m.status = 'mutual'
+  order by m.updated_at desc;
+$$;
+
+grant execute on function public.get_mutual_matches() to authenticated;
