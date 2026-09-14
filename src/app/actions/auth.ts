@@ -51,7 +51,7 @@ export async function login(
   });
 
   if (error) {
-    return { error: "Invalid email or password." };
+    return { error: error.message };
   }
 
   revalidatePath("/", "layout");
