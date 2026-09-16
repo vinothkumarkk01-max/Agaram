@@ -1,14 +1,16 @@
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 
 type MutualMatch = {
   match_id: string;
   candidate_id: string;
-  full_name: string;
+  full_name: string | null;
   age: number;
   location: string | null;
   about_me: string | null;
   is_verified: boolean;
   matched_at: string;
+  is_unlocked: boolean;
 };
 
 export default async function MutualMatchesPage() {
@@ -39,32 +41,64 @@ export default async function MutualMatchesPage() {
 
   return (
     <div className="flex flex-col gap-3">
-      {mutuals.map((m) => (
-        <div
-          key={m.match_id}
-          className="rounded-2xl p-5"
-          style={{ background: "var(--ok-soft)", border: "1px solid var(--line)" }}
-        >
+      {mutuals.map((m) =>
+        m.is_unlocked ? (
           <div
-            className="text-lg font-semibold mb-1"
-            style={{ fontFamily: "var(--font-display)" }}
+            key={m.match_id}
+            className="rounded-2xl p-5"
+            style={{ background: "var(--ok-soft)", border: "1px solid var(--line)" }}
           >
-            {m.full_name}
-          </div>
-          <div className="text-xs mb-2" style={{ color: "var(--text-soft)" }}>
-            {m.age} years{m.location ? ` · ${m.location}` : ""}
-            {m.is_verified ? " · ✓ Identity verified" : ""}
-          </div>
-          {m.about_me && (
-            <p className="text-sm italic" style={{ color: "var(--text)" }}>
-              &ldquo;{m.about_me}&rdquo;
+            <div
+              className="text-lg font-semibold mb-1"
+              style={{ fontFamily: "var(--font-display)" }}
+            >
+              {m.full_name}
+            </div>
+            <div className="text-xs mb-2" style={{ color: "var(--text-soft)" }}>
+              {m.age} years{m.location ? ` · ${m.location}` : ""}
+              {m.is_verified ? " · ✓ Identity verified" : ""}
+            </div>
+            {m.about_me && (
+              <p className="text-sm italic" style={{ color: "var(--text)" }}>
+                &ldquo;{m.about_me}&rdquo;
+              </p>
+            )}
+            <p className="text-xs mt-3" style={{ color: "var(--ok)" }}>
+              🎉 It&rsquo;s a match! In-app messaging comes in the next phase.
             </p>
-          )}
-          <p className="text-xs mt-3" style={{ color: "var(--ok)" }}>
-            🎉 It&rsquo;s a match! In-app messaging comes in the next phase.
-          </p>
-        </div>
-      ))}
+          </div>
+        ) : (
+          <div
+            key={m.match_id}
+            className="rounded-2xl p-5"
+            style={{ background: "var(--bg-sunken)", border: "1px solid var(--line)" }}
+          >
+            <div
+              className="text-lg font-semibold mb-1"
+              style={{ fontFamily: "var(--font-display)" }}
+            >
+              It&rsquo;s a match! 🎉
+            </div>
+            <div className="text-xs mb-3" style={{ color: "var(--text-soft)" }}>
+              {m.age} years{m.location ? ` · ${m.location}` : ""}
+              {m.is_verified ? " · ✓ Identity verified" : ""}
+            </div>
+            <p className="text-sm mb-4" style={{ color: "var(--text-soft)" }}>
+              Upgrade to Elite to see their name and message them.
+            </p>
+            <Link
+              href="/upgrade"
+              className="inline-block rounded-xl py-2.5 px-5 font-bold text-white text-sm"
+              style={{
+                background:
+                  "linear-gradient(135deg, var(--accent), var(--accent-strong))",
+              }}
+            >
+              Upgrade to Elite
+            </Link>
+          </div>
+        )
+      )}
     </div>
   );
 }

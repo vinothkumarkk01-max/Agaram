@@ -172,11 +172,55 @@ the full PRD (§8) matching feed:
   loop end to end — one account alone will only ever see the empty
   states.
 
+## Payments & the Elite paywall (Phase 5) — Razorpay, real checkout
+
+Once two members are a mutual match, their card on `/matches/mutual`
+is blurred (name + about-me hidden) unless the viewer is on **Elite**
+(₹15,000 / 6 months, per the PRD's §11 pricing). `/upgrade` shows the
+plan and, for Free members, an "Upgrade to Elite" button that opens a
+real Razorpay Checkout popup.
+
+- **Two environment variables to add** — locally in `.env.local`, and
+  in Vercel under **Project Settings → Environment Variables**:
+  ```
+  RAZORPAY_KEY_ID=your-key-id
+  RAZORPAY_KEY_SECRET=your-key-secret
+  ```
+  Get these from the [Razorpay dashboard](https://dashboard.razorpay.com/)
+  → **Settings → API Keys**. Sign up is free and self-serve; you're
+  dropped into **Test Mode** immediately, no business KYC needed yet.
+  Test mode uses [dummy card numbers](https://razorpay.com/docs/payments/payments/test-card-upi-details/)
+  — no real money moves, so you can try the whole upgrade flow safely
+  before going live.
+- **Test mode vs. live mode** — this mirrors the HyperVerge corporate-
+  email situation from Phase 3: real (live-mode) payments need
+  Razorpay's full business KYC — PAN, bank account, business proof —
+  which is an RBI-mandated compliance step, not something either of us
+  can shortcut. Until that's done, everything works end-to-end in test
+  mode, so the whole flow (order creation, Checkout popup, signature
+  verification, subscription activation) can be built and demoed now.
+  Swap in live keys later and nothing else changes.
+- **Payment is verified server-side, not trusted from the browser.**
+  `src/app/actions/payments.ts` creates the Razorpay order
+  (`createEliteOrder`) and, after checkout, independently recomputes
+  the HMAC-SHA256 signature from the returned order/payment IDs
+  (`verifyElitePayment`) before ever marking a subscription active —
+  the client-side "success" callback alone is never enough.
+- **One-time payment, no auto-renewal in this V0.** Elite lasts 182
+  days (~6 months) from the payment date; there's no recurring billing
+  or reminder yet — that's a deliberate scope cut from the build plan,
+  not a bug.
+- **Database:** the `payments` table and the updated
+  `get_mutual_matches()` function are new additions at the bottom of
+  `supabase/schema.sql` — re-run the whole file in the SQL Editor, it's
+  safe to re-run in full.
+
 ## What's next
 
-Per the build plan's suggested order: payments & the paywall, then
-messaging (unlocked only after a mutual match), then admin basics —
-plus swapping in the real HyperVerge call above once their sandbox
-access comes through. Bring this repo and `Agaram_Premium_PRD_v2.md` /
-the clickable prototype into your next session and we'll build the
-next phase on top of this.
+Per the build plan's suggested order: messaging (unlocked only after
+a mutual match, and only for Elite members), then admin basics — plus
+swapping in the real HyperVerge call above once their sandbox access
+comes through, and moving Razorpay to live mode once business KYC is
+done. Bring this repo and `Agaram_Premium_PRD_v2.md` / the clickable
+prototype into your next session and we'll build the next phase on
+top of this.

@@ -332,3 +332,99 @@ as $$
 $$;
 
 grant execute on function public.get_mutual_matches() to authenticated;
+
+-- ============================================================
+-- Phase 5 — Payments & paywall (Razorpay, Elite tier)
+-- ============================================================
+
+alter table public.profiles
+  add column if not exists subscription_tier text not null default 'free' check (subscription_tier in ('free', 'elite')),
+  add column if not exists subscription_expires_at timestamptz;
+
+-- One row per Razorpay order this member started. `status` moves
+-- created -> paid (signature verified server-side) or -> failed
+-- (signature mismatch). Only ever written by the member's own
+-- server actions, using their own session — never a service-role key.
+create table if not exists public.payments (
+  id uuid primary key default gen_random_uuid(),
+  profile_id uuid not null references public.profiles (id) on delete cascade,
+  razorpay_order_id text not null unique,
+  razorpay_payment_id text,
+  amount integer not null,
+  currency text not null default 'INR',
+  status text not null default 'created' check (status in ('created', 'paid', 'failed')),
+  created_at timestamptz not null default now(),
+  verified_at timestamptz
+);
+
+alter table public.payments enable row level security;
+
+drop policy if exists "Users can view own payments" on public.payments;
+create policy "Users can view own payments"
+  on public.payments for select
+  using (auth.uid() = profile_id);
+
+drop policy if exists "Users can create own payments" on public.payments;
+create policy "Users can create own payments"
+  on public.payments for insert
+  with check (auth.uid() = profile_id);
+
+drop policy if exists "Users can update own payments" on public.payments;
+create policy "Users can update own payments"
+  on public.payments for update
+  using (auth.uid() = profile_id);
+
+-- get_mutual_matches (Phase 4) now needs to withhold full_name/
+-- about_me from members who aren't on an active Elite subscription —
+-- DROP + CREATE because its return columns changed (added
+-- is_unlocked), and CREATE OR REPLACE can't change a RETURNS TABLE
+-- function's column list.
+drop function if exists public.get_mutual_matches();
+
+create function public.get_mutual_matches()
+returns table (
+  match_id uuid,
+  candidate_id uuid,
+  full_name text,
+  age integer,
+  location text,
+  about_me text,
+  is_verified boolean,
+  matched_at timestamptz,
+  is_unlocked boolean
+)
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  with me as (
+    select
+      (
+        subscription_tier = 'elite'
+        and (subscription_expires_at is null or subscription_expires_at > now())
+      ) as unlocked
+    from public.profiles
+    where id = auth.uid()
+  )
+  select
+    m.id as match_id,
+    p.id as candidate_id,
+    case when me.unlocked then p.full_name else null end as full_name,
+    p.age,
+    p.location,
+    case when me.unlocked then p.about_me else null end as about_me,
+    coalesce(iv.status = 'verified', false) as is_verified,
+    m.updated_at as matched_at,
+    coalesce(me.unlocked, false) as is_unlocked
+  from public.matches m
+  join public.profiles p
+    on p.id = (case when m.candidate_a = auth.uid() then m.candidate_b else m.candidate_a end)
+  left join public.identity_verifications iv on iv.profile_id = p.id
+  cross join me
+  where (m.candidate_a = auth.uid() or m.candidate_b = auth.uid())
+    and m.status = 'mutual'
+  order by m.updated_at desc;
+$$;
+
+grant execute on function public.get_mutual_matches() to authenticated;

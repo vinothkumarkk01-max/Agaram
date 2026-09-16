@@ -32,6 +32,19 @@ export default async function DashboardPage() {
         .maybeSingle()
     : { data: null };
 
+  const { data: subscription } = user
+    ? await supabase
+        .from("profiles")
+        .select("subscription_tier, subscription_expires_at")
+        .eq("id", user.id)
+        .maybeSingle()
+    : { data: null };
+
+  const isElite =
+    subscription?.subscription_tier === "elite" &&
+    (!subscription.subscription_expires_at ||
+      new Date(subscription.subscription_expires_at) > new Date());
+
   return (
     <div
       className="min-h-screen w-full flex items-center justify-center px-4 py-10"
@@ -180,6 +193,27 @@ export default async function DashboardPage() {
                 Verify your identity to unlock the matching feed.
               </p>
             )}
+            <div
+              className="rounded-xl p-4 mb-4 text-sm flex items-center justify-between gap-3"
+              style={
+                isElite
+                  ? { background: "var(--ok-soft)", color: "var(--ok)" }
+                  : { background: "var(--bg-sunken)", color: "var(--text-soft)" }
+              }
+            >
+              <span className="font-semibold">
+                {isElite
+                  ? `Elite · until ${new Date(
+                      subscription!.subscription_expires_at!
+                    ).toLocaleDateString()}`
+                  : "Free plan"}
+              </span>
+              {!isElite && (
+                <Link href="/upgrade" className="underline font-semibold">
+                  Upgrade to Elite
+                </Link>
+              )}
+            </div>
             <Link
               href="/onboarding/basic-info"
               className="block text-center rounded-xl py-2.5 text-sm font-semibold mb-3"
