@@ -499,3 +499,107 @@ as $$
 $$;
 
 grant execute on function public.get_match_thread(uuid) to authenticated;
+
+-- ============================================================
+-- Phase 7 — Admin basics (reports + manual verification review)
+-- ============================================================
+
+-- No self-serve way to become an admin — deliberately. Grant it to
+-- your own account once, directly in the SQL Editor:
+--   update public.profiles set is_admin = true where id = '<your auth user id>';
+-- (Find your user id under Authentication -> Users in the dashboard.)
+alter table public.profiles
+  add column if not exists is_admin boolean not null default false;
+
+-- A plain `exists (select ... from profiles where ...)` INSIDE a
+-- policy ON profiles recurses — Postgres re-applies every policy on
+-- profiles (including this one) to that inner subquery, forever,
+-- and fails with "infinite recursion detected in policy for relation
+-- profiles". A SECURITY DEFINER function sidesteps this the same way
+-- get_mutual_matches() etc. already sidestep RLS to read other
+-- members' rows: it runs as the function's owner, which bypasses RLS
+-- entirely for the query inside it, so calling it from a policy
+-- never re-enters policy evaluation.
+create or replace function public.is_admin()
+returns boolean
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select coalesce(
+    (select is_admin from public.profiles where id = auth.uid()),
+    false
+  );
+$$;
+
+grant execute on function public.is_admin() to authenticated;
+
+-- One row per report a member files against another. V0 scopes
+-- reporting to a mutual-match conversation (see README) — that's the
+-- one place a member actually knows enough about who they're talking
+-- to to have something concrete to report.
+create table if not exists public.reports (
+  id uuid primary key default gen_random_uuid(),
+  match_id uuid not null references public.matches (id) on delete cascade,
+  reporter_id uuid not null references public.profiles (id) on delete cascade,
+  reported_id uuid not null references public.profiles (id) on delete cascade,
+  reason text not null check (char_length(btrim(reason)) > 0 and char_length(reason) <= 2000),
+  status text not null default 'open' check (status in ('open', 'resolved')),
+  created_at timestamptz not null default now(),
+  resolved_at timestamptz,
+  resolved_by uuid references public.profiles (id) on delete set null
+);
+
+alter table public.reports enable row level security;
+
+drop policy if exists "Members can file their own reports" on public.reports;
+create policy "Members can file their own reports"
+  on public.reports for insert
+  with check (reporter_id = auth.uid());
+
+drop policy if exists "Members can view reports they filed" on public.reports;
+create policy "Members can view reports they filed"
+  on public.reports for select
+  using (reporter_id = auth.uid());
+
+drop policy if exists "Admins can view all reports" on public.reports;
+create policy "Admins can view all reports"
+  on public.reports for select
+  using (
+    public.is_admin()
+  );
+
+drop policy if exists "Admins can resolve reports" on public.reports;
+create policy "Admins can resolve reports"
+  on public.reports for update
+  using (
+    public.is_admin()
+  );
+
+-- Trust & safety oversight is deliberately NOT gated by the Elite
+-- paywall — that gate is between members, not between a member and
+-- whoever is running the platform. These two policies are additive
+-- (OR'd with the existing "own row only" policies), scoped strictly
+-- to is_admin accounts, and don't touch the base member-facing
+-- policies at all.
+drop policy if exists "Admins can view all profiles" on public.profiles;
+create policy "Admins can view all profiles"
+  on public.profiles for select
+  using (
+    public.is_admin()
+  );
+
+drop policy if exists "Admins can view all verifications" on public.identity_verifications;
+create policy "Admins can view all verifications"
+  on public.identity_verifications for select
+  using (
+    public.is_admin()
+  );
+
+drop policy if exists "Admins can update all verifications" on public.identity_verifications;
+create policy "Admins can update all verifications"
+  on public.identity_verifications for update
+  using (
+    public.is_admin()
+  );

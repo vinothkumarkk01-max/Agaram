@@ -82,19 +82,28 @@ export default async function MatchThreadPage({
       </Link>
 
       <div
-        className="mb-3 pb-3"
+        className="flex items-start justify-between gap-3 mb-3 pb-3"
         style={{ borderBottom: "1px solid var(--line)" }}
       >
-        <div
-          className="text-lg font-semibold"
-          style={{ fontFamily: "var(--font-display)" }}
+        <div>
+          <div
+            className="text-lg font-semibold"
+            style={{ fontFamily: "var(--font-display)" }}
+          >
+            {thread.full_name}
+          </div>
+          <div className="text-xs" style={{ color: "var(--text-soft)" }}>
+            {thread.age} years{thread.location ? ` · ${thread.location}` : ""}
+            {thread.is_verified ? " · ✓ Identity verified" : ""}
+          </div>
+        </div>
+        <Link
+          href={`/matches/mutual/${matchId}/report`}
+          className="text-xs font-semibold shrink-0"
+          style={{ color: "var(--text-soft)" }}
         >
-          {thread.full_name}
-        </div>
-        <div className="text-xs" style={{ color: "var(--text-soft)" }}>
-          {thread.age} years{thread.location ? ` · ${thread.location}` : ""}
-          {thread.is_verified ? " · ✓ Identity verified" : ""}
-        </div>
+          Report
+        </Link>
       </div>
 
       <MessageThread

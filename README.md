@@ -254,11 +254,66 @@ button on `/matches/mutual` opens a real two-way chat thread at
   account and confirm it shows up on the other side within a few
   seconds.
 
+## Admin basics (Phase 7) — reports and manual verification review
+
+A minimal `/admin` area for the one person running Agaram (you) to
+review member reports and manually override a stuck identity
+verification.
+
+- **There's no self-serve way to become an admin, and no UI for it
+  either — deliberately.** Grant it to your own account once,
+  directly in Supabase's SQL Editor:
+  ```sql
+  update public.profiles set is_admin = true where id = '<your auth user id>';
+  ```
+  Find your user id under **Authentication → Users** in the Supabase
+  dashboard (match it by your email). Anyone whose `profiles.is_admin`
+  isn't `true` gets quietly bounced from `/admin` back to their own
+  dashboard — it doesn't reveal that the page exists.
+- **Reporting is scoped to mutual-match conversations only.** A
+  **Report** link on `/matches/mutual/<match id>` opens a short reason
+  form; the report always ties back to that specific match, and one
+  report per conversation per reporter (submitting again just shows
+  "already reported"). This was the narrowest version that still gives
+  an admin something concrete to act on — reporting a masked Browse
+  candidate you've never actually talked to wouldn't give either side
+  enough context to matter.
+- **What the admin dashboard shows:** a **Reports** tab (open ones
+  first, with a "Mark resolved" button) and a **Verifications** tab
+  (every identity check ever submitted, with "Mark verified" / "Mark
+  failed" buttons on anything still `pending`). Admin access itself is
+  enforced by Postgres RLS policies in `supabase/schema.sql` — the
+  same "database, not just the UI" pattern as every prior phase — so
+  admin visibility into other members' names and verification status
+  isn't behind the Elite paywall; that gate is between members, not
+  between a member and whoever runs the platform.
+- **What's deliberately NOT built yet:**
+  - **No blocking.** The PRD's data model has a `blocks` table
+    alongside `reports`, but V0's own scope (see Section 3 of the
+    build plan) only calls for the reports + verification review
+    piece — blocking a member from ever matching with you again is a
+    real, separate feature for later.
+  - **Admins can't read message content.** A report shows who
+    reported whom and their stated reason, not the conversation
+    itself. Giving admin access to private messages is a deliberate,
+    separate decision with real privacy weight — not something to fold
+    quietly into "admin basics."
+  - **No member search, account suspension, or broader moderation
+    tooling** — just enough to close the loop on reports and
+    verification, per the build plan's own "basic admin dashboard,
+    just enough to..." scope.
+  - **No admin action audit log** — the PRD's data model (§12) has an
+    `admin_actions` table for this; not built yet, so there's currently
+    no record of *which* admin resolved a report or overrode a
+    verification beyond the `resolved_by` column on `reports` itself
+    (verification overrides aren't attributed to an admin at all yet).
+
 ## What's next
 
-Per the build plan's suggested order: admin basics next — plus
-swapping in the real HyperVerge call above once their sandbox access
-comes through, and moving Razorpay to live mode once business KYC is
-done. Bring this repo and `Agaram_Premium_PRD_v2.md` / the clickable
-prototype into your next session and we'll build the next phase on
-top of this.
+Per the build plan's suggested order: polish & harden next — error
+tracking, a security pass on file uploads and auth, and a privacy
+policy reviewed against DPDP Act basics — plus swapping in the real
+HyperVerge call above once their sandbox access comes through, and
+moving Razorpay to live mode once business KYC is done. Bring this
+repo and `Agaram_Premium_PRD_v2.md` / the clickable prototype into
+your next session and we'll build the next phase on top of this.

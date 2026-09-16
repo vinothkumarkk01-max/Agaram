@@ -11,7 +11,7 @@ export default async function DashboardPage() {
   const { data: profile } = user
     ? await supabase
         .from("profiles")
-        .select("full_name, profile_type, age, location, about_me")
+        .select("full_name, profile_type, age, location, about_me, is_admin")
         .eq("id", user.id)
         .maybeSingle()
     : { data: null };
@@ -225,6 +225,19 @@ export default async function DashboardPage() {
             >
               Edit profile
             </Link>
+            {profile.is_admin && (
+              <Link
+                href="/admin"
+                className="block text-center rounded-xl py-2.5 text-sm font-semibold mb-3"
+                style={{
+                  background: "var(--bg-raised)",
+                  border: "1px solid var(--line)",
+                  color: "var(--text)",
+                }}
+              >
+                Admin dashboard
+              </Link>
+            )}
           </>
         )}
 
