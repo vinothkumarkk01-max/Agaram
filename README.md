@@ -215,10 +215,48 @@ real Razorpay Checkout popup.
   `supabase/schema.sql` — re-run the whole file in the SQL Editor, it's
   safe to re-run in full.
 
+## Messaging (Phase 6) — mutual matches only, Elite only
+
+Once you're both Elite and a mutual match unlocks, a **Message**
+button on `/matches/mutual` opens a real two-way chat thread at
+`/matches/mutual/<match id>`.
+
+- **Three gates, all enforced in the database, not just the UI** —
+  the same "narrowly-scoped SQL as the only way data is exposed"
+  pattern as Phases 4 and 5:
+  - You must be one of the two people in the match.
+  - The match must actually be `mutual` (not just interest sent).
+  - **Your own** subscription must be active Elite — matches the
+    PRD's rule that Elite gates both "unlock full profile" and
+    "message" (Section 5 of the build plan). If your match is Elite
+    but you're on Free, you'll see an upgrade prompt instead of the
+    thread; if it's the other way around, they will.
+  - All three live in `supabase/schema.sql`'s `messages` table RLS
+    policies — re-run the whole file (safe, as always) to pick this
+    up.
+- **No Supabase Realtime channel — the thread polls every 4
+  seconds.** A deliberate V0 simplification: for a two-person chat at
+  this scale, polling is one fewer moving part than wiring up a
+  realtime subscription lifecycle, and the delay is barely
+  noticeable. Worth upgrading to Realtime later if message volume
+  grows or the delay starts to bother people.
+- **No milestone tracking yet** — the PRD's fuller model (§8, §12)
+  tags each message with a relationship milestone (getting-to-know,
+  family-intro, video-call, planning-to-meet) for the family-sharing
+  and journey-tracking features. That's deferred; V0 messages are
+  just plain text, unlabeled.
+- **No read receipts, typing indicators, or push notifications** —
+  none of these are built. You'll see new messages within ~4 seconds
+  of opening the thread, but there's no badge or alert telling you
+  one arrived while you were elsewhere in the app.
+- **Testing this needs the same two-account setup as Phase 4**, both
+  now also upgraded to Elite (Phase 5) — sign a message from each
+  account and confirm it shows up on the other side within a few
+  seconds.
+
 ## What's next
 
-Per the build plan's suggested order: messaging (unlocked only after
-a mutual match, and only for Elite members), then admin basics — plus
+Per the build plan's suggested order: admin basics next — plus
 swapping in the real HyperVerge call above once their sandbox access
 comes through, and moving Razorpay to live mode once business KYC is
 done. Bring this repo and `Agaram_Premium_PRD_v2.md` / the clickable

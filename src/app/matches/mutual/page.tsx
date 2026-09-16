@@ -59,13 +59,20 @@ export default async function MutualMatchesPage() {
               {m.is_verified ? " · ✓ Identity verified" : ""}
             </div>
             {m.about_me && (
-              <p className="text-sm italic" style={{ color: "var(--text)" }}>
+              <p className="text-sm italic mb-3" style={{ color: "var(--text)" }}>
                 &ldquo;{m.about_me}&rdquo;
               </p>
             )}
-            <p className="text-xs mt-3" style={{ color: "var(--ok)" }}>
-              🎉 It&rsquo;s a match! In-app messaging comes in the next phase.
-            </p>
+            <Link
+              href={`/matches/mutual/${m.match_id}`}
+              className="inline-block rounded-xl py-2 px-4 font-bold text-white text-sm"
+              style={{
+                background:
+                  "linear-gradient(135deg, var(--accent), var(--accent-strong))",
+              }}
+            >
+              Message
+            </Link>
           </div>
         ) : (
           <div

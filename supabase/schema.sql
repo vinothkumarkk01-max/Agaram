@@ -297,41 +297,11 @@ grant execute on function public.get_received_interests() to authenticated;
 
 -- Mutual matches — the "unlock" moment: full name + about_me become
 -- visible now, exactly as the PRD's reveal-on-mutual-match describes.
-create or replace function public.get_mutual_matches()
-returns table (
-  match_id uuid,
-  candidate_id uuid,
-  full_name text,
-  age integer,
-  location text,
-  about_me text,
-  is_verified boolean,
-  matched_at timestamptz
-)
-language sql
-security definer
-set search_path = public
-stable
-as $$
-  select
-    m.id as match_id,
-    p.id as candidate_id,
-    p.full_name,
-    p.age,
-    p.location,
-    p.about_me,
-    coalesce(iv.status = 'verified', false) as is_verified,
-    m.updated_at as matched_at
-  from public.matches m
-  join public.profiles p
-    on p.id = (case when m.candidate_a = auth.uid() then m.candidate_b else m.candidate_a end)
-  left join public.identity_verifications iv on iv.profile_id = p.id
-  where (m.candidate_a = auth.uid() or m.candidate_b = auth.uid())
-    and m.status = 'mutual'
-  order by m.updated_at desc;
-$$;
-
-grant execute on function public.get_mutual_matches() to authenticated;
+-- (get_mutual_matches() itself is defined once, in the Phase 5
+-- section below, where it grew an `is_unlocked` column for the Elite
+-- paywall — keeping only one definition avoids the exact
+-- "cannot change return type of existing function" error a stale
+-- second definition caused on re-runs.)
 
 -- ============================================================
 -- Phase 5 — Payments & paywall (Razorpay, Elite tier)
@@ -428,3 +398,104 @@ as $$
 $$;
 
 grant execute on function public.get_mutual_matches() to authenticated;
+
+-- ============================================================
+-- Phase 6 — Messaging (unlocked only after a mutual match, and
+-- only for an active Elite subscription — the same gate as the
+-- profile-reveal in get_mutual_matches above)
+-- ============================================================
+
+create table if not exists public.messages (
+  id uuid primary key default gen_random_uuid(),
+  match_id uuid not null references public.matches (id) on delete cascade,
+  sender_id uuid not null references public.profiles (id) on delete cascade,
+  body text not null check (char_length(btrim(body)) > 0 and char_length(body) <= 2000),
+  created_at timestamptz not null default now()
+);
+
+alter table public.messages enable row level security;
+
+-- Either participant in the match can read the whole thread — this
+-- is shared data between two consenting matched members, unlike the
+-- profile-reveal case above, so a normal RLS policy is enough (no
+-- SECURITY DEFINER function needed for reads).
+drop policy if exists "Match participants can view messages" on public.messages;
+create policy "Match participants can view messages"
+  on public.messages for select
+  using (
+    exists (
+      select 1 from public.matches m
+      where m.id = messages.match_id
+        and (m.candidate_a = auth.uid() or m.candidate_b = auth.uid())
+    )
+  );
+
+-- Sending is gated three ways, all enforced here (not just in the
+-- app): you must be the sender, the match must actually be mutual,
+-- and YOUR OWN subscription must be active Elite — mirrors the PRD's
+-- "Elite gates the message action" rule (build plan, Section 5).
+drop policy if exists "Elite members can message their mutual matches" on public.messages;
+create policy "Elite members can message their mutual matches"
+  on public.messages for insert
+  with check (
+    sender_id = auth.uid()
+    and exists (
+      select 1 from public.matches m
+      where m.id = messages.match_id
+        and m.status = 'mutual'
+        and (m.candidate_a = auth.uid() or m.candidate_b = auth.uid())
+    )
+    and exists (
+      select 1 from public.profiles p
+      where p.id = auth.uid()
+        and p.subscription_tier = 'elite'
+        and (p.subscription_expires_at is null or p.subscription_expires_at > now())
+    )
+  );
+
+-- Single-match version of get_mutual_matches, for the thread header:
+-- who am I talking to, and is my own subscription unlocked (so the
+-- page can show the upgrade prompt instead of the thread otherwise).
+create or replace function public.get_match_thread(p_match_id uuid)
+returns table (
+  match_id uuid,
+  candidate_id uuid,
+  full_name text,
+  age integer,
+  location text,
+  is_verified boolean,
+  is_unlocked boolean
+)
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  with me as (
+    select
+      (
+        subscription_tier = 'elite'
+        and (subscription_expires_at is null or subscription_expires_at > now())
+      ) as unlocked
+    from public.profiles
+    where id = auth.uid()
+  )
+  select
+    m.id as match_id,
+    p.id as candidate_id,
+    case when me.unlocked then p.full_name else null end as full_name,
+    p.age,
+    p.location,
+    coalesce(iv.status = 'verified', false) as is_verified,
+    coalesce(me.unlocked, false) as is_unlocked
+  from public.matches m
+  join public.profiles p
+    on p.id = (case when m.candidate_a = auth.uid() then m.candidate_b else m.candidate_a end)
+  left join public.identity_verifications iv on iv.profile_id = p.id
+  cross join me
+  where m.id = p_match_id
+    and (m.candidate_a = auth.uid() or m.candidate_b = auth.uid())
+    and m.status = 'mutual';
+$$;
+
+grant execute on function public.get_match_thread(uuid) to authenticated;
