@@ -2,6 +2,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { UpgradeButton } from "@/components/UpgradeButton";
+import { getDictionary } from "@/lib/i18n/server";
+import { intlLocale } from "@/lib/i18n/locale";
 
 export default async function UpgradePage() {
   const supabase = await createClient();
@@ -9,6 +11,7 @@ export default async function UpgradePage() {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
+  const { locale, t } = await getDictionary();
 
   const { data: profile } = await supabase
     .from("profiles")
@@ -38,7 +41,7 @@ export default async function UpgradePage() {
           className="text-xs font-semibold inline-flex items-center gap-1.5 mb-6"
           style={{ color: "var(--text-soft)" }}
         >
-          &larr; Dashboard
+          {t.common.backDashboard}
         </Link>
 
         {isElite ? (
@@ -47,15 +50,16 @@ export default async function UpgradePage() {
               className="text-2xl mb-2"
               style={{ fontFamily: "var(--font-display)" }}
             >
-              You&rsquo;re on Elite.
+              {t.upgrade.youreOnElite}
             </h1>
             <p className="text-sm" style={{ color: "var(--text-soft)" }}>
-              Active until{" "}
+              {t.upgrade.activeUntilPrefix}
               {profile?.subscription_expires_at
-                ? new Date(profile.subscription_expires_at).toLocaleDateString()
+                ? new Date(profile.subscription_expires_at).toLocaleDateString(
+                    intlLocale(locale)
+                  )
                 : "—"}
-              . Mutual matches unlock automatically, and you&rsquo;ll be able
-              to message once messaging ships.
+              {t.upgrade.activeUntilSuffix}
             </p>
           </>
         ) : (
@@ -64,38 +68,31 @@ export default async function UpgradePage() {
               className="text-xs uppercase tracking-wider font-semibold mb-2.5"
               style={{ color: "var(--accent-strong)" }}
             >
-              Elite
+              {t.upgrade.eliteLabel}
             </div>
             <h1
               className="text-2xl mb-2"
               style={{ fontFamily: "var(--font-display)" }}
             >
-              A serious search, without the endless scrolling.
+              {t.upgrade.eliteTitle}
             </h1>
             <p className="text-sm mb-6" style={{ color: "var(--text-soft)" }}>
-              ₹15,000 for 6 months.
+              {t.upgrade.pricing}
             </p>
             <ul
               className="text-sm mb-8 flex flex-col gap-2.5"
               style={{ color: "var(--text)" }}
             >
-              <li>
-                ✓ Full profile — name and about-me — once you&rsquo;re a
-                mutual match
-              </li>
-              <li>✓ In-app messaging, once it ships</li>
-              <li>
-                ✓ Everything in Free: browsing, verification, expressing
-                interest
-              </li>
+              <li>{t.upgrade.benefit1}</li>
+              <li>{t.upgrade.benefit2}</li>
+              <li>{t.upgrade.benefit3}</li>
             </ul>
-            <UpgradeButton userEmail={user.email ?? undefined} />
+            <UpgradeButton userEmail={user.email ?? undefined} t={t} />
             <p
               className="text-xs text-center mt-4"
               style={{ color: "var(--text-soft)" }}
             >
-              6 months from purchase, one-time payment — no auto-renewal in
-              this V0.
+              {t.upgrade.oneTimeNote}
             </p>
           </>
         )}

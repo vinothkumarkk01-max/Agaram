@@ -509,12 +509,74 @@ new **Account & privacy** link on `/dashboard`:
   like most other phases' additions). Re-run the whole file in the SQL
   Editor, as always — every statement is safe to re-run.
 
+## Tamil-language UI toggle (V1)
+
+The second deferred V1 feature from Section 3. An **English / தமிழ்**
+toggle appears wherever a language choice makes sense — the landing
+page, sign-up/login, the dashboard, the matches area, and `/account`
+— and switches every member-facing screen: onboarding, the matching
+feed (Browse/Sent/Received/Mutual), messaging, the report flow,
+account/data-export/deletion, and the error/not-found pages.
+
+- **How it works.** A single cookie (`agaram_locale`, one year,
+  `sameSite: lax`, deliberately *not* `httpOnly` — see below) holds
+  `"en"` or `"ta"`. Toggling calls a Server Function
+  (`src/app/actions/locale.ts`) that sets the cookie and revalidates
+  the whole app, so the page you're on updates immediately — no
+  reload, no redirect. Every Server Component reads it via
+  `src/lib/i18n/server.ts`'s `getDictionary()`; the two error
+  boundaries (`error.tsx`, `global-error.tsx`) are React Client
+  Components and can't use that path, so they read the same cookie
+  directly from `document.cookie` via `src/lib/i18n/client.ts` — which
+  is the one reason the cookie isn't `httpOnly` (it's a UI preference,
+  not a secret, so that's a fine trade-off).
+- **The dictionary is typed, not just translated.** `src/lib/i18n/dictionary.ts`
+  defines the English strings first, derives a `Dictionary` type from
+  their shape, then types the Tamil object against that same type
+  (`satisfies Dictionary`). A key present in one language but missing
+  from the other is a `tsc` type error, not a silent English fallback
+  at runtime — this is what the build verification step for this
+  feature actually caught and fixed (a stray `as const` was making
+  every English string a literal type, which rejected every Tamil
+  translation as "not assignable"; removing it widened the type to
+  plain `string` while keeping the parity check).
+- **Two screens stay English-only, on purpose:**
+  - **`/admin`** (the reports/verifications dashboard, Phase 7) is
+    founder-only tooling — no member ever sees it, so translating it
+    wouldn't serve the point of this feature.
+  - **`/privacy`** is DPDP-Act consent and compliance language.
+    Auto-translating legal text without a native-Tamil-speaking legal
+    review pass risks a mistranslation in exactly the document that
+    matters most for getting consent right — worse than leaving it in
+    the one language that's actually been drafted and is already
+    flagged (Section 7 of the build plan) as needing its own legal
+    review before real members rely on it. It stays English-only
+    until that review happens, same flag as the English text itself.
+- **The Tamil text itself is a solid first pass, not a native-speaker-reviewed
+  final draft** — same honesty this build plan applies to the mock
+  identity vendor and the privacy policy's own draft status. Worth a
+  read-through by a Tamil-speaking member (or yourself) before this
+  goes in front of real users; if anything reads awkwardly, the fix is
+  entirely in `src/lib/i18n/dictionary.ts` — one file, no other code
+  changes needed.
+- **Side effect worth knowing:** the root layout now reads the locale
+  cookie on every request (`src/app/layout.tsx`), which — per Next.js's
+  own rule that reading cookies opts a route into dynamic rendering —
+  means the landing page, `/login`, `/signup`, and `/privacy` are no
+  longer statically pre-rendered; they render per-request now, same as
+  every other page in this app already did. At this app's scale that's
+  not a noticeable cost, just a change worth knowing about if you ever
+  look at Vercel's build output and wonder why those routes changed
+  from a static `○` to a dynamic `ƒ`.
+
 ## What's next
 
-All 8 V0 build-plan phases are live, plus this first V1 feature. Three
-of the four deferred V1 options from Section 3 are still open — Family
-Collaborator accounts, a Tamil-language UI toggle, and messaging
-upgrades — alongside the vendor/business work: the real HyperVerge (or
+All 8 V0 build-plan phases are live, plus these first two V1 features.
+Two of the four deferred V1 options from Section 3 are still open —
+Family Collaborator accounts and messaging upgrades — alongside the
+rest of the admin tooling (message-content access, member
+search/suspension, an audit log), the DPDP-Act grievance-officer
+contact, and the vendor/business work: the real HyperVerge (or
 Signzy) Aadhaar check once sandbox access comes through, Razorpay live
 mode once business KYC is done, the DPDP-Act legal review flagged
 throughout the Phase 8 section above, and CSP graduation from

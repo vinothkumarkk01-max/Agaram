@@ -1,6 +1,9 @@
 import Link from "next/link";
+import { getDictionary } from "@/lib/i18n/server";
+import { LocaleToggle } from "@/components/LocaleToggle";
 
-export default function Home() {
+export default async function Home() {
+  const { locale, t } = await getDictionary();
   return (
     <div
       className="min-h-screen w-full flex items-center justify-center px-4"
@@ -23,11 +26,10 @@ export default function Home() {
           className="text-3xl mb-3"
           style={{ fontFamily: "var(--font-display)", letterSpacing: "-0.01em" }}
         >
-          Agaram Premium
+          {t.common.brand}
         </h1>
         <p className="text-sm mb-8" style={{ color: "var(--text-soft)" }}>
-          Project scaffold — auth pipes are live. Sign up to try it end to
-          end.
+          {t.landing.tagline}
         </p>
         <div className="flex gap-3 justify-center">
           <Link
@@ -38,7 +40,7 @@ export default function Home() {
                 "linear-gradient(135deg, var(--accent), var(--accent-strong))",
             }}
           >
-            Create account
+            {t.landing.createAccount}
           </Link>
           <Link
             href="/login"
@@ -49,12 +51,15 @@ export default function Home() {
               color: "var(--text)",
             }}
           >
-            Sign in
+            {t.landing.signIn}
           </Link>
         </div>
-        <p className="text-xs mt-8" style={{ color: "var(--text-soft)" }}>
+        <div className="flex justify-center mt-6">
+          <LocaleToggle locale={locale} />
+        </div>
+        <p className="text-xs mt-6" style={{ color: "var(--text-soft)" }}>
           <Link href="/privacy" className="underline">
-            Privacy Policy
+            {t.common.privacyPolicy}
           </Link>
         </p>
       </div>

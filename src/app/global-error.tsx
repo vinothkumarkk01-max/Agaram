@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import * as Sentry from "@sentry/nextjs";
+import { getClientDictionary } from "@/lib/i18n/client";
 
 // Only renders if the ROOT layout itself throws (everything below it
 // is caught by app/error.tsx instead). Per
@@ -21,8 +22,10 @@ export default function GlobalError({
     Sentry.captureException(error);
   }, [error]);
 
+  const { locale, t } = getClientDictionary();
+
   return (
-    <html lang="en">
+    <html lang={locale}>
       <body
         style={{
           margin: 0,
@@ -56,11 +59,13 @@ export default function GlobalError({
             அ
           </div>
           <h1 style={{ fontSize: 22, marginBottom: 8 }}>
-            Agaram couldn&rsquo;t load.
+            {t.errors.couldntLoad}
           </h1>
           <p style={{ fontSize: 14, color: "#716b70", marginBottom: 28 }}>
-            That&rsquo;s on us, not you — it&rsquo;s already been reported.
-            {error.digest ? ` (Reference: ${error.digest})` : ""}
+            {t.errors.errorSubtitleBase}
+            {error.digest
+              ? `${t.errors.errorSubtitleReferencePrefix}${error.digest}${t.errors.errorSubtitleReferenceSuffix}`
+              : ""}
           </p>
           <button
             onClick={() => retry()}
@@ -75,7 +80,7 @@ export default function GlobalError({
               background: "linear-gradient(135deg, #8e2346, #64182f)",
             }}
           >
-            Try again
+            {t.errors.tryAgain}
           </button>
         </div>
       </body>

@@ -2,16 +2,16 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import type { Dictionary } from "@/lib/i18n/dictionary";
 
-const tabs = [
-  { href: "/matches", label: "Browse" },
-  { href: "/matches/sent", label: "Sent" },
-  { href: "/matches/received", label: "Received" },
-  { href: "/matches/mutual", label: "Mutual" },
-];
-
-export function MatchesNav() {
+export function MatchesNav({ t }: { t: Dictionary }) {
   const pathname = usePathname();
+  const tabs = [
+    { href: "/matches", label: t.matches.tabBrowse },
+    { href: "/matches/sent", label: t.matches.tabSent },
+    { href: "/matches/received", label: t.matches.tabReceived },
+    { href: "/matches/mutual", label: t.matches.tabMutual },
+  ];
 
   return (
     <div className="flex gap-1" style={{ borderBottom: "1px solid var(--line)" }}>

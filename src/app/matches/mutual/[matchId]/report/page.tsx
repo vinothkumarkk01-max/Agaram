@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { reportMember } from "@/app/actions/reports";
+import { getDictionary } from "@/lib/i18n/server";
+import { intlLocale } from "@/lib/i18n/locale";
 
 export default async function ReportMatchPage({
   params,
@@ -11,6 +13,7 @@ export default async function ReportMatchPage({
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return null; // the /matches layout already redirects signed-out users
+  const { locale, t } = await getDictionary();
 
   const { data: match } = await supabase
     .from("matches")
@@ -27,9 +30,9 @@ export default async function ReportMatchPage({
         className="rounded-2xl p-8 text-center text-sm"
         style={{ background: "var(--bg-sunken)", color: "var(--text-soft)" }}
       >
-        This conversation isn&rsquo;t available.{" "}
+        {t.matches.conversationUnavailable}{" "}
         <Link href="/matches/mutual" className="underline font-semibold">
-          Back to Mutual
+          {t.matches.backToMutual}
         </Link>
       </div>
     );
@@ -49,7 +52,7 @@ export default async function ReportMatchPage({
         className="text-xs font-semibold inline-block"
         style={{ color: "var(--text-soft)" }}
       >
-        &larr; Back to conversation
+        {t.matches.backToConversation}
       </Link>
 
       {existingReport ? (
@@ -57,25 +60,24 @@ export default async function ReportMatchPage({
           className="rounded-2xl p-6 text-sm"
           style={{ background: "var(--bg-sunken)", color: "var(--text-soft)" }}
         >
-          You&rsquo;ve already reported this conversation, on{" "}
-          {new Date(existingReport.created_at).toLocaleDateString()}. Our
-          team will review it.
+          {t.matches.alreadyReportedPrefix}
+          {new Date(existingReport.created_at).toLocaleDateString(intlLocale(locale))}
+          {t.matches.alreadyReportedSuffix}
         </div>
       ) : (
         <form action={reportMember.bind(null, matchId)} className="flex flex-col gap-3">
           <h1 className="text-xl" style={{ fontFamily: "var(--font-display)" }}>
-            Report this conversation
+            {t.matches.reportTitle}
           </h1>
           <p className="text-sm" style={{ color: "var(--text-soft)" }}>
-            Tell us what happened. This goes straight to the team running
-            Agaram, not to the other member.
+            {t.matches.reportSubtitle}
           </p>
           <textarea
             name="reason"
             required
             maxLength={2000}
             rows={5}
-            placeholder="What happened?"
+            placeholder={t.matches.whatHappened}
             className="rounded-xl px-4 py-3 text-sm"
             style={{ background: "var(--bg-sunken)", border: "1px solid var(--line)" }}
           />
@@ -87,7 +89,7 @@ export default async function ReportMatchPage({
                 "linear-gradient(135deg, var(--accent), var(--accent-strong))",
             }}
           >
-            Submit report
+            {t.matches.submitReport}
           </button>
         </form>
       )}

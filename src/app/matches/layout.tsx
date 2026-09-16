@@ -2,6 +2,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { MatchesNav } from "@/components/MatchesNav";
+import { getDictionary } from "@/lib/i18n/server";
+import { LocaleToggle } from "@/components/LocaleToggle";
 
 export default async function MatchesLayout({
   children,
@@ -13,6 +15,7 @@ export default async function MatchesLayout({
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
+  const { locale, t } = await getDictionary();
 
   const { data: profile } = await supabase
     .from("profiles")
@@ -50,28 +53,30 @@ export default async function MatchesLayout({
             className="text-xs font-semibold inline-flex items-center gap-1.5"
             style={{ color: "var(--text-soft)" }}
           >
-            &larr; Dashboard
+            {t.common.backDashboard}
           </Link>
-          <div
-            className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold shadow-sm"
-            style={{
-              background:
-                "linear-gradient(135deg, var(--accent), var(--accent-strong))",
-            }}
-          >
-            அ
+          <div className="flex items-center gap-3">
+            <LocaleToggle locale={locale} />
+            <div
+              className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold shadow-sm"
+              style={{
+                background:
+                  "linear-gradient(135deg, var(--accent), var(--accent-strong))",
+              }}
+            >
+              அ
+            </div>
           </div>
         </div>
 
         <h1 className="text-3xl mb-1" style={{ fontFamily: "var(--font-display)" }}>
-          Matches
+          {t.matches.title}
         </h1>
         <p className="text-sm mb-6" style={{ color: "var(--text-soft)" }}>
-          Simple, rules-based introductions for this V0 — matched on age
-          range and location. Names stay masked until you both say yes.
+          {t.matches.subtitle}
         </p>
 
-        <MatchesNav />
+        <MatchesNav t={t} />
         <div className="mt-6">{children}</div>
       </div>
     </div>

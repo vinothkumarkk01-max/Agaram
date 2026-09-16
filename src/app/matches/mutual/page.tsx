@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { getDictionary } from "@/lib/i18n/server";
 
 type MutualMatch = {
   match_id: string;
@@ -16,6 +17,7 @@ type MutualMatch = {
 export default async function MutualMatchesPage() {
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("get_mutual_matches");
+  const { t } = await getDictionary();
 
   if (error) {
     return (
@@ -33,8 +35,7 @@ export default async function MutualMatchesPage() {
         className="rounded-2xl p-8 text-center text-sm"
         style={{ background: "var(--bg-sunken)", color: "var(--text-soft)" }}
       >
-        No mutual matches yet — once you and someone else are both
-        interested, they&rsquo;ll unlock here.
+        {t.matches.noMutual}
       </div>
     );
   }
@@ -55,8 +56,8 @@ export default async function MutualMatchesPage() {
               {m.full_name}
             </div>
             <div className="text-xs mb-2" style={{ color: "var(--text-soft)" }}>
-              {m.age} years{m.location ? ` · ${m.location}` : ""}
-              {m.is_verified ? " · ✓ Identity verified" : ""}
+              {m.age} {t.dashboard.years}{m.location ? ` · ${m.location}` : ""}
+              {m.is_verified ? ` · ${t.dashboard.identityVerified}` : ""}
             </div>
             {m.about_me && (
               <p className="text-sm italic mb-3" style={{ color: "var(--text)" }}>
@@ -71,7 +72,7 @@ export default async function MutualMatchesPage() {
                   "linear-gradient(135deg, var(--accent), var(--accent-strong))",
               }}
             >
-              Message
+              {t.matches.message}
             </Link>
           </div>
         ) : (
@@ -84,14 +85,14 @@ export default async function MutualMatchesPage() {
               className="text-lg font-semibold mb-1"
               style={{ fontFamily: "var(--font-display)" }}
             >
-              It&rsquo;s a match! 🎉
+              {t.matches.itsAMatch}
             </div>
             <div className="text-xs mb-3" style={{ color: "var(--text-soft)" }}>
-              {m.age} years{m.location ? ` · ${m.location}` : ""}
-              {m.is_verified ? " · ✓ Identity verified" : ""}
+              {m.age} {t.dashboard.years}{m.location ? ` · ${m.location}` : ""}
+              {m.is_verified ? ` · ${t.dashboard.identityVerified}` : ""}
             </div>
             <p className="text-sm mb-4" style={{ color: "var(--text-soft)" }}>
-              Upgrade to Elite to see their name and message them.
+              {t.matches.upgradeToSeeMessage}
             </p>
             <Link
               href="/upgrade"
@@ -101,7 +102,7 @@ export default async function MutualMatchesPage() {
                   "linear-gradient(135deg, var(--accent), var(--accent-strong))",
               }}
             >
-              Upgrade to Elite
+              {t.matches.upgradeToEliteBtn}
             </Link>
           </div>
         )

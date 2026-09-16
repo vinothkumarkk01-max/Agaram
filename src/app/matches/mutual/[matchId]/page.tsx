@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { MessageThread } from "@/components/MessageThread";
 import { blockMember } from "@/app/actions/blocks";
+import { getDictionary } from "@/lib/i18n/server";
 
 type MatchThread = {
   match_id: string;
@@ -22,6 +23,7 @@ export default async function MatchThreadPage({
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return null; // the /matches layout already redirects signed-out users
+  const { t } = await getDictionary();
 
   const { data, error } = await supabase.rpc("get_match_thread", {
     p_match_id: matchId,
@@ -35,9 +37,9 @@ export default async function MatchThreadPage({
         className="rounded-2xl p-8 text-center text-sm"
         style={{ background: "var(--bg-sunken)", color: "var(--text-soft)" }}
       >
-        This conversation isn&rsquo;t available.{" "}
+        {t.matches.conversationUnavailable}{" "}
         <Link href="/matches/mutual" className="underline font-semibold">
-          Back to Mutual
+          {t.matches.backToMutual}
         </Link>
       </div>
     );
@@ -50,7 +52,7 @@ export default async function MatchThreadPage({
         style={{ background: "var(--bg-sunken)", color: "var(--text-soft)" }}
       >
         <p className="mb-4" style={{ color: "var(--text-soft)" }}>
-          Upgrade to Elite to message your mutual matches.
+          {t.matches.upgradeToMessage}
         </p>
         <Link
           href="/upgrade"
@@ -60,7 +62,7 @@ export default async function MatchThreadPage({
               "linear-gradient(135deg, var(--accent), var(--accent-strong))",
           }}
         >
-          Upgrade to Elite
+          {t.matches.upgradeToEliteBtn}
         </Link>
       </div>
     );
@@ -79,7 +81,7 @@ export default async function MatchThreadPage({
         className="text-xs font-semibold mb-3 inline-block"
         style={{ color: "var(--text-soft)" }}
       >
-        &larr; Mutual
+        {t.matches.backMutual}
       </Link>
 
       <div
@@ -94,8 +96,8 @@ export default async function MatchThreadPage({
             {thread.full_name}
           </div>
           <div className="text-xs" style={{ color: "var(--text-soft)" }}>
-            {thread.age} years{thread.location ? ` · ${thread.location}` : ""}
-            {thread.is_verified ? " · ✓ Identity verified" : ""}
+            {thread.age} {t.dashboard.years}{thread.location ? ` · ${thread.location}` : ""}
+            {thread.is_verified ? ` · ${t.dashboard.identityVerified}` : ""}
           </div>
         </div>
         <div className="flex items-center gap-3 shrink-0">
@@ -104,7 +106,7 @@ export default async function MatchThreadPage({
             className="text-xs font-semibold"
             style={{ color: "var(--text-soft)" }}
           >
-            Report
+            {t.matches.report}
           </Link>
           <form action={blockMember.bind(null, thread.candidate_id)}>
             <button
@@ -112,7 +114,7 @@ export default async function MatchThreadPage({
               className="text-xs font-semibold"
               style={{ color: "var(--accent-strong)" }}
             >
-              Block
+              {t.matches.block}
             </button>
           </form>
         </div>
@@ -122,6 +124,7 @@ export default async function MatchThreadPage({
         matchId={matchId}
         currentUserId={user.id}
         initialMessages={messages ?? []}
+        t={t}
       />
     </div>
   );

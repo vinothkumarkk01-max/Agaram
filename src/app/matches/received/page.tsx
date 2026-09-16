@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { respondToInterest } from "@/app/actions/matches";
 import { blockMember } from "@/app/actions/blocks";
+import { getDictionary } from "@/lib/i18n/server";
 
 type ReceivedInterest = {
   match_id: string;
@@ -15,6 +16,7 @@ type ReceivedInterest = {
 export default async function ReceivedInterestsPage() {
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("get_received_interests");
+  const { t } = await getDictionary();
 
   if (error) {
     return (
@@ -32,7 +34,7 @@ export default async function ReceivedInterestsPage() {
         className="rounded-2xl p-8 text-center text-sm"
         style={{ background: "var(--bg-sunken)", color: "var(--text-soft)" }}
       >
-        No one&rsquo;s expressed interest yet — they&rsquo;ll show up here.
+        {t.matches.noReceived}
       </div>
     );
   }
@@ -54,14 +56,14 @@ export default async function ReceivedInterestsPage() {
             </div>
             <div>
               <div className="text-sm font-semibold">
-                {m.age} years{m.location ? ` · ${m.location}` : ""}
+                {m.age} {t.dashboard.years}{m.location ? ` · ${m.location}` : ""}
               </div>
               {m.is_verified && (
                 <div
                   className="text-xs font-semibold mt-1"
                   style={{ color: "var(--ok)" }}
                 >
-                  ✓ Identity verified
+                  {t.dashboard.identityVerified}
                 </div>
               )}
             </div>
@@ -78,7 +80,7 @@ export default async function ReceivedInterestsPage() {
                     color: "var(--text-soft)",
                   }}
                 >
-                  Decline
+                  {t.matches.decline}
                 </button>
               </form>
               <form action={respondToInterest.bind(null, m.match_id, true)}>
@@ -90,7 +92,7 @@ export default async function ReceivedInterestsPage() {
                       "linear-gradient(135deg, var(--accent), var(--accent-strong))",
                   }}
                 >
-                  Accept
+                  {t.matches.accept}
                 </button>
               </form>
             </div>
@@ -100,7 +102,7 @@ export default async function ReceivedInterestsPage() {
                 className="text-xs font-semibold"
                 style={{ color: "var(--text-soft)" }}
               >
-                Block
+                {t.matches.block}
               </button>
             </form>
           </div>

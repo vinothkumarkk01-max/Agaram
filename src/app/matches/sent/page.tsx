@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { getDictionary } from "@/lib/i18n/server";
 
 type SentInterest = {
   match_id: string;
@@ -14,6 +15,7 @@ type SentInterest = {
 export default async function SentInterestsPage() {
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("get_sent_interests");
+  const { t } = await getDictionary();
 
   if (error) {
     return (
@@ -31,8 +33,7 @@ export default async function SentInterestsPage() {
         className="rounded-2xl p-8 text-center text-sm"
         style={{ background: "var(--bg-sunken)", color: "var(--text-soft)" }}
       >
-        You haven&rsquo;t expressed interest in anyone yet — head to Browse
-        to get started.
+        {t.matches.noSent}
       </div>
     );
   }
@@ -54,14 +55,14 @@ export default async function SentInterestsPage() {
             </div>
             <div>
               <div className="text-sm font-semibold">
-                {m.age} years{m.location ? ` · ${m.location}` : ""}
+                {m.age} {t.dashboard.years}{m.location ? ` · ${m.location}` : ""}
               </div>
               {m.is_verified && (
                 <div
                   className="text-xs font-semibold mt-1"
                   style={{ color: "var(--ok)" }}
                 >
-                  ✓ Identity verified
+                  {t.dashboard.identityVerified}
                 </div>
               )}
             </div>
@@ -74,7 +75,7 @@ export default async function SentInterestsPage() {
                 : { background: "var(--accent-soft)", color: "var(--accent-strong)" }
             }
           >
-            {m.status === "mutual" ? "Mutual — see Mutual tab" : "Waiting for a response"}
+            {m.status === "mutual" ? t.matches.mutualSeeTab : t.matches.waitingResponse}
           </div>
         </div>
       ))}

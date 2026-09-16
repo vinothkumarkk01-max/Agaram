@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import * as Sentry from "@sentry/nextjs";
+import { getClientDictionary } from "@/lib/i18n/client";
 
 // Wraps every route segment below the root layout (so it keeps the
 // fonts/theme from layout.tsx — global-error.tsx, for the root
@@ -19,6 +20,8 @@ export default function Error({
   useEffect(() => {
     Sentry.captureException(error);
   }, [error]);
+
+  const { t } = getClientDictionary();
 
   return (
     <div
@@ -42,11 +45,13 @@ export default function Error({
           className="text-2xl mb-2"
           style={{ fontFamily: "var(--font-display)", letterSpacing: "-0.01em" }}
         >
-          Something went wrong.
+          {t.errors.somethingWrong}
         </h1>
         <p className="text-sm mb-8" style={{ color: "var(--text-soft)" }}>
-          That&rsquo;s on us, not you — it&rsquo;s already been reported.
-          {error.digest ? ` (Reference: ${error.digest})` : ""}
+          {t.errors.errorSubtitleBase}
+          {error.digest
+            ? `${t.errors.errorSubtitleReferencePrefix}${error.digest}${t.errors.errorSubtitleReferenceSuffix}`
+            : ""}
         </p>
         <button
           onClick={() => retry()}
@@ -56,7 +61,7 @@ export default function Error({
               "linear-gradient(135deg, var(--accent), var(--accent-strong))",
           }}
         >
-          Try again
+          {t.errors.tryAgain}
         </button>
       </div>
     </div>

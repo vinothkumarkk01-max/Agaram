@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { sendMessage } from "@/app/actions/messages";
+import type { Dictionary } from "@/lib/i18n/dictionary";
 
 type Message = {
   id: string;
@@ -24,10 +25,12 @@ export function MessageThread({
   matchId,
   currentUserId,
   initialMessages,
+  t,
 }: {
   matchId: string;
   currentUserId: string;
   initialMessages: Message[];
+  t: Dictionary;
 }) {
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [text, setText] = useState("");
@@ -79,7 +82,7 @@ export function MessageThread({
             className="text-sm text-center mt-10"
             style={{ color: "var(--text-soft)" }}
           >
-            Say hello — you&rsquo;re a mutual match!
+            {t.matches.sayHello}
           </p>
         )}
         {messages.map((m) => {
@@ -111,7 +114,7 @@ export function MessageThread({
         <input
           value={text}
           onChange={(e) => setText(e.target.value)}
-          placeholder="Type a message…"
+          placeholder={t.matches.typeMessage}
           maxLength={2000}
           className="flex-1 rounded-xl px-4 py-2.5 text-sm"
           style={{ background: "var(--bg-sunken)", border: "1px solid var(--line)" }}
@@ -125,7 +128,7 @@ export function MessageThread({
               "linear-gradient(135deg, var(--accent), var(--accent-strong))",
           }}
         >
-          Send
+          {t.matches.send}
         </button>
       </form>
     </div>

@@ -3,6 +3,7 @@
 import { useActionState, type CSSProperties } from "react";
 import { saveBasicInfo } from "@/app/actions/profile";
 import { PillGroup } from "@/components/PillGroup";
+import type { Dictionary } from "@/lib/i18n/dictionary";
 
 const fieldLabel: CSSProperties = {
   fontSize: "11px",
@@ -25,6 +26,7 @@ const inputStyle: CSSProperties = {
 
 export function BasicInfoForm({
   defaults,
+  t,
 }: {
   defaults?: {
     full_name?: string;
@@ -33,36 +35,37 @@ export function BasicInfoForm({
     location?: string;
     about_me?: string;
   };
+  t: Dictionary;
 }) {
   const [state, formAction, pending] = useActionState(saveBasicInfo, undefined);
 
   return (
     <form action={formAction} className="flex flex-col gap-5">
       <div>
-        <div style={fieldLabel}>Full name</div>
+        <div style={fieldLabel}>{t.onboarding.fullName}</div>
         <input
           name="full_name"
           defaultValue={defaults?.full_name}
           required
           style={inputStyle}
-          placeholder="Your name"
+          placeholder={t.onboarding.fullNamePlaceholder}
         />
       </div>
 
       <div>
-        <div style={fieldLabel}>I am a</div>
+        <div style={fieldLabel}>{t.onboarding.iAmA}</div>
         <PillGroup
           name="profile_type"
           defaultValue={defaults?.profile_type ?? "groom"}
           options={[
-            { value: "groom", label: "Groom" },
-            { value: "bride", label: "Bride" },
+            { value: "groom", label: t.dashboard.groom },
+            { value: "bride", label: t.dashboard.bride },
           ]}
         />
       </div>
 
       <div>
-        <div style={fieldLabel}>Age</div>
+        <div style={fieldLabel}>{t.onboarding.age}</div>
         <input
           name="age"
           type="number"
@@ -75,7 +78,7 @@ export function BasicInfoForm({
       </div>
 
       <div>
-        <div style={fieldLabel}>City</div>
+        <div style={fieldLabel}>{t.onboarding.city}</div>
         <input
           name="location"
           defaultValue={defaults?.location}
@@ -84,20 +87,21 @@ export function BasicInfoForm({
           placeholder="Chennai"
         />
         <p className="text-xs mt-2" style={{ color: "var(--text-soft)" }}>
-          Used to match you with candidates in — or open to — your area.
+          {t.onboarding.cityHelp}
         </p>
       </div>
 
       <div>
         <div style={fieldLabel}>
-          A line about you <span style={{ textTransform: "none", fontWeight: 400 }}>(optional)</span>
+          {t.onboarding.aboutLine}{" "}
+          <span style={{ textTransform: "none", fontWeight: 400 }}>{t.onboarding.optional}</span>
         </div>
         <textarea
           name="about_me"
           defaultValue={defaults?.about_me}
           rows={3}
           style={{ ...inputStyle, resize: "vertical" }}
-          placeholder="Enjoys long-distance running, close to family…"
+          placeholder={t.onboarding.aboutPlaceholder}
         />
       </div>
 
@@ -116,13 +120,13 @@ export function BasicInfoForm({
             background: "linear-gradient(135deg, var(--accent), var(--accent-strong))",
           }}
         >
-          {pending ? "Saving…" : "Continue"}
+          {pending ? t.onboarding.saving : t.onboarding.continueBtn}
         </button>
         <p
           className="text-center text-xs mt-4"
           style={{ color: "var(--text-soft)" }}
         >
-          Next: your must-have preferences — identity and other checks come after.
+          {t.onboarding.basicInfoFooter}
         </p>
       </div>
     </form>

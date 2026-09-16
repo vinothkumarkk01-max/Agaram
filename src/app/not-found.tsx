@@ -1,6 +1,8 @@
 import Link from "next/link";
+import { getDictionary } from "@/lib/i18n/server";
 
-export default function NotFound() {
+export default async function NotFound() {
+  const { t } = await getDictionary();
   return (
     <div
       className="min-h-screen w-full flex items-center justify-center px-4"
@@ -23,10 +25,10 @@ export default function NotFound() {
           className="text-2xl mb-2"
           style={{ fontFamily: "var(--font-display)", letterSpacing: "-0.01em" }}
         >
-          Page not found.
+          {t.errors.pageNotFound}
         </h1>
         <p className="text-sm mb-8" style={{ color: "var(--text-soft)" }}>
-          That page doesn&rsquo;t exist, or has moved.
+          {t.errors.pageNotFoundDesc}
         </p>
         <Link
           href="/dashboard"
@@ -36,7 +38,7 @@ export default function NotFound() {
               "linear-gradient(135deg, var(--accent), var(--accent-strong))",
           }}
         >
-          Back to dashboard
+          {t.common.backToDashboard}
         </Link>
       </div>
     </div>

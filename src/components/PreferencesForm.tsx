@@ -3,6 +3,7 @@
 import { useActionState, type CSSProperties } from "react";
 import { savePreferences } from "@/app/actions/profile";
 import { PillGroup } from "@/components/PillGroup";
+import type { Dictionary } from "@/lib/i18n/dictionary";
 
 const fieldLabel: CSSProperties = {
   fontSize: "11px",
@@ -25,6 +26,7 @@ const inputStyle: CSSProperties = {
 
 export function PreferencesForm({
   defaults,
+  t,
 }: {
   defaults?: {
     age_min?: number;
@@ -35,6 +37,7 @@ export function PreferencesForm({
     open_to_relocating?: string;
     languages?: string[];
   };
+  t: Dictionary;
 }) {
   const [state, formAction, pending] = useActionState(savePreferences, undefined);
 
@@ -42,13 +45,13 @@ export function PreferencesForm({
     <form action={formAction} className="flex flex-col gap-5">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
         <div>
-          <div style={fieldLabel}>Age range</div>
+          <div style={fieldLabel}>{t.onboarding.ageRange}</div>
           <div className="flex gap-2.5">
             <input
               name="age_min"
               type="number"
               min={18}
-              placeholder="Min"
+              placeholder={t.onboarding.min}
               defaultValue={defaults?.age_min}
               required
               style={inputStyle}
@@ -57,7 +60,7 @@ export function PreferencesForm({
               name="age_max"
               type="number"
               min={18}
-              placeholder="Max"
+              placeholder={t.onboarding.max}
               defaultValue={defaults?.age_max}
               required
               style={inputStyle}
@@ -66,57 +69,57 @@ export function PreferencesForm({
         </div>
 
         <div>
-          <div style={fieldLabel}>Preferred location(s)</div>
+          <div style={fieldLabel}>{t.onboarding.preferredLocations}</div>
           <input
             name="preferred_locations"
             defaultValue={defaults?.preferred_locations?.join(", ")}
             style={inputStyle}
-            placeholder="Chennai, Bengaluru, Coimbatore"
+            placeholder={t.onboarding.preferredLocationsPlaceholder}
           />
         </div>
 
         <div>
-          <div style={fieldLabel}>Education level</div>
+          <div style={fieldLabel}>{t.onboarding.educationLevel}</div>
           <PillGroup
             name="education_level"
             defaultValue={defaults?.education_level ?? "bachelors_plus"}
             options={[
-              { value: "bachelors_plus", label: "Bachelor's+" },
-              { value: "any", label: "Any" },
+              { value: "bachelors_plus", label: t.dashboard.bachelorsPlus },
+              { value: "any", label: t.onboarding.any },
             ]}
           />
         </div>
 
         <div>
-          <div style={fieldLabel}>Profession / field</div>
+          <div style={fieldLabel}>{t.onboarding.professionField}</div>
           <input
             name="profession_field"
             defaultValue={defaults?.profession_field}
             style={inputStyle}
-            placeholder="Open to any field"
+            placeholder={t.onboarding.professionPlaceholder}
           />
         </div>
 
         <div>
-          <div style={fieldLabel}>Open to relocating</div>
+          <div style={fieldLabel}>{t.onboarding.openToRelocating}</div>
           <PillGroup
             name="open_to_relocating"
             defaultValue={defaults?.open_to_relocating ?? "maybe"}
             options={[
-              { value: "yes", label: "Yes" },
-              { value: "maybe", label: "Maybe" },
-              { value: "no", label: "No" },
+              { value: "yes", label: t.onboarding.yes },
+              { value: "maybe", label: t.onboarding.maybe },
+              { value: "no", label: t.onboarding.no },
             ]}
           />
         </div>
 
         <div>
-          <div style={fieldLabel}>Language</div>
+          <div style={fieldLabel}>{t.onboarding.language}</div>
           <input
             name="languages"
             defaultValue={defaults?.languages?.join(", ")}
             style={inputStyle}
-            placeholder="Tamil, English"
+            placeholder={t.onboarding.languagePlaceholder}
           />
         </div>
       </div>
@@ -134,13 +137,13 @@ export function PreferencesForm({
           className="w-full rounded-xl py-4 font-bold text-white text-sm disabled:opacity-60"
           style={{ background: "var(--accent)" }}
         >
-          {pending ? "Saving…" : "See what's next"}
+          {pending ? t.onboarding.saving : t.onboarding.seeWhatsNext}
         </button>
         <p
           className="text-center text-xs mt-3.5"
           style={{ color: "var(--text-soft)" }}
         >
-          You can add more preferences (family, lifestyle, cultural) any time.
+          {t.onboarding.preferencesFooter}
         </p>
       </div>
     </form>

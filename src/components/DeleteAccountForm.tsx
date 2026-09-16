@@ -2,6 +2,7 @@
 
 import { useActionState, type CSSProperties } from "react";
 import { deleteAccount } from "@/app/actions/account";
+import type { Dictionary } from "@/lib/i18n/dictionary";
 
 const inputStyle: CSSProperties = {
   background: "var(--bg-sunken)",
@@ -13,7 +14,7 @@ const inputStyle: CSSProperties = {
   width: "100%",
 };
 
-export function DeleteAccountForm({ email }: { email: string }) {
+export function DeleteAccountForm({ email, t }: { email: string; t: Dictionary }) {
   const [state, formAction, pending] = useActionState(deleteAccount, undefined);
 
   return (
@@ -29,11 +30,7 @@ export function DeleteAccountForm({ email }: { email: string }) {
           className="mt-0.5"
           style={{ accentColor: "var(--accent-strong)" }}
         />
-        <span>
-          I understand this permanently deletes my profile, matches,
-          messages, and payment history — for the other person in any
-          match too — and can&rsquo;t be undone.
-        </span>
+        <span>{t.account.understandCheckbox}</span>
       </label>
 
       <div>
@@ -42,7 +39,9 @@ export function DeleteAccountForm({ email }: { email: string }) {
           className="block text-xs font-semibold mb-1.5"
           style={{ color: "var(--text-soft)" }}
         >
-          Type <span className="font-mono">{email}</span> to confirm
+          {t.account.typeToConfirmPrefix}
+          {email}
+          {t.account.typeToConfirmSuffix}
         </label>
         <input
           id="confirm_email"
@@ -66,7 +65,7 @@ export function DeleteAccountForm({ email }: { email: string }) {
         className="rounded-xl py-2.5 text-sm font-bold text-white disabled:opacity-60"
         style={{ background: "var(--accent-strong)" }}
       >
-        {pending ? "Deleting…" : "Permanently delete my account"}
+        {pending ? t.account.deleting : t.account.permanentlyDelete}
       </button>
     </form>
   );

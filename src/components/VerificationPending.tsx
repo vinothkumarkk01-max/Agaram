@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { resolveMockVerification } from "@/app/actions/verification";
+import type { Dictionary } from "@/lib/i18n/dictionary";
 
 /**
  * Stands in for waiting on the real vendor's async result. Auto-submits
@@ -14,7 +15,7 @@ import { resolveMockVerification } from "@/app/actions/verification";
  * This page will keep working unchanged in the meantime — it only
  * ever reads `identity_verifications.status` from the database.
  */
-export function VerificationPending() {
+export function VerificationPending({ t }: { t: Dictionary }) {
   const formRef = useRef<HTMLFormElement>(null);
 
   useEffect(() => {
@@ -37,7 +38,7 @@ export function VerificationPending() {
         className="text-sm text-center"
         style={{ color: "var(--text-soft)" }}
       >
-        Checking your details…
+        {t.onboarding.checkingDetails}
       </p>
       <form ref={formRef} action={resolveMockVerification} className="hidden" />
     </div>

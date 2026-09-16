@@ -1,12 +1,14 @@
 import { createClient } from "@/lib/supabase/server";
 import { OnboardingShell } from "@/components/OnboardingShell";
 import { PreferencesForm } from "@/components/PreferencesForm";
+import { getDictionary } from "@/lib/i18n/server";
 
 export default async function PreferencesPage() {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  const { t } = await getDictionary();
 
   const { data: preferences } = user
     ? await supabase
@@ -20,15 +22,17 @@ export default async function PreferencesPage() {
 
   return (
     <OnboardingShell
-      stepChip="Day 1 · Step 3 of 3"
+      stepChip={t.onboarding.stepChipPreferences}
       progress={["done", "done", "active"]}
       backHref="/onboarding/basic-info"
-      eyebrow="Almost there"
-      title="Who are you looking for?"
-      lede="Distinct from who you are — these are your must-haves for a match."
+      backLabel={t.common.back}
+      brand={t.common.brand}
+      eyebrow={t.onboarding.eyebrowAlmostThere}
+      title={t.onboarding.preferencesTitle}
+      lede={t.onboarding.preferencesLede}
       colWidth={640}
     >
-      <PreferencesForm defaults={preferences ?? undefined} />
+      <PreferencesForm defaults={preferences ?? undefined} t={t} />
     </OnboardingShell>
   );
 }

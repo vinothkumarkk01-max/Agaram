@@ -3,6 +3,9 @@
 import Link from "next/link";
 import { useActionState } from "react";
 import type { AuthFormState } from "@/app/actions/auth";
+import type { Dictionary } from "@/lib/i18n/dictionary";
+import type { Locale } from "@/lib/i18n/locale";
+import { LocaleToggle } from "@/components/LocaleToggle";
 
 type Props = {
   mode: "login" | "signup";
@@ -10,9 +13,11 @@ type Props = {
     state: AuthFormState,
     formData: FormData
   ) => Promise<AuthFormState>;
+  locale: Locale;
+  t: Dictionary;
 };
 
-export function AuthForm({ mode, action }: Props) {
+export function AuthForm({ mode, action, locale, t }: Props) {
   const [state, formAction, pending] = useActionState(action, undefined);
   const isSignup = mode === "signup";
 
@@ -39,7 +44,7 @@ export function AuthForm({ mode, action }: Props) {
             className="text-xs tracking-widest uppercase font-medium"
             style={{ color: "var(--text-soft)" }}
           >
-            Agaram Premium
+            {t.common.brand}
           </span>
         </div>
 
@@ -51,12 +56,10 @@ export function AuthForm({ mode, action }: Props) {
             className="text-2xl mb-1"
             style={{ fontFamily: "var(--font-display)", letterSpacing: "-0.01em" }}
           >
-            {isSignup ? "Create your account" : "Welcome back"}
+            {isSignup ? t.auth.createTitle : t.auth.welcomeBack}
           </h1>
           <p className="text-sm mb-6" style={{ color: "var(--text-soft)" }}>
-            {isSignup
-              ? "Start with your email — you can add everything else after."
-              : "Sign in to continue to your account."}
+            {isSignup ? t.auth.createSubtitle : t.auth.loginSubtitle}
           </p>
 
           <form action={formAction} className="flex flex-col gap-4">
@@ -66,7 +69,7 @@ export function AuthForm({ mode, action }: Props) {
                 className="block text-xs font-semibold mb-1.5"
                 style={{ color: "var(--text-soft)" }}
               >
-                Email
+                {t.auth.email}
               </label>
               <input
                 id="email"
@@ -90,7 +93,7 @@ export function AuthForm({ mode, action }: Props) {
                 className="block text-xs font-semibold mb-1.5"
                 style={{ color: "var(--text-soft)" }}
               >
-                Password
+                {t.auth.password}
               </label>
               <input
                 id="password"
@@ -105,7 +108,7 @@ export function AuthForm({ mode, action }: Props) {
                   border: "1px solid var(--line)",
                   color: "var(--text)",
                 }}
-                placeholder="At least 8 characters"
+                placeholder={t.auth.passwordPlaceholder}
               />
             </div>
 
@@ -125,10 +128,10 @@ export function AuthForm({ mode, action }: Props) {
               }}
             >
               {pending
-                ? "Please wait…"
+                ? t.auth.pleaseWait
                 : isSignup
-                  ? "Create account"
-                  : "Sign in"}
+                  ? t.auth.createAccountBtn
+                  : t.auth.signInBtn}
             </button>
           </form>
 
@@ -138,16 +141,16 @@ export function AuthForm({ mode, action }: Props) {
           >
             {isSignup ? (
               <>
-                Already have an account?{" "}
+                {t.auth.alreadyHaveAccount}{" "}
                 <Link href="/login" className="font-semibold" style={{ color: "var(--accent-strong)" }}>
-                  Sign in
+                  {t.auth.signInLink}
                 </Link>
               </>
             ) : (
               <>
-                New to Agaram?{" "}
+                {t.auth.newToAgaram}{" "}
                 <Link href="/signup" className="font-semibold" style={{ color: "var(--accent-strong)" }}>
-                  Create an account
+                  {t.auth.createAnAccount}
                 </Link>
               </>
             )}
@@ -157,13 +160,17 @@ export function AuthForm({ mode, action }: Props) {
               className="text-center text-xs mt-3"
               style={{ color: "var(--text-soft)" }}
             >
-              By creating an account, you agree to our{" "}
+              {t.auth.agreeToPolicyPrefix}
               <Link href="/privacy" className="underline">
-                Privacy Policy
+                {t.common.privacyPolicy}
               </Link>
-              .
+              {t.auth.agreeToPolicySuffix}
             </p>
           )}
+        </div>
+
+        <div className="flex justify-center mt-6">
+          <LocaleToggle locale={locale} />
         </div>
       </div>
     </div>

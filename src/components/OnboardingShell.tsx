@@ -7,6 +7,8 @@ type Props = {
   stepChip: string;
   progress: ProgressState[];
   backHref: string;
+  backLabel: string;
+  brand: string;
   eyebrow: string;
   title: string;
   lede: string;
@@ -18,6 +20,8 @@ export function OnboardingShell({
   stepChip,
   progress,
   backHref,
+  backLabel,
+  brand,
   eyebrow,
   title,
   lede,
@@ -47,7 +51,7 @@ export function OnboardingShell({
             className="text-xs tracking-widest uppercase font-medium"
             style={{ color: "var(--text-soft)" }}
           >
-            Agaram Premium
+            {brand}
           </span>
         </div>
         <div
@@ -83,7 +87,7 @@ export function OnboardingShell({
             className="text-xs font-semibold inline-flex items-center gap-1.5 mb-4"
             style={{ color: "var(--text-soft)" }}
           >
-            &larr; Back
+            {backLabel}
           </Link>
           <div
             className="text-xs uppercase tracking-wider font-semibold mb-2.5"

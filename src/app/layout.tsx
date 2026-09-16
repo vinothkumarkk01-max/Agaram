@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Newsreader, Catamaran } from "next/font/google";
 import "./globals.css";
+import { getLocale } from "@/lib/i18n/server";
 
 const newsreader = Newsreader({
   variable: "--font-newsreader",
@@ -19,10 +20,11 @@ export const metadata: Metadata = {
   description: "A verified, Tamil-first matrimonial platform.",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  const locale = await getLocale();
   return (
     <html
-      lang="en"
+      lang={locale}
       className={`${newsreader.variable} ${catamaran.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">{children}</body>

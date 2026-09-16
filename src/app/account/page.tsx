@@ -2,6 +2,8 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { unblockMember } from "@/app/actions/blocks";
 import { DeleteAccountForm } from "@/components/DeleteAccountForm";
+import { getDictionary } from "@/lib/i18n/server";
+import { LocaleToggle } from "@/components/LocaleToggle";
 
 type BlockedMember = {
   blocked_id: string;
@@ -17,6 +19,7 @@ export default async function AccountPage() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  const { locale, t } = await getDictionary();
 
   const { data: blockedData } = await supabase.rpc("get_blocked_members");
   const blocked = (blockedData ?? []) as BlockedMember[];
@@ -36,13 +39,13 @@ export default async function AccountPage() {
             className="text-xs font-semibold"
             style={{ color: "var(--accent-strong)" }}
           >
-            ← Dashboard
+            {t.common.backDashboard}
           </Link>
           <h1
             className="text-2xl mt-3"
             style={{ fontFamily: "var(--font-display)", letterSpacing: "-0.01em" }}
           >
-            Your account
+            {t.account.yourAccount}
           </h1>
           <p className="text-sm mt-1" style={{ color: "var(--text-soft)" }}>
             {user?.email}
@@ -53,12 +56,9 @@ export default async function AccountPage() {
           className="rounded-2xl p-6"
           style={{ background: "var(--bg-raised)", border: "1px solid var(--line)" }}
         >
-          <h2 className="text-base font-bold mb-1.5">Download your data</h2>
+          <h2 className="text-base font-bold mb-1.5">{t.account.downloadData}</h2>
           <p className="text-sm mb-4" style={{ color: "var(--text-soft)" }}>
-            Everything Agaram has stored about you — profile, preferences,
-            identity verification status, payment history, matches,
-            messages, and reports you&rsquo;ve filed — as a single JSON
-            file.
+            {t.account.downloadDataDesc}
           </p>
           <a
             href="/api/account/export"
@@ -69,7 +69,7 @@ export default async function AccountPage() {
               color: "var(--text)",
             }}
           >
-            Download my data
+            {t.account.downloadMyData}
           </a>
         </section>
 
@@ -77,10 +77,10 @@ export default async function AccountPage() {
           className="rounded-2xl p-6"
           style={{ background: "var(--bg-raised)", border: "1px solid var(--line)" }}
         >
-          <h2 className="text-base font-bold mb-1.5">Blocked members</h2>
+          <h2 className="text-base font-bold mb-1.5">{t.account.blockedMembers}</h2>
           {blocked.length === 0 ? (
             <p className="text-sm" style={{ color: "var(--text-soft)" }}>
-              You haven&rsquo;t blocked anyone.
+              {t.account.noBlocked}
             </p>
           ) : (
             <div className="flex flex-col gap-2.5">
@@ -93,8 +93,8 @@ export default async function AccountPage() {
                   <div className="text-sm">
                     <span className="font-semibold">{b.initial}.</span>{" "}
                     <span style={{ color: "var(--text-soft)" }}>
-                      {b.age} years{b.location ? ` · ${b.location}` : ""}
-                      {b.is_verified ? " · ✓ verified" : ""}
+                      {b.age} {t.dashboard.years}{b.location ? ` · ${b.location}` : ""}
+                      {b.is_verified ? ` · ${t.dashboard.identityVerified}` : ""}
                     </span>
                   </div>
                   <form action={unblockMember.bind(null, b.blocked_id)}>
@@ -107,7 +107,7 @@ export default async function AccountPage() {
                         color: "var(--text-soft)",
                       }}
                     >
-                      Unblock
+                      {t.account.unblock}
                     </button>
                   </form>
                 </div>
@@ -121,20 +121,22 @@ export default async function AccountPage() {
           style={{ background: "var(--accent-soft)", border: "1px solid var(--line)" }}
         >
           <h2 className="text-base font-bold mb-1.5" style={{ color: "var(--accent-strong)" }}>
-            Delete your account
+            {t.account.deleteAccount}
           </h2>
           <p className="text-sm mb-4" style={{ color: "var(--text-soft)" }}>
-            Permanent, and immediate. See the checkbox below for exactly
-            what this removes.
+            {t.account.deleteAccountDesc}
           </p>
-          <DeleteAccountForm email={user?.email ?? ""} />
+          <DeleteAccountForm email={user?.email ?? ""} t={t} />
         </section>
 
-        <p className="text-center text-xs" style={{ color: "var(--text-soft)" }}>
-          <Link href="/privacy" className="underline">
-            Privacy Policy
-          </Link>
-        </p>
+        <div className="flex items-center justify-between">
+          <p className="text-xs" style={{ color: "var(--text-soft)" }}>
+            <Link href="/privacy" className="underline">
+              {t.common.privacyPolicy}
+            </Link>
+          </p>
+          <LocaleToggle locale={locale} />
+        </div>
       </div>
     </div>
   );

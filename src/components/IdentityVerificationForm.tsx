@@ -2,6 +2,7 @@
 
 import { useActionState, type CSSProperties } from "react";
 import { submitIdentityVerification } from "@/app/actions/verification";
+import type { Dictionary } from "@/lib/i18n/dictionary";
 
 const fieldLabel: CSSProperties = {
   fontSize: "11px",
@@ -23,7 +24,7 @@ const inputStyle: CSSProperties = {
   letterSpacing: "0.04em",
 };
 
-export function IdentityVerificationForm() {
+export function IdentityVerificationForm({ t }: { t: Dictionary }) {
   const [state, formAction, pending] = useActionState(
     submitIdentityVerification,
     undefined
@@ -32,7 +33,7 @@ export function IdentityVerificationForm() {
   return (
     <form action={formAction} className="flex flex-col gap-5">
       <div>
-        <div style={fieldLabel}>Aadhaar number</div>
+        <div style={fieldLabel}>{t.onboarding.aadhaarNumber}</div>
         <input
           name="aadhaar_number"
           inputMode="numeric"
@@ -42,8 +43,7 @@ export function IdentityVerificationForm() {
           placeholder="XXXX XXXX XXXX"
         />
         <p className="text-xs mt-2" style={{ color: "var(--text-soft)" }}>
-          We only ever store the last 4 digits. Your full number is used
-          once, for this check, and then discarded.
+          {t.onboarding.aadhaarHelp}
         </p>
       </div>
 
@@ -58,10 +58,7 @@ export function IdentityVerificationForm() {
           className="mt-0.5"
           style={{ accentColor: "var(--accent-strong)" }}
         />
-        <span>
-          I consent to Agaram verifying my identity using the Aadhaar
-          number above, in line with the DPDP Act, 2023.
-        </span>
+        <span>{t.onboarding.consentLabel}</span>
       </label>
 
       {state?.error && (
@@ -80,14 +77,13 @@ export function IdentityVerificationForm() {
               "linear-gradient(135deg, var(--accent), var(--accent-strong))",
           }}
         >
-          {pending ? "Submitting…" : "Verify my identity"}
+          {pending ? t.onboarding.submitting : t.onboarding.verifyMyIdentity}
         </button>
         <p
           className="text-center text-xs mt-4"
           style={{ color: "var(--text-soft)" }}
         >
-          This is a mock check for now — see below for what changes when
-          the real verification vendor is connected.
+          {t.onboarding.mockNote}
         </p>
       </div>
     </form>

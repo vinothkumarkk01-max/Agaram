@@ -3,12 +3,14 @@ import { createClient } from "@/lib/supabase/server";
 import { OnboardingShell } from "@/components/OnboardingShell";
 import { IdentityVerificationForm } from "@/components/IdentityVerificationForm";
 import { VerificationPending } from "@/components/VerificationPending";
+import { getDictionary } from "@/lib/i18n/server";
 
 export default async function VerificationPage() {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  const { t } = await getDictionary();
 
   const { data: verification } = user
     ? await supabase
@@ -21,20 +23,22 @@ export default async function VerificationPage() {
   if (verification?.status === "verified") {
     return (
       <OnboardingShell
-        stepChip="Identity check"
+        stepChip={t.onboarding.stepChipIdentity}
         progress={["done"]}
         backHref="/dashboard"
-        eyebrow="All set"
-        title="Your identity is verified."
-        lede="Members see this as a Verified badge on your profile — it's one of the first things that builds trust."
+        backLabel={t.common.back}
+        brand={t.common.brand}
+        eyebrow={t.onboarding.eyebrowAllSet}
+        title={t.onboarding.verifiedTitle}
+        lede={t.onboarding.verifiedLede}
       >
         <div
           className="rounded-2xl p-5 mb-6 text-sm font-semibold"
           style={{ background: "var(--ok-soft)", color: "var(--ok)" }}
         >
-          Verified via Aadhaar
+          {t.onboarding.verifiedViaAadhaarBase}
           {verification.aadhaar_last4
-            ? ` ending ${verification.aadhaar_last4}`
+            ? `${t.onboarding.verifiedViaAadhaarEndingPrefix}${verification.aadhaar_last4}${t.onboarding.verifiedViaAadhaarEndingSuffix}`
             : ""}
           .
         </div>
@@ -46,7 +50,7 @@ export default async function VerificationPage() {
               "linear-gradient(135deg, var(--accent), var(--accent-strong))",
           }}
         >
-          Go to your dashboard
+          {t.onboarding.goToDashboard}
         </Link>
       </OnboardingShell>
     );
@@ -55,28 +59,32 @@ export default async function VerificationPage() {
   if (verification?.status === "pending") {
     return (
       <OnboardingShell
-        stepChip="Identity check"
+        stepChip={t.onboarding.stepChipIdentity}
         progress={["active"]}
         backHref="/dashboard"
-        eyebrow="Almost there"
-        title="Verifying your identity…"
-        lede="This usually takes a few seconds. Don't close this tab."
+        backLabel={t.common.back}
+        brand={t.common.brand}
+        eyebrow={t.onboarding.eyebrowAlmostThere}
+        title={t.onboarding.pendingTitle}
+        lede={t.onboarding.pendingLede}
       >
-        <VerificationPending />
+        <VerificationPending t={t} />
       </OnboardingShell>
     );
   }
 
   return (
     <OnboardingShell
-      stepChip="Identity check"
+      stepChip={t.onboarding.stepChipIdentity}
       progress={["upcoming"]}
       backHref="/dashboard"
-      eyebrow="Build trust"
-      title="Verify your identity."
-      lede="A quick Aadhaar check adds a Verified badge to your profile — members trust verified profiles more."
+      backLabel={t.common.back}
+      brand={t.common.brand}
+      eyebrow={t.onboarding.eyebrowBuildTrust}
+      title={t.onboarding.unverifiedTitle}
+      lede={t.onboarding.unverifiedLede}
     >
-      <IdentityVerificationForm />
+      <IdentityVerificationForm t={t} />
     </OnboardingShell>
   );
 }

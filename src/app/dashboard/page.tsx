@@ -1,12 +1,16 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { logout } from "@/app/actions/auth";
+import { getDictionary } from "@/lib/i18n/server";
+import { intlLocale } from "@/lib/i18n/locale";
+import { LocaleToggle } from "@/components/LocaleToggle";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  const { locale, t } = await getDictionary();
 
   const { data: profile } = user
     ? await supabase
@@ -70,7 +74,7 @@ export default async function DashboardPage() {
           <div>
             <div className="text-sm font-semibold">{user?.email}</div>
             <div className="text-xs" style={{ color: "var(--text-soft)" }}>
-              Signed in
+              {t.dashboard.signedIn}
             </div>
           </div>
         </div>
@@ -81,11 +85,10 @@ export default async function DashboardPage() {
               className="text-xl mb-2"
               style={{ fontFamily: "var(--font-display)" }}
             >
-              Let&rsquo;s set up your profile.
+              {t.dashboard.setupTitle}
             </h1>
             <p className="text-sm mb-6" style={{ color: "var(--text-soft)" }}>
-              Two short steps — your basic details, then your match
-              preferences.
+              {t.dashboard.setupSubtitle}
             </p>
             <Link
               href="/onboarding/basic-info"
@@ -95,7 +98,7 @@ export default async function DashboardPage() {
                   "linear-gradient(135deg, var(--accent), var(--accent-strong))",
               }}
             >
-              Complete your profile
+              {t.dashboard.completeProfile}
             </Link>
           </>
         ) : !preferences ? (
@@ -104,10 +107,12 @@ export default async function DashboardPage() {
               className="text-xl mb-2"
               style={{ fontFamily: "var(--font-display)" }}
             >
-              Almost done, {profile.full_name.split(" ")[0]}.
+              {t.dashboard.almostDonePrefix}
+              {profile.full_name.split(" ")[0]}
+              {t.dashboard.almostDoneSuffix}
             </h1>
             <p className="text-sm mb-6" style={{ color: "var(--text-soft)" }}>
-              One more step: tell us who you&rsquo;re looking for.
+              {t.dashboard.almostDoneSubtitle}
             </p>
             <Link
               href="/onboarding/preferences"
@@ -117,7 +122,7 @@ export default async function DashboardPage() {
                   "linear-gradient(135deg, var(--accent), var(--accent-strong))",
               }}
             >
-              Set your preferences
+              {t.dashboard.setPreferences}
             </Link>
           </>
         ) : (
@@ -129,8 +134,8 @@ export default async function DashboardPage() {
               {profile.full_name}
             </h1>
             <p className="text-xs mb-5" style={{ color: "var(--text-soft)" }}>
-              {profile.profile_type === "groom" ? "Groom" : "Bride"} ·{" "}
-              {profile.age} years
+              {profile.profile_type === "groom" ? t.dashboard.groom : t.dashboard.bride} ·{" "}
+              {profile.age} {t.dashboard.years}
             </p>
             {profile.about_me && (
               <p
@@ -144,16 +149,16 @@ export default async function DashboardPage() {
               className="rounded-xl p-4 mb-6 text-sm"
               style={{ background: "var(--bg-sunken)" }}
             >
-              <div className="font-semibold mb-1">Looking for</div>
+              <div className="font-semibold mb-1">{t.dashboard.lookingFor}</div>
               <div style={{ color: "var(--text-soft)" }}>
-                Ages {preferences.age_min}–{preferences.age_max}
+                {preferences.age_min}–{preferences.age_max} {t.dashboard.years}
                 {preferences.preferred_locations?.length
                   ? ` · ${preferences.preferred_locations.join(", ")}`
                   : ""}
                 {" · "}
                 {preferences.education_level === "bachelors_plus"
-                  ? "Bachelor's+"
-                  : "Any education"}
+                  ? t.dashboard.bachelorsPlus
+                  : t.dashboard.anyEducation}
               </div>
             </div>
             <div
@@ -166,14 +171,14 @@ export default async function DashboardPage() {
             >
               <span className="font-semibold">
                 {verification?.status === "verified"
-                  ? "✓ Identity verified"
+                  ? t.dashboard.identityVerified
                   : verification?.status === "pending"
-                  ? "Identity check pending"
-                  : "Identity not verified yet"}
+                  ? t.dashboard.identityPending
+                  : t.dashboard.identityNotVerified}
               </span>
               {verification?.status !== "verified" && (
                 <Link href="/onboarding/verification" className="underline font-semibold">
-                  {verification?.status === "pending" ? "Check status" : "Verify now"}
+                  {verification?.status === "pending" ? t.dashboard.checkStatus : t.dashboard.verifyNow}
                 </Link>
               )}
             </div>
@@ -186,11 +191,11 @@ export default async function DashboardPage() {
                     "linear-gradient(135deg, var(--accent), var(--accent-strong))",
                 }}
               >
-                Browse matches
+                {t.dashboard.browseMatches}
               </Link>
             ) : (
               <p className="text-xs mb-6" style={{ color: "var(--text-soft)" }}>
-                Verify your identity to unlock the matching feed.
+                {t.dashboard.verifyToUnlock}
               </p>
             )}
             <div
@@ -203,14 +208,14 @@ export default async function DashboardPage() {
             >
               <span className="font-semibold">
                 {isElite
-                  ? `Elite · until ${new Date(
+                  ? `${t.dashboard.eliteUntilPrefix}${new Date(
                       subscription!.subscription_expires_at!
-                    ).toLocaleDateString()}`
-                  : "Free plan"}
+                    ).toLocaleDateString(intlLocale(locale))}${t.dashboard.eliteUntilSuffix}`
+                  : t.dashboard.freePlan}
               </span>
               {!isElite && (
                 <Link href="/upgrade" className="underline font-semibold">
-                  Upgrade to Elite
+                  {t.dashboard.upgradeToElite}
                 </Link>
               )}
             </div>
@@ -223,7 +228,7 @@ export default async function DashboardPage() {
                 color: "var(--text)",
               }}
             >
-              Edit profile
+              {t.dashboard.editProfile}
             </Link>
             <Link
               href="/account"
@@ -234,7 +239,7 @@ export default async function DashboardPage() {
                 color: "var(--text)",
               }}
             >
-              Account &amp; privacy
+              {t.dashboard.accountPrivacy}
             </Link>
             {profile.is_admin && (
               <Link
@@ -246,7 +251,7 @@ export default async function DashboardPage() {
                   color: "var(--text)",
                 }}
               >
-                Admin dashboard
+                {t.dashboard.adminDashboard}
               </Link>
             )}
           </>
@@ -258,14 +263,17 @@ export default async function DashboardPage() {
             className="w-full text-center rounded-xl py-2.5 text-sm font-semibold"
             style={{ color: "var(--text-soft)" }}
           >
-            Sign out
+            {t.dashboard.signOut}
           </button>
         </form>
-        <p className="text-center text-xs mt-4" style={{ color: "var(--text-soft)" }}>
-          <Link href="/privacy" className="underline">
-            Privacy Policy
-          </Link>
-        </p>
+        <div className="flex items-center justify-between mt-5">
+          <p className="text-xs" style={{ color: "var(--text-soft)" }}>
+            <Link href="/privacy" className="underline">
+              {t.common.privacyPolicy}
+            </Link>
+          </p>
+          <LocaleToggle locale={locale} />
+        </div>
       </div>
     </div>
   );

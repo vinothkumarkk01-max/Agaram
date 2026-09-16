@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createEliteOrder, verifyElitePayment } from "@/app/actions/payments";
+import type { Dictionary } from "@/lib/i18n/dictionary";
 
 declare global {
   interface Window {
@@ -26,7 +27,13 @@ function loadRazorpayScript(): Promise<boolean> {
   });
 }
 
-export function UpgradeButton({ userEmail }: { userEmail?: string }) {
+export function UpgradeButton({
+  userEmail,
+  t,
+}: {
+  userEmail?: string;
+  t: Dictionary;
+}) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -44,9 +51,7 @@ export function UpgradeButton({ userEmail }: { userEmail?: string }) {
 
     const scriptLoaded = await loadRazorpayScript();
     if (!scriptLoaded) {
-      setError(
-        "Couldn't load the checkout — check your connection and try again."
-      );
+      setError(t.upgrade.checkoutLoadError);
       setLoading(false);
       return;
     }
@@ -97,7 +102,7 @@ export function UpgradeButton({ userEmail }: { userEmail?: string }) {
             "linear-gradient(135deg, var(--accent), var(--accent-strong))",
         }}
       >
-        {loading ? "Opening checkout…" : "Upgrade to Elite — ₹15,000 / 6 months"}
+        {loading ? t.upgrade.openingCheckout : t.upgrade.upgradeButtonLabel}
       </button>
       {error && (
         <p className="text-sm mt-3" style={{ color: "var(--accent-strong)" }}>

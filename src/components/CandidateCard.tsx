@@ -1,4 +1,5 @@
 import { expressInterest, passOnCandidate } from "@/app/actions/matches";
+import type { Dictionary } from "@/lib/i18n/dictionary";
 
 export type MaskedCandidate = {
   id: string;
@@ -8,7 +9,13 @@ export type MaskedCandidate = {
   is_verified: boolean;
 };
 
-export function CandidateCard({ candidate }: { candidate: MaskedCandidate }) {
+export function CandidateCard({
+  candidate,
+  t,
+}: {
+  candidate: MaskedCandidate;
+  t: Dictionary;
+}) {
   return (
     <div
       className="rounded-2xl p-5 flex items-center justify-between gap-4"
@@ -23,7 +30,7 @@ export function CandidateCard({ candidate }: { candidate: MaskedCandidate }) {
         </div>
         <div>
           <div className="text-sm font-semibold">
-            {candidate.age} years
+            {candidate.age} {t.dashboard.years}
             {candidate.location ? ` · ${candidate.location}` : ""}
           </div>
           {candidate.is_verified && (
@@ -31,7 +38,7 @@ export function CandidateCard({ candidate }: { candidate: MaskedCandidate }) {
               className="text-xs font-semibold mt-1"
               style={{ color: "var(--ok)" }}
             >
-              ✓ Identity verified
+              {t.dashboard.identityVerified}
             </div>
           )}
         </div>
@@ -47,7 +54,7 @@ export function CandidateCard({ candidate }: { candidate: MaskedCandidate }) {
               color: "var(--text-soft)",
             }}
           >
-            Pass
+            {t.matches.pass}
           </button>
         </form>
         <form action={expressInterest.bind(null, candidate.id)}>
@@ -59,7 +66,7 @@ export function CandidateCard({ candidate }: { candidate: MaskedCandidate }) {
                 "linear-gradient(135deg, var(--accent), var(--accent-strong))",
             }}
           >
-            Interested
+            {t.matches.interested}
           </button>
         </form>
       </div>
