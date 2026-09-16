@@ -152,6 +152,18 @@ export function AuthForm({ mode, action }: Props) {
               </>
             )}
           </p>
+          {isSignup && (
+            <p
+              className="text-center text-xs mt-3"
+              style={{ color: "var(--text-soft)" }}
+            >
+              By creating an account, you agree to our{" "}
+              <Link href="/privacy" className="underline">
+                Privacy Policy
+              </Link>
+              .
+            </p>
+          )}
         </div>
       </div>
     </div>

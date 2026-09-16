@@ -308,12 +308,152 @@ verification.
     verification beyond the `resolved_by` column on `reports` itself
     (verification overrides aren't attributed to an admin at all yet).
 
+## Polish & harden (Phase 8) — error tracking, a security pass, and a privacy policy
+
+Three pieces, covered in order below: error tracking (Sentry), a
+security pass on auth/authorization (there's no file-upload feature
+yet — see the note at the end of that section), and a first-draft
+privacy policy.
+
+### Error tracking — Sentry
+
+Wired up with `@sentry/nextjs`, following this Next.js version's own
+`instrumentation.ts` / `instrumentation-client.ts` conventions (see
+`src/instrumentation.ts`, `src/instrumentation-client.ts`,
+`sentry.server.config.ts`, `sentry.edge.config.ts`). It captures
+unhandled errors from Server Components, Route Handlers, Server
+Actions, and the proxy/middleware automatically via `onRequestError`,
+plus client-side errors via `src/app/error.tsx` (route-level) and
+`src/app/global-error.tsx` (root-layout-level, last resort).
+
+**Without any Sentry env vars set, this is a safe no-op** — `Sentry.init({ dsn: undefined })`
+initializes but never sends anything, so local dev and the current
+deployment keep working exactly as before. To turn it on:
+
+1. Create a free account at [sentry.io](https://sentry.io) and a new
+   project (platform: Next.js).
+2. Copy its DSN (Settings → Client Keys (DSN)) and add:
+   ```
+   NEXT_PUBLIC_SENTRY_DSN=https://xxxxx@oXXXXXX.ingest.<region>.sentry.io/XXXXXXX
+   ```
+   to `.env.local` (local) and your Vercel project's environment
+   variables (production) — the `NEXT_PUBLIC_` prefix is required
+   (it needs to reach the browser bundle too), and a DSN is not a
+   secret, so this is safe to expose.
+3. **Optional, for readable stack traces in production** (source map
+   upload at build time): add `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, and
+   `SENTRY_PROJECT` (from Sentry's dashboard). Without these, the build
+   still succeeds — it just skips the source-map-upload step with a
+   warning, and Sentry shows minified stack traces instead.
+4. Redeploy. Trigger a test error (any thrown exception) and confirm
+   it shows up in the Sentry project's Issues tab.
+
+### Security pass — auth & authorization
+
+**There's no file-upload feature in the app yet** — identity
+verification takes a typed Aadhaar number (Phase 3), not a document
+photo, so "a security pass on file uploads" from the build plan
+doesn't apply yet. This pass covered auth and authorization instead,
+which is where the app's actual attack surface is today. Reviewing
+every RLS policy in `supabase/schema.sql` against what a member's own
+Supabase session can call directly (not just what the app's own
+screens do) turned up four real gaps — all fixed in this phase's
+`schema.sql` changes:
+
+- **Privilege escalation (most serious).** `profiles.is_admin`,
+  `.subscription_tier`, and `.subscription_expires_at` had no
+  column-level write protection — only row-level ("can you touch your
+  own row at all"), not column-level ("which columns on it"). Any
+  signed-in member could have called
+  `supabase.from("profiles").update({is_admin: true})` — or
+  `{subscription_tier: "elite"}` — directly from their own session,
+  bypassing the app entirely, and RLS would have allowed it. Fixed by
+  revoking column-level `insert`/`update` privileges on those three
+  columns from the `authenticated` role; the only way they can change
+  now is the manual admin SQL grant (`is_admin`, unchanged from Phase
+  7) and a new `finalize_elite_payment()` function (below).
+- **Self-verification.** The identity-verification `status` column
+  could be set to `"verified"` directly by the member it belongs to,
+  skipping the actual check (mock today, a real vendor later)
+  entirely. Fixed with a `WITH CHECK` that pins a member's own writes
+  to `status = 'pending'`, plus a new `resolve_mock_verification()`
+  function (`SECURITY DEFINER`, same pattern as `is_admin()` from
+  Phase 7) as the one path that can actually mark a row verified.
+- **Self-approving your own match.** Either side of a pending
+  "interest sent" could set `matches.status` to `"mutual"` directly —
+  including the person who *sent* the interest, letting them force a
+  match with someone who never accepted, unlocking profile reveal and
+  messaging. Fixed with a `WITH CHECK` that blocks exactly that one
+  move (`status = 'mutual' and you are the original sender`); the
+  app's own logic already never attempted it, so no app code changed.
+- **Forged payment records.** A member could set their own
+  `payments.status` to `"paid"` directly, without a real Razorpay
+  transaction (this alone didn't grant Elite, once the point above was
+  fixed, but it left fake records in payment history). Fixed the same
+  way as identity verification — `WITH CHECK` pins member writes to
+  `status = 'created'`, and two new functions, `finalize_elite_payment()`
+  and `mark_payment_failed()`, are the only paths that can mark a
+  payment `paid`/`failed`. `src/app/actions/payments.ts` now calls
+  these via `supabase.rpc(...)` instead of updating the tables
+  directly — `verifyElitePayment()`'s HMAC signature check is
+  unchanged, only what happens *after* it passes.
+
+None of these were exploitable through the app's own screens — every
+one requires calling the Supabase client library directly with a
+signed-in member's own session, bypassing the UI. That's exactly why
+they're worth fixing regardless: RLS policies are the actual security
+boundary here (the same principle every prior phase's comments already
+state), not the React components sitting in front of them.
+
+**Also added, lower severity:**
+- **Security headers** (`next.config.ts`): `Strict-Transport-Security`,
+  `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`,
+  `Permissions-Policy` (camera/microphone/geolocation all denied — this
+  app never asks for them).
+- **A Content-Security-Policy, shipped in `Report-Only` mode.** It's
+  built to cover what the app actually loads (Supabase, Razorpay's
+  checkout, Sentry's ingestion endpoint), but Razorpay's checkout flow
+  touches several of its own subdomains (card entry, 3D-Secure/OTP
+  redirects, UPI/QR) that a single test transaction won't all exercise
+  — shipping it in enforcing mode without being able to click through
+  every path against the live deployment risked silently breaking
+  checkout, which is already confirmed working. Report-Only mode
+  changes nothing for members; it just logs would-be violations to the
+  browser console. **Next step:** sign up, verify identity, run an
+  Elite checkout, and send a message while watching the browser console
+  for `[Report Only]` CSP warnings — once a full run-through is clean,
+  change the header key in `next.config.ts` from
+  `Content-Security-Policy-Report-Only` to `Content-Security-Policy` to
+  actually enforce it.
+- **Not changed:** rate limiting on login/signup relies on Supabase
+  Auth's own built-in limits — nothing custom added here. Worth
+  revisiting (Vercel's WAF, or a library like Arcjet) if real signups
+  ever show abuse.
+
+### Privacy policy — first draft
+
+`/privacy` — linked from the landing page, the signup form, and the
+dashboard footer. It plainly describes what the app's code actually
+collects and does today (account info, profile fields, the
+last-4-digits-only Aadhaar handling from Phase 3, Razorpay payment
+metadata, matches/messages, reports) and who it's shared with
+(Supabase, Razorpay, Vercel, Sentry, and HyperVerge/Signzy once
+connected). **This is a first draft, not a substitute for the DPDP-Act
+legal review the build plan's Section 7 already calls for** —
+`[bracketed placeholders]` in the page itself (effective date, the
+named grievance-officer contact the DPDP Act requires) still need real
+answers, and a real deletion/export flow (mentioned in the page's
+retention section) still needs building.
+
 ## What's next
 
-Per the build plan's suggested order: polish & harden next — error
-tracking, a security pass on file uploads and auth, and a privacy
-policy reviewed against DPDP Act basics — plus swapping in the real
-HyperVerge call above once their sandbox access comes through, and
-moving Razorpay to live mode once business KYC is done. Bring this
-repo and `Agaram_Premium_PRD_v2.md` / the clickable prototype into
-your next session and we'll build the next phase on top of this.
+Everything in the build plan's phased order is now built — Phases 1
+through 8. What's left is vendor/business work, not more phases:
+swapping in the real HyperVerge (or Signzy) Aadhaar check once their
+sandbox access comes through, moving Razorpay to live mode once
+business KYC is done, the DPDP-Act legal review flagged throughout
+this section, and building the deletion/export flow it calls for.
+Bring this repo and `Agaram_Premium_PRD_v2.md` / the clickable
+prototype into your next session for any of those, or for expanding
+past the V0 scope in Section 3 of the build plan (family accounts,
+diaspora onboarding, Tamil-language UI, and the rest).

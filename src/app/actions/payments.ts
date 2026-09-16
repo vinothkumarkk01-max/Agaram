@@ -86,6 +86,15 @@ export type VerifyPaymentResult =
  * documented flow) before touching the subscription. Never trust the
  * client-side "handler" callback alone — this is what actually
  * grants Elite access.
+ *
+ * The actual writes go through finalize_elite_payment() /
+ * mark_payment_failed() (supabase/schema.sql, Phase 8's security
+ * pass), not a direct .update() on payments/profiles — those columns
+ * are now locked against ordinary member writes (RLS WITH CHECK on
+ * payments.status, a column-privilege revoke on
+ * profiles.subscription_tier/expires_at), specifically so that
+ * "mark paid and grant Elite" can only ever happen from here, after
+ * the signature check below has already passed.
  */
 export async function verifyElitePayment(
   razorpayOrderId: string,
@@ -111,49 +120,26 @@ export async function verifyElitePayment(
     .digest("hex");
 
   if (expectedSignature !== razorpaySignature) {
-    await supabase
-      .from("payments")
-      .update({ status: "failed" })
-      .eq("razorpay_order_id", razorpayOrderId)
-      .eq("profile_id", user.id);
+    await supabase.rpc("mark_payment_failed", {
+      p_order_id: razorpayOrderId,
+    });
     return { success: false, error: "Payment verification failed." };
   }
 
-  const { data: payment } = await supabase
-    .from("payments")
-    .select("id")
-    .eq("razorpay_order_id", razorpayOrderId)
-    .eq("profile_id", user.id)
-    .maybeSingle();
+  const { data: finalized, error: rpcError } = await supabase.rpc(
+    "finalize_elite_payment",
+    {
+      p_order_id: razorpayOrderId,
+      p_payment_id: razorpayPaymentId,
+      p_period_days: ELITE_PERIOD_DAYS,
+    }
+  );
 
-  if (!payment) {
-    return { success: false, error: "We couldn't find that order." };
+  if (rpcError) {
+    return { success: false, error: rpcError.message };
   }
-
-  await supabase
-    .from("payments")
-    .update({
-      status: "paid",
-      razorpay_payment_id: razorpayPaymentId,
-      verified_at: new Date().toISOString(),
-    })
-    .eq("razorpay_order_id", razorpayOrderId)
-    .eq("profile_id", user.id);
-
-  const expiresAt = new Date();
-  expiresAt.setDate(expiresAt.getDate() + ELITE_PERIOD_DAYS);
-
-  const { error: profileError } = await supabase
-    .from("profiles")
-    .update({
-      subscription_tier: "elite",
-      subscription_expires_at: expiresAt.toISOString(),
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", user.id);
-
-  if (profileError) {
-    return { success: false, error: profileError.message };
+  if (!finalized) {
+    return { success: false, error: "We couldn't find that order." };
   }
 
   return { success: true };

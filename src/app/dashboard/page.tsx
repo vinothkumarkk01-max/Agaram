@@ -250,6 +250,11 @@ export default async function DashboardPage() {
             Sign out
           </button>
         </form>
+        <p className="text-center text-xs mt-4" style={{ color: "var(--text-soft)" }}>
+          <Link href="/privacy" className="underline">
+            Privacy Policy
+          </Link>
+        </p>
       </div>
     </div>
   );

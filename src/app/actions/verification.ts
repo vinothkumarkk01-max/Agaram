@@ -76,6 +76,14 @@ export async function submitIdentityVerification(
  * call (or a webhook route that updates this same row). Everything
  * downstream only ever reads `identity_verifications.status`, so no
  * other file needs to change.
+ *
+ * Calls the resolve_mock_verification() SECURITY DEFINER function
+ * (supabase/schema.sql, Phase 8) instead of updating the row directly
+ * — the RLS policy on this table only ever lets a member write their
+ * own status back to "pending", so a plain .update({status:
+ * "verified"}) from here would silently fail after Phase 8's security
+ * pass. The RPC is the one path allowed to actually mark a row
+ * verified.
  */
 export async function resolveMockVerification() {
   const supabase = await createClient();
@@ -87,14 +95,7 @@ export async function resolveMockVerification() {
     redirect("/login");
   }
 
-  await supabase
-    .from("identity_verifications")
-    .update({
-      status: "verified",
-      verified_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    })
-    .eq("profile_id", user.id);
+  await supabase.rpc("resolve_mock_verification");
 
   redirect("/onboarding/verification");
 }

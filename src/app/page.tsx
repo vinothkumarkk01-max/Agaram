@@ -52,6 +52,11 @@ export default function Home() {
             Sign in
           </Link>
         </div>
+        <p className="text-xs mt-8" style={{ color: "var(--text-soft)" }}>
+          <Link href="/privacy" className="underline">
+            Privacy Policy
+          </Link>
+        </p>
       </div>
     </div>
   );

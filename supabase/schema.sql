@@ -98,15 +98,45 @@ create policy "Users can view own verification"
   on public.identity_verifications for select
   using (auth.uid() = profile_id);
 
+-- WITH CHECK pins the WRITTEN status to 'pending' -- a member can
+-- submit or resubmit a check (both go through this policy, since
+-- submitIdentityVerification always upserts status: "pending"), but
+-- can never write "verified"/"failed" themselves. Before Phase 8 this
+-- policy had no WITH CHECK at all, which meant a member could call
+-- supabase.from("identity_verifications").update({status: "verified"})
+-- directly from their own session -- bypassing the vendor check (mock
+-- today, HyperVerge later) entirely. Only resolve_mock_verification()
+-- below (SECURITY DEFINER, so it bypasses this policy as the table
+-- owner) is allowed to actually mark a row verified.
 drop policy if exists "Users can insert own verification" on public.identity_verifications;
 create policy "Users can insert own verification"
   on public.identity_verifications for insert
-  with check (auth.uid() = profile_id);
+  with check (auth.uid() = profile_id and status = 'pending');
 
 drop policy if exists "Users can update own verification" on public.identity_verifications;
 create policy "Users can update own verification"
   on public.identity_verifications for update
-  using (auth.uid() = profile_id);
+  using (auth.uid() = profile_id)
+  with check (auth.uid() = profile_id and status = 'pending');
+
+-- Stands in for the vendor webhook (see verification.ts) -- the one
+-- legitimate way a row moves to "verified". SECURITY DEFINER lets it
+-- write a status the policy above otherwise blocks, the same pattern
+-- is_admin() and get_mutual_matches() already use to sidestep RLS.
+create or replace function public.resolve_mock_verification()
+returns void
+language sql
+security definer
+set search_path = public
+as $$
+  update public.identity_verifications
+  set status = 'verified',
+      verified_at = now(),
+      updated_at = now()
+  where profile_id = auth.uid();
+$$;
+
+grant execute on function public.resolve_mock_verification() to authenticated;
 
 -- ============================================================
 -- Phase 4 — Matching feed
@@ -148,10 +178,25 @@ create policy "Users can create matches they are part of"
     and (auth.uid() = candidate_a or auth.uid() = candidate_b)
   );
 
+-- WITH CHECK blocks one specific move: you can never flip your OWN
+-- sent interest straight to "mutual" yourself (initiated_by = you).
+-- Before Phase 8 this policy had no WITH CHECK, so a member could call
+-- supabase.from("matches").update({status: "mutual"}) directly on a
+-- row they'd initiated -- forcing a "mutual" match (and everything
+-- that unlocks: profile reveal, messaging) with someone who never
+-- actually accepted. actions/matches.ts already only ever completes a
+-- match from the NON-initiating side (expressInterest's "they already
+-- expressed interest in me" branch, and respondToInterest) -- this
+-- just makes that the only path the database allows too. Declining
+-- your own sent interest, and either side declining, are unaffected.
 drop policy if exists "Users can update own matches" on public.matches;
 create policy "Users can update own matches"
   on public.matches for update
-  using (auth.uid() = candidate_a or auth.uid() = candidate_b);
+  using (auth.uid() = candidate_a or auth.uid() = candidate_b)
+  with check (
+    (auth.uid() = candidate_a or auth.uid() = candidate_b)
+    and not (status = 'mutual' and auth.uid() = initiated_by)
+  );
 
 -- Everything below is a SECURITY DEFINER function, deliberately NOT
 -- a broad RLS policy on profiles/preferences. profiles stays locked
@@ -337,12 +382,93 @@ create policy "Users can view own payments"
 drop policy if exists "Users can create own payments" on public.payments;
 create policy "Users can create own payments"
   on public.payments for insert
-  with check (auth.uid() = profile_id);
+  with check (auth.uid() = profile_id and status = 'created');
 
+-- WITH CHECK pins the WRITTEN status back to 'created' -- before
+-- Phase 8 this policy had none, so a member could call
+-- supabase.from("payments").update({status: "paid"}) on their own
+-- order directly, planting a fake "paid" row without ever going
+-- through Razorpay or the HMAC signature check in
+-- verifyElitePayment(). It couldn't grant Elite by itself even then
+-- (profiles.subscription_tier is separately locked down below), but
+-- it could leave forged payment history lying around. Now the only
+-- way a row actually becomes "paid" or "failed" is
+-- finalize_elite_payment() / mark_payment_failed() below, both
+-- SECURITY DEFINER and both called only after verifyElitePayment has
+-- already checked the signature server-side.
 drop policy if exists "Users can update own payments" on public.payments;
 create policy "Users can update own payments"
   on public.payments for update
-  using (auth.uid() = profile_id);
+  using (auth.uid() = profile_id)
+  with check (auth.uid() = profile_id and status = 'created');
+
+-- Called by verifyElitePayment() ONLY after the HMAC-SHA256 signature
+-- check passes. Marks the matching "created" order paid and activates
+-- Elite in one transaction. SECURITY DEFINER so it can write
+-- payments.status and profiles.subscription_tier/expires_at, both
+-- locked against direct member writes (see the policy above and the
+-- column-privilege revoke below). Returns false if there's no
+-- matching "created" order for this caller to finalize (already
+-- finalized, wrong order, or not theirs) so the caller can surface a
+-- clear error instead of silently no-op'ing.
+create or replace function public.finalize_elite_payment(
+  p_order_id text,
+  p_payment_id text,
+  p_period_days integer
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_id uuid;
+begin
+  select id into v_id
+  from public.payments
+  where razorpay_order_id = p_order_id
+    and profile_id = auth.uid()
+    and status = 'created';
+
+  if v_id is null then
+    return false;
+  end if;
+
+  update public.payments
+  set status = 'paid',
+      razorpay_payment_id = p_payment_id,
+      verified_at = now()
+  where id = v_id;
+
+  update public.profiles
+  set subscription_tier = 'elite',
+      subscription_expires_at = now() + make_interval(days => p_period_days),
+      updated_at = now()
+  where id = auth.uid();
+
+  return true;
+end;
+$$;
+
+grant execute on function public.finalize_elite_payment(text, text, integer) to authenticated;
+
+-- Called by verifyElitePayment() when the signature check fails.
+-- SECURITY DEFINER for the same reason as finalize_elite_payment()
+-- above; only ever moves a caller's own "created" order to "failed".
+create or replace function public.mark_payment_failed(p_order_id text)
+returns void
+language sql
+security definer
+set search_path = public
+as $$
+  update public.payments
+  set status = 'failed'
+  where razorpay_order_id = p_order_id
+    and profile_id = auth.uid()
+    and status = 'created';
+$$;
+
+grant execute on function public.mark_payment_failed(text) to authenticated;
 
 -- get_mutual_matches (Phase 4) now needs to withhold full_name/
 -- about_me from members who aren't on an active Elite subscription —
@@ -603,3 +729,38 @@ create policy "Admins can update all verifications"
   using (
     public.is_admin()
   );
+
+-- ============================================================
+-- Phase 8 — Polish & harden (security pass)
+-- ============================================================
+
+-- profiles.is_admin, .subscription_tier and .subscription_expires_at
+-- are all "privileged" columns: is_admin is granted by hand in the SQL
+-- Editor only (see README); subscription_tier/expires_at are only
+-- ever supposed to change via finalize_elite_payment() above, after a
+-- real Razorpay signature check.
+--
+-- Row-level policies can't protect individual columns -- "Users can
+-- update own profile" (Phase 2) correctly restricts WHICH ROW a
+-- member can touch, but says nothing about WHICH COLUMNS, and
+-- Supabase grants `authenticated` write access to every column by
+-- default. That meant, until this revoke, any signed-in member could
+-- call supabase.from("profiles").update({is_admin: true}) — or
+-- {subscription_tier: "elite"} — on their OWN row directly, with no
+-- server action, no payment, and no admin involved, and RLS would
+-- happily allow it (auth.uid() = id was the only thing being
+-- checked). This is the most serious finding from the Phase 8 review:
+-- a straight privilege-escalation / free-Elite hole open since Phase
+-- 7 (is_admin) and Phase 5 (subscription_tier) were added.
+--
+-- The fix is a column-level privilege revoke, not another RLS policy
+-- -- Postgres RLS has no concept of "this column, not that one",
+-- while GRANT/REVOKE does. After this, ordinary member writes to
+-- these three columns are rejected at the permissions layer before
+-- RLS is even evaluated; the SECURITY DEFINER functions above/below
+-- can still write them because they run as the function owner, which
+-- isn't subject to these grants.
+revoke insert (is_admin, subscription_tier, subscription_expires_at)
+  on public.profiles from authenticated;
+revoke update (is_admin, subscription_tier, subscription_expires_at)
+  on public.profiles from authenticated;
