@@ -225,6 +225,17 @@ export default async function DashboardPage() {
             >
               Edit profile
             </Link>
+            <Link
+              href="/account"
+              className="block text-center rounded-xl py-2.5 text-sm font-semibold mb-3"
+              style={{
+                background: "var(--bg-raised)",
+                border: "1px solid var(--line)",
+                color: "var(--text)",
+              }}
+            >
+              Account &amp; privacy
+            </Link>
             {profile.is_admin && (
               <Link
                 href="/admin"

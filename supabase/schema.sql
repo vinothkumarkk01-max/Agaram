@@ -198,6 +198,92 @@ create policy "Users can update own matches"
     and not (status = 'mutual' and auth.uid() = initiated_by)
   );
 
+-- ============================================================
+-- Phase 9 (V1) — Member blocking
+-- ============================================================
+--
+-- Declining a match (either from Browse's "Pass" or Received's
+-- "Decline") is already effectively permanent in this schema: once
+-- ANY matches row exists for a pair, get_match_candidates()'s
+-- not-exists check below permanently excludes them from re-appearing
+-- for either person, regardless of that row's status. So `blocks`
+-- doesn't add a stronger technical exclusion than declining already
+-- provides -- what it adds is: (1) an explicit, safety-framed action
+-- distinct from an ordinary "not interested" decline, (2) a durable,
+-- dedicated record so a member can actually see and manage who
+-- they've blocked (declined matches aren't surfaced in any list
+-- today), and (3) a signal that doesn't depend on the mutable
+-- `matches` state machine, so it keeps working even if matching
+-- logic changes later (e.g. a future "reconsider after 6 months"
+-- feature should never resurrect someone a member deliberately
+-- blocked). Placed here, before get_match_candidates() below, since
+-- that function is about to reference this table -- a plain `language
+-- sql` function is validated against the catalog at creation time,
+-- so the table has to exist first.
+create table if not exists public.blocks (
+  id uuid primary key default gen_random_uuid(),
+  blocker_id uuid not null references public.profiles (id) on delete cascade,
+  blocked_id uuid not null references public.profiles (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  constraint blocks_not_self check (blocker_id <> blocked_id),
+  constraint blocks_unique_pair unique (blocker_id, blocked_id)
+);
+
+alter table public.blocks enable row level security;
+
+-- Deliberately NOT symmetric: you can see and manage your own
+-- blocklist, but never whether someone else has blocked you (the
+-- usual norm for this kind of feature, and it avoids giving a member
+-- a reason to retaliate against whoever blocked them).
+drop policy if exists "Members can view their own blocklist" on public.blocks;
+create policy "Members can view their own blocklist"
+  on public.blocks for select
+  using (blocker_id = auth.uid());
+
+drop policy if exists "Members can block others" on public.blocks;
+create policy "Members can block others"
+  on public.blocks for insert
+  with check (blocker_id = auth.uid());
+
+drop policy if exists "Members can unblock" on public.blocks;
+create policy "Members can unblock"
+  on public.blocks for delete
+  using (blocker_id = auth.uid());
+
+-- Masked summary for the "Blocked members" list on /account -- same
+-- initial/age/location/verified shape as the other pre-reveal lists
+-- (get_match_candidates, get_received_interests), since blocking
+-- doesn't require or imply an Elite unlock.
+create or replace function public.get_blocked_members()
+returns table (
+  blocked_id uuid,
+  age integer,
+  location text,
+  initial text,
+  is_verified boolean,
+  blocked_at timestamptz
+)
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select
+    p.id as blocked_id,
+    p.age,
+    p.location,
+    left(p.full_name, 1) as initial,
+    coalesce(iv.status = 'verified', false) as is_verified,
+    b.created_at as blocked_at
+  from public.blocks b
+  join public.profiles p on p.id = b.blocked_id
+  left join public.identity_verifications iv on iv.profile_id = p.id
+  where b.blocker_id = auth.uid()
+  order by b.created_at desc;
+$$;
+
+grant execute on function public.get_blocked_members() to authenticated;
+
 -- Everything below is a SECURITY DEFINER function, deliberately NOT
 -- a broad RLS policy on profiles/preferences. profiles stays locked
 -- to "only I can read my own row" (Phase 2's policy, unchanged) —
@@ -247,6 +333,14 @@ as $$
       select 1 from public.matches m
       where (m.candidate_a = auth.uid() and m.candidate_b = p.id)
          or (m.candidate_a = p.id and m.candidate_b = auth.uid())
+    )
+    -- Phase 9: never resurface someone in either blocking direction,
+    -- independent of the matches-row check above (a block can exist
+    -- with no prior match row at all -- see blocks table below).
+    and not exists (
+      select 1 from public.blocks b
+      where (b.blocker_id = auth.uid() and b.blocked_id = p.id)
+         or (b.blocker_id = p.id and b.blocked_id = auth.uid())
     )
     and p.age between coalesce(my_prefs.age_min, 18) and coalesce(my_prefs.age_max, 100)
     and (
@@ -520,6 +614,15 @@ as $$
   cross join me
   where (m.candidate_a = auth.uid() or m.candidate_b = auth.uid())
     and m.status = 'mutual'
+    -- Phase 9 belt-and-suspenders: blockMember() already declines the
+    -- underlying match, which alone would drop it from this list, but
+    -- this makes the exclusion hold even if that update somehow
+    -- didn't land.
+    and not exists (
+      select 1 from public.blocks b
+      where (b.blocker_id = auth.uid() and b.blocked_id = p.id)
+         or (b.blocker_id = p.id and b.blocked_id = auth.uid())
+    )
   order by m.updated_at desc;
 $$;
 
@@ -577,6 +680,19 @@ create policy "Elite members can message their mutual matches"
         and p.subscription_tier = 'elite'
         and (p.subscription_expires_at is null or p.subscription_expires_at > now())
     )
+    -- Phase 9 belt-and-suspenders, same reasoning as
+    -- get_mutual_matches() above.
+    and not exists (
+      select 1 from public.blocks b
+      where (b.blocker_id = auth.uid() and b.blocked_id = (
+        select case when m2.candidate_a = auth.uid() then m2.candidate_b else m2.candidate_a end
+        from public.matches m2 where m2.id = messages.match_id
+      ))
+      or (b.blocked_id = auth.uid() and b.blocker_id = (
+        select case when m2.candidate_a = auth.uid() then m2.candidate_b else m2.candidate_a end
+        from public.matches m2 where m2.id = messages.match_id
+      ))
+    )
   );
 
 -- Single-match version of get_mutual_matches, for the thread header:
@@ -621,7 +737,12 @@ as $$
   cross join me
   where m.id = p_match_id
     and (m.candidate_a = auth.uid() or m.candidate_b = auth.uid())
-    and m.status = 'mutual';
+    and m.status = 'mutual'
+    and not exists (
+      select 1 from public.blocks b
+      where (b.blocker_id = auth.uid() and b.blocked_id = p.id)
+         or (b.blocker_id = p.id and b.blocked_id = auth.uid())
+    );
 $$;
 
 grant execute on function public.get_match_thread(uuid) to authenticated;

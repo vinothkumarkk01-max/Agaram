@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { respondToInterest } from "@/app/actions/matches";
+import { blockMember } from "@/app/actions/blocks";
 
 type ReceivedInterest = {
   match_id: string;
@@ -65,30 +66,41 @@ export default async function ReceivedInterestsPage() {
               )}
             </div>
           </div>
-          <div className="flex gap-2 shrink-0">
-            <form action={respondToInterest.bind(null, m.match_id, false)}>
+          <div className="flex flex-col items-end gap-2 shrink-0">
+            <div className="flex gap-2">
+              <form action={respondToInterest.bind(null, m.match_id, false)}>
+                <button
+                  type="submit"
+                  className="rounded-xl px-4 py-2 text-sm font-semibold"
+                  style={{
+                    background: "var(--bg-raised)",
+                    border: "1px solid var(--line)",
+                    color: "var(--text-soft)",
+                  }}
+                >
+                  Decline
+                </button>
+              </form>
+              <form action={respondToInterest.bind(null, m.match_id, true)}>
+                <button
+                  type="submit"
+                  className="rounded-xl px-4 py-2 text-sm font-bold text-white"
+                  style={{
+                    background:
+                      "linear-gradient(135deg, var(--accent), var(--accent-strong))",
+                  }}
+                >
+                  Accept
+                </button>
+              </form>
+            </div>
+            <form action={blockMember.bind(null, m.candidate_id)}>
               <button
                 type="submit"
-                className="rounded-xl px-4 py-2 text-sm font-semibold"
-                style={{
-                  background: "var(--bg-raised)",
-                  border: "1px solid var(--line)",
-                  color: "var(--text-soft)",
-                }}
+                className="text-xs font-semibold"
+                style={{ color: "var(--text-soft)" }}
               >
-                Decline
-              </button>
-            </form>
-            <form action={respondToInterest.bind(null, m.match_id, true)}>
-              <button
-                type="submit"
-                className="rounded-xl px-4 py-2 text-sm font-bold text-white"
-                style={{
-                  background:
-                    "linear-gradient(135deg, var(--accent), var(--accent-strong))",
-                }}
-              >
-                Accept
+                Block
               </button>
             </form>
           </div>

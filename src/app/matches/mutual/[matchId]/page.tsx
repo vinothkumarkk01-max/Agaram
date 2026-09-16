@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { MessageThread } from "@/components/MessageThread";
+import { blockMember } from "@/app/actions/blocks";
 
 type MatchThread = {
   match_id: string;
@@ -97,13 +98,24 @@ export default async function MatchThreadPage({
             {thread.is_verified ? " · ✓ Identity verified" : ""}
           </div>
         </div>
-        <Link
-          href={`/matches/mutual/${matchId}/report`}
-          className="text-xs font-semibold shrink-0"
-          style={{ color: "var(--text-soft)" }}
-        >
-          Report
-        </Link>
+        <div className="flex items-center gap-3 shrink-0">
+          <Link
+            href={`/matches/mutual/${matchId}/report`}
+            className="text-xs font-semibold"
+            style={{ color: "var(--text-soft)" }}
+          >
+            Report
+          </Link>
+          <form action={blockMember.bind(null, thread.candidate_id)}>
+            <button
+              type="submit"
+              className="text-xs font-semibold"
+              style={{ color: "var(--accent-strong)" }}
+            >
+              Block
+            </button>
+          </form>
+        </div>
       </div>
 
       <MessageThread

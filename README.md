@@ -288,11 +288,8 @@ verification.
   isn't behind the Elite paywall; that gate is between members, not
   between a member and whoever runs the platform.
 - **What's deliberately NOT built yet:**
-  - **No blocking.** The PRD's data model has a `blocks` table
-    alongside `reports`, but V0's own scope (see Section 3 of the
-    build plan) only calls for the reports + verification review
-    piece — blocking a member from ever matching with you again is a
-    real, separate feature for later.
+  - **No blocking yet in V0** — added afterward, see "Member
+    blocking, data export & account deletion" below.
   - **Admins can't read message content.** A report shows who
     reported whom and their stated reason, not the conversation
     itself. Giving admin access to private messages is a deliberate,
@@ -445,15 +442,82 @@ named grievance-officer contact the DPDP Act requires) still need real
 answers, and a real deletion/export flow (mentioned in the page's
 retention section) still needs building.
 
+## Member blocking, data export & account deletion (V1)
+
+The first deferred V1 feature from Section 3 of the build plan, built
+after all 8 V0 phases were live. Three pieces, all reachable from a
+new **Account & privacy** link on `/dashboard`:
+
+- **Blocking.** A **Block** button on `/matches/mutual/<match id>`
+  (next to Report) and on `/matches/received` (next to Decline/Accept)
+  adds the other member to your `blocks` table row and immediately
+  declines any existing match between you. Blocking is one-directional
+  and asymmetric — you can see and manage your own blocklist on
+  `/account`, but a blocked member is never told they've been blocked.
+  It's enforced in the database, not just hidden in the UI: the same
+  `blocks` check is added to `get_match_candidates()`,
+  `get_mutual_matches()`, `get_match_thread()`, and the `messages`
+  insert policy in `supabase/schema.sql`, so a blocked member can't
+  resurface as a new match, in your mutual list, or in a message
+  thread, however they reach the database. This is a genuinely new
+  capability, not just a rename of "decline" — declining a match was
+  already effectively permanent in this schema, but blocking gives an
+  explicit, safety-framed, always-visible, independently-manageable
+  list, separate from the mutual-match state machine.
+- **Data export.** "Download my data" on `/account` streams a single
+  JSON file with everything Supabase's RLS already lets you read about
+  yourself: profile, preferences, identity verification status,
+  payment history, both directions of matches, every message you're
+  part of, reports you filed, and your blocklist. Deliberately
+  excluded: reports filed *against* you, and blocked members' own
+  identities — those are the other side's own thread. See
+  `src/app/api/account/export/route.ts` for the full field list.
+- **Account deletion.** The danger-zone section at the bottom of
+  `/account` requires ticking a checkbox and typing your account email
+  before it does anything. **New environment variable required** — see
+  `.env.local.example`:
+  ```
+  SUPABASE_SERVICE_ROLE_KEY=your-service-role-secret
+  ```
+  from the same Project Settings → API page as your anon key, under
+  **service_role secret**. Deleting an account uses the Supabase Admin
+  API (`auth.admin.deleteUser`) — the only way to remove a row from
+  `auth.users`, which no regular Postgres role can be granted
+  permission to do, so this is the one place in the app that uses the
+  service-role key (see the comment at the top of
+  `src/lib/supabase/admin.ts` for why that's safe: server-only, never
+  `NEXT_PUBLIC_`, used for nothing except this one call, and only ever
+  with the id of whoever is currently signed in). Every other table in
+  `supabase/schema.sql` already cascades from `profiles.id`, which
+  itself cascades from `auth.users.id`, so deleting that one row
+  quietly removes everything else too — no per-table cleanup code
+  needed.
+
+  Two trade-offs worth knowing, not fixed here: deleting your account
+  also deletes the *other* person's half of any shared match/message
+  thread — there's no way to erase only your own side of a
+  conversation — and any report you filed or that was filed against
+  you disappears too, which is consistent with a right-to-erasure
+  reading of the DPDP Act but is also a way to make an open trust &
+  safety case vanish. Worth an anonymized-record approach later if
+  this becomes a real vector; not addressed now.
+
+  **Database:** the `blocks` table, its RLS policies, and
+  `get_blocked_members()` are new additions in `supabase/schema.sql`
+  (placed right after the Phase 4 matches policies, so the functions
+  that reference `blocks` can find it — not at the bottom of the file
+  like most other phases' additions). Re-run the whole file in the SQL
+  Editor, as always — every statement is safe to re-run.
+
 ## What's next
 
-Everything in the build plan's phased order is now built — Phases 1
-through 8. What's left is vendor/business work, not more phases:
-swapping in the real HyperVerge (or Signzy) Aadhaar check once their
-sandbox access comes through, moving Razorpay to live mode once
-business KYC is done, the DPDP-Act legal review flagged throughout
-this section, and building the deletion/export flow it calls for.
-Bring this repo and `Agaram_Premium_PRD_v2.md` / the clickable
-prototype into your next session for any of those, or for expanding
-past the V0 scope in Section 3 of the build plan (family accounts,
-diaspora onboarding, Tamil-language UI, and the rest).
+All 8 V0 build-plan phases are live, plus this first V1 feature. Three
+of the four deferred V1 options from Section 3 are still open — Family
+Collaborator accounts, a Tamil-language UI toggle, and messaging
+upgrades — alongside the vendor/business work: the real HyperVerge (or
+Signzy) Aadhaar check once sandbox access comes through, Razorpay live
+mode once business KYC is done, the DPDP-Act legal review flagged
+throughout the Phase 8 section above, and CSP graduation from
+Report-Only to enforcing once a full manual click-through is confirmed
+clean. Bring this repo and `Agaram_Premium_PRD_v2.md` / the clickable
+prototype into your next session for any of those.
