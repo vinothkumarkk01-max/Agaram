@@ -15,11 +15,19 @@ type Props = {
   ) => Promise<AuthFormState>;
   locale: Locale;
   t: Dictionary;
+  /** Where to redirect after a successful signup/login, instead of the
+   *  default `/dashboard` — carried through as a hidden field and
+   *  preserved across the login/signup switch link. See auth.ts's
+   *  `safeNextPath`. */
+  next?: string;
 };
 
-export function AuthForm({ mode, action, locale, t }: Props) {
+export function AuthForm({ mode, action, locale, t, next }: Props) {
   const [state, formAction, pending] = useActionState(action, undefined);
   const isSignup = mode === "signup";
+  const switchHref = `${isSignup ? "/login" : "/signup"}${
+    next ? `?next=${encodeURIComponent(next)}` : ""
+  }`;
 
   return (
     <div
@@ -63,6 +71,7 @@ export function AuthForm({ mode, action, locale, t }: Props) {
           </p>
 
           <form action={formAction} className="flex flex-col gap-4">
+            {next && <input type="hidden" name="next" value={next} />}
             <div>
               <label
                 htmlFor="email"
@@ -142,14 +151,14 @@ export function AuthForm({ mode, action, locale, t }: Props) {
             {isSignup ? (
               <>
                 {t.auth.alreadyHaveAccount}{" "}
-                <Link href="/login" className="font-semibold" style={{ color: "var(--accent-strong)" }}>
+                <Link href={switchHref} className="font-semibold" style={{ color: "var(--accent-strong)" }}>
                   {t.auth.signInLink}
                 </Link>
               </>
             ) : (
               <>
                 {t.auth.newToAgaram}{" "}
-                <Link href="/signup" className="font-semibold" style={{ color: "var(--accent-strong)" }}>
+                <Link href={switchHref} className="font-semibold" style={{ color: "var(--accent-strong)" }}>
                   {t.auth.createAnAccount}
                 </Link>
               </>

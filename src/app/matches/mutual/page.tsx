@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getDictionary } from "@/lib/i18n/server";
+import { setMatchFamilySharing } from "@/app/actions/family";
+import { milestoneLabel, type MessageMilestone } from "@/lib/milestones";
 
 type MutualMatch = {
   match_id: string;
@@ -12,10 +14,14 @@ type MutualMatch = {
   is_verified: boolean;
   matched_at: string;
   is_unlocked: boolean;
+  current_milestone: MessageMilestone | null;
 };
 
 export default async function MutualMatchesPage() {
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   const { data, error } = await supabase.rpc("get_mutual_matches");
   const { t } = await getDictionary();
 
@@ -28,6 +34,34 @@ export default async function MutualMatchesPage() {
   }
 
   const mutuals = (data ?? []) as MutualMatch[];
+
+  // The per-match "Share with family" toggle only makes sense to show
+  // once there's actually a Family Collaborator to share with — and
+  // only the toggle's current state needs a second query, since
+  // get_mutual_matches() deliberately doesn't carry shared_with_family
+  // (it's a candidate-only concern, not exposed to the other side of
+  // the match).
+  const [{ data: familyLink }, { data: sharingRows }] = await Promise.all([
+    supabase
+      .from("account_links")
+      .select("status")
+      .eq("owner_id", user?.id ?? "")
+      .eq("status", "active")
+      .maybeSingle(),
+    mutuals.length
+      ? supabase
+          .from("matches")
+          .select("id, shared_with_family")
+          .in(
+            "id",
+            mutuals.map((m) => m.match_id)
+          )
+      : Promise.resolve({ data: [] as { id: string; shared_with_family: boolean }[] }),
+  ]);
+  const hasFamilyLink = Boolean(familyLink);
+  const sharedById = new Map(
+    (sharingRows ?? []).map((r) => [r.id, r.shared_with_family])
+  );
 
   if (!mutuals.length) {
     return (
@@ -42,8 +76,21 @@ export default async function MutualMatchesPage() {
 
   return (
     <div className="flex flex-col gap-3">
-      {mutuals.map((m) =>
-        m.is_unlocked ? (
+      {mutuals.map((m) => {
+        const shared = sharedById.get(m.match_id) ?? false;
+        const shareToggle = hasFamilyLink && (
+          <form action={setMatchFamilySharing.bind(null, m.match_id, !shared)}>
+            <button
+              type="submit"
+              className="text-xs font-semibold"
+              style={{ color: shared ? "var(--ok)" : "var(--text-soft)" }}
+            >
+              {shared ? `✓ ${t.family.sharedWithFamily}` : t.family.shareWithFamily}
+            </button>
+          </form>
+        );
+
+        return m.is_unlocked ? (
           <div
             key={m.match_id}
             className="rounded-2xl p-5"
@@ -64,16 +111,25 @@ export default async function MutualMatchesPage() {
                 &ldquo;{m.about_me}&rdquo;
               </p>
             )}
-            <Link
-              href={`/matches/mutual/${m.match_id}`}
-              className="inline-block rounded-xl py-2 px-4 font-bold text-white text-sm"
-              style={{
-                background:
-                  "linear-gradient(135deg, var(--accent), var(--accent-strong))",
-              }}
-            >
-              {t.matches.message}
-            </Link>
+            {m.current_milestone && (
+              <p className="text-xs font-semibold mb-3" style={{ color: "var(--ok)" }}>
+                {t.matches.milestoneCurrentPrefix}
+                {milestoneLabel(t, m.current_milestone)}
+              </p>
+            )}
+            <div className="flex items-center justify-between gap-3">
+              <Link
+                href={`/matches/mutual/${m.match_id}`}
+                className="inline-block rounded-xl py-2 px-4 font-bold text-white text-sm"
+                style={{
+                  background:
+                    "linear-gradient(135deg, var(--accent), var(--accent-strong))",
+                }}
+              >
+                {t.matches.message}
+              </Link>
+              {shareToggle}
+            </div>
           </div>
         ) : (
           <div
@@ -94,19 +150,22 @@ export default async function MutualMatchesPage() {
             <p className="text-sm mb-4" style={{ color: "var(--text-soft)" }}>
               {t.matches.upgradeToSeeMessage}
             </p>
-            <Link
-              href="/upgrade"
-              className="inline-block rounded-xl py-2.5 px-5 font-bold text-white text-sm"
-              style={{
-                background:
-                  "linear-gradient(135deg, var(--accent), var(--accent-strong))",
-              }}
-            >
-              {t.matches.upgradeToEliteBtn}
-            </Link>
+            <div className="flex items-center justify-between gap-3">
+              <Link
+                href="/upgrade"
+                className="inline-block rounded-xl py-2.5 px-5 font-bold text-white text-sm"
+                style={{
+                  background:
+                    "linear-gradient(135deg, var(--accent), var(--accent-strong))",
+                }}
+              >
+                {t.matches.upgradeToEliteBtn}
+              </Link>
+              {shareToggle}
+            </div>
           </div>
-        )
-      )}
+        );
+      })}
     </div>
   );
 }

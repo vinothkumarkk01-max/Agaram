@@ -47,7 +47,12 @@ export async function updateSession(request: NextRequest) {
     request.nextUrl.pathname.startsWith("/matches") ||
     request.nextUrl.pathname.startsWith("/upgrade") ||
     request.nextUrl.pathname.startsWith("/admin") ||
-    request.nextUrl.pathname.startsWith("/account");
+    request.nextUrl.pathname.startsWith("/account") ||
+    // Exactly "/family", never "/family/join" — that invite-landing
+    // page renders its own signed-out state (an explanation plus
+    // sign-up/log-in links carrying the invite code through), so it
+    // must stay reachable without a session.
+    request.nextUrl.pathname === "/family";
 
   if (!user && isProtectedRoute) {
     const url = request.nextUrl.clone();

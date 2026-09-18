@@ -642,6 +642,23 @@ create table if not exists public.messages (
   created_at timestamptz not null default now()
 );
 
+-- V1 (Phase 11) — message milestone tagging (PRD §8/§12). A milestone
+-- row is an ordinary message (same insert policy, same participant/
+-- mutual/Elite gate below) that also carries one of these four stage
+-- tags. The UI renders a milestone row as a distinct divider instead
+-- of a normal chat bubble and ignores its `body` — body still has to
+-- satisfy the not-empty check above, so it's set to the milestone
+-- code itself, never shown. A match's "current" stage is just the
+-- most recently tagged message in its thread (see the three
+-- functions below) -- deliberately not enforced as a one-way
+-- progression, so either participant can (re)tag at their own pace.
+alter table public.messages
+  add column if not exists milestone text
+    check (
+      milestone is null
+      or milestone in ('getting_to_know', 'family_intro', 'video_call', 'planning_to_meet')
+    );
+
 alter table public.messages enable row level security;
 
 -- Either participant in the match can read the whole thread — this
@@ -885,3 +902,435 @@ revoke insert (is_admin, subscription_tier, subscription_expires_at)
   on public.profiles from authenticated;
 revoke update (is_admin, subscription_tier, subscription_expires_at)
   on public.profiles from authenticated;
+
+-- ============================================================
+-- Phase 10 (V1) — Family Collaborator accounts
+-- ============================================================
+--
+-- Scoped-down V1 slice of the PRD's full Family Collaborator model
+-- (see build plan §3/§5): a candidate generates a shareable invite
+-- link from their own account and sends it themselves (WhatsApp, SMS,
+-- however they like); whoever opens it creates their own login and
+-- gets persistent, read-only access to that one candidate's basic
+-- profile plus the status of matches the candidate has explicitly
+-- chosen to share — nothing else. Deliberately NOT built this round:
+-- a parent creating a profile before the candidate exists, and a
+-- sibling/friend proxy-creator flow with auto-expiring access (the
+-- PRD's fuller model) — both are real extra scope and can be added
+-- later without disturbing this table.
+--
+-- One row per invite/link. `collaborator_id` stays null until
+-- claimed; a partial unique index below keeps at most one live
+-- (pending or active) link per owner at a time, matching the PRD's
+-- "steady state: only the Owner and (optionally) one persistent
+-- family collaborator" model (§5).
+create table if not exists public.account_links (
+  id uuid primary key default gen_random_uuid(),
+  owner_id uuid not null references public.profiles (id) on delete cascade,
+  collaborator_id uuid references auth.users (id) on delete cascade,
+  collaborator_name text,
+  role text not null default 'family_collaborator' check (role in ('family_collaborator')),
+  status text not null default 'pending' check (status in ('pending', 'active', 'revoked')),
+  invite_code text not null unique,
+  invite_expires_at timestamptz not null,
+  created_at timestamptz not null default now(),
+  accepted_at timestamptz,
+  revoked_at timestamptz,
+  constraint account_links_not_self check (collaborator_id is distinct from owner_id)
+);
+
+create unique index if not exists account_links_one_live_per_owner
+  on public.account_links (owner_id)
+  where status in ('pending', 'active');
+
+alter table public.account_links enable row level security;
+
+-- Owners manage their own invite/link rows directly (create, view,
+-- revoke). Claiming an invite is deliberately NOT a client-side
+-- update policy -- see claim_family_invite() below for why.
+drop policy if exists "Owners can view their family links" on public.account_links;
+create policy "Owners can view their family links"
+  on public.account_links for select
+  using (owner_id = auth.uid());
+
+drop policy if exists "Owners can create family invites" on public.account_links;
+create policy "Owners can create family invites"
+  on public.account_links for insert
+  with check (
+    owner_id = auth.uid()
+    and status = 'pending'
+    and collaborator_id is null
+  );
+
+drop policy if exists "Owners can revoke family links" on public.account_links;
+create policy "Owners can revoke family links"
+  on public.account_links for update
+  using (owner_id = auth.uid())
+  with check (owner_id = auth.uid() and status = 'revoked');
+
+-- A collaborator can see the links where THEY are the linked
+-- collaborator, once active -- never the pending/unclaimed state of
+-- someone else's invite.
+drop policy if exists "Collaborators can view their active links" on public.account_links;
+create policy "Collaborators can view their active links"
+  on public.account_links for select
+  using (collaborator_id = auth.uid() and status = 'active');
+
+-- Candidate-controlled, per-mutual-match visibility to a family
+-- collaborator. Defaults to false -- sharing is always opt-in, never
+-- automatic, per the PRD's family-sharing rule (§5, §7).
+alter table public.matches
+  add column if not exists shared_with_family boolean not null default false;
+
+-- Looking a pending invite up by its code, before the person decides
+-- whether to accept it. Deliberately returns only the owner's first
+-- name -- granted to `authenticated` only (not `anon`), so this never
+-- runs until the person has at least signed in or created an account,
+-- even though the code itself carries enough entropy (a v4 UUID) that
+-- guessing one isn't realistic either way.
+--
+-- `is_self` (added after the first V1 delivery) tells the caller
+-- whether the signed-in user IS the invite's own owner, WITHOUT
+-- excluding that row from the result -- the first version filtered it
+-- out entirely (`and al.owner_id <> auth.uid()`), which meant a
+-- candidate testing their own freshly-generated link while still
+-- signed in as themselves saw a generic "this invite isn't valid"
+-- message, indistinguishable from a genuinely expired/used one.
+-- claim_family_invite() below still independently refuses to let an
+-- owner claim their own invite -- this change is UI clarity only, not
+-- a security change. drop+create (not create-or-replace) because the
+-- return columns changed, which Postgres doesn't allow in place.
+drop function if exists public.get_family_invite_preview(text);
+create function public.get_family_invite_preview(p_code text)
+returns table (owner_first_name text, is_valid boolean, is_self boolean)
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select
+    split_part(p.full_name, ' ', 1) as owner_first_name,
+    true as is_valid,
+    (al.owner_id = auth.uid()) as is_self
+  from public.account_links al
+  join public.profiles p on p.id = al.owner_id
+  where al.invite_code = p_code
+    and al.status = 'pending'
+    and al.collaborator_id is null
+    and al.invite_expires_at > now();
+$$;
+
+grant execute on function public.get_family_invite_preview(text) to authenticated;
+
+-- Claiming an invite has to happen as a SECURITY DEFINER function,
+-- not a client-side "update account_links set collaborator_id = ..."
+-- policy -- a policy's USING clause can't verify that the caller
+-- actually knows the secret invite_code (that check only lives in the
+-- query text, which RLS doesn't enforce), so a broad policy allowing
+-- "any signed-in user can claim any pending, unclaimed row" would let
+-- someone claim a stranger's invite without ever seeing the code.
+-- This function does the code check itself, the same pattern
+-- is_admin() and resolve_mock_verification() already use for
+-- controlled mutation outside ordinary RLS.
+create or replace function public.claim_family_invite(p_code text, p_name text)
+returns table (owner_id uuid, owner_first_name text)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_link_id uuid;
+  v_owner_id uuid;
+begin
+  select al.id, al.owner_id into v_link_id, v_owner_id
+  from public.account_links al
+  where al.invite_code = p_code
+    and al.status = 'pending'
+    and al.collaborator_id is null
+    and al.invite_expires_at > now()
+  limit 1;
+
+  if v_link_id is null or v_owner_id = auth.uid() then
+    return;
+  end if;
+
+  update public.account_links
+  set collaborator_id = auth.uid(),
+      collaborator_name = nullif(btrim(coalesce(p_name, '')), ''),
+      status = 'active',
+      accepted_at = now()
+  where id = v_link_id;
+
+  return query
+    select p.id, split_part(p.full_name, ' ', 1)
+    from public.profiles p
+    where p.id = v_owner_id;
+end;
+$$;
+
+grant execute on function public.claim_family_invite(text, text) to authenticated;
+
+-- The candidate's own basic profile fields, read-only, for whoever
+-- they've linked as a Family Collaborator -- deliberately NOT a
+-- broad RLS select policy on `profiles` (same reasoning as the
+-- get_match_candidates()-family of functions above: profiles stays
+-- locked to "only I can read my own row", and every other-member read
+-- is a hand-picked column list from a SECURITY DEFINER function).
+create or replace function public.get_family_links_for_collaborator()
+returns table (
+  link_id uuid,
+  owner_id uuid,
+  owner_full_name text,
+  owner_profile_type text,
+  owner_age integer,
+  owner_location text,
+  owner_about_me text,
+  linked_since timestamptz
+)
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select
+    al.id as link_id,
+    p.id as owner_id,
+    p.full_name as owner_full_name,
+    p.profile_type as owner_profile_type,
+    p.age as owner_age,
+    p.location as owner_location,
+    p.about_me as owner_about_me,
+    al.accepted_at as linked_since
+  from public.account_links al
+  join public.profiles p on p.id = al.owner_id
+  where al.collaborator_id = auth.uid() and al.status = 'active'
+  order by al.accepted_at desc;
+$$;
+
+grant execute on function public.get_family_links_for_collaborator() to authenticated;
+
+-- Status only, per the PRD (§5): "see whether a match is
+-- pending/mutual (status only)". Deliberately returns no identity of
+-- the other candidate in the match -- not their name, initial, age,
+-- or location -- since the PRD is explicit that a Family Collaborator
+-- reviews matches the candidate shared, not the match's counterpart.
+create or replace function public.get_family_shared_matches(p_owner_id uuid)
+returns table (match_id uuid, status text, matched_at timestamptz)
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select m.id as match_id, m.status, m.updated_at as matched_at
+  from public.matches m
+  where (m.candidate_a = p_owner_id or m.candidate_b = p_owner_id)
+    and m.shared_with_family = true
+    and m.status = 'mutual'
+    and exists (
+      select 1 from public.account_links al
+      where al.collaborator_id = auth.uid()
+        and al.status = 'active'
+        and al.owner_id = p_owner_id
+    )
+  order by m.updated_at desc;
+$$;
+
+grant execute on function public.get_family_shared_matches(uuid) to authenticated;
+
+-- Toggling shared_with_family is done through a function rather than
+-- a direct client update, so it never has to interact with the
+-- existing "Users can update own matches" WITH CHECK clause (Phase 8)
+-- -- that clause blocks the ORIGINAL interest-sender from ever
+-- setting status = 'mutual' themselves, evaluated against the NEW
+-- row on every update including ones that leave status untouched, so
+-- a plain client-side update to just this one column would have been
+-- silently rejected whenever the candidate toggling it happened to be
+-- the one who sent the original interest. This function only ever
+-- touches shared_with_family (not status, not updated_at, so the
+-- Mutual list's sort order by updated_at is undisturbed by sharing
+-- toggles), and checks match participancy itself.
+create or replace function public.set_match_family_sharing(p_match_id uuid, p_shared boolean)
+returns void
+language sql
+security definer
+set search_path = public
+as $$
+  update public.matches
+  set shared_with_family = p_shared
+  where id = p_match_id
+    and status = 'mutual'
+    and (candidate_a = auth.uid() or candidate_b = auth.uid());
+$$;
+
+grant execute on function public.set_match_family_sharing(uuid, boolean) to authenticated;
+
+-- ============================================================
+-- Phase 11 (V1) — Message milestone tagging (PRD §8/§12)
+-- ============================================================
+-- The `milestone` column itself was added directly on the `messages`
+-- table above (Phase 6 section), since ALTER TABLE has no ordering
+-- constraint. These three read functions are re-created here instead
+-- of in place, for two reasons: they now need to reference
+-- public.messages, which doesn't exist yet at their original
+-- (earlier) position in this file, and DROP + CREATE is required
+-- anyway since their return columns are changing (see the existing
+-- get_mutual_matches note above for why CREATE OR REPLACE can't do
+-- this). Whichever version runs last during a full re-run of this
+-- file is the one that takes effect, which is this one.
+
+drop function if exists public.get_mutual_matches();
+
+create function public.get_mutual_matches()
+returns table (
+  match_id uuid,
+  candidate_id uuid,
+  full_name text,
+  age integer,
+  location text,
+  about_me text,
+  is_verified boolean,
+  matched_at timestamptz,
+  is_unlocked boolean,
+  current_milestone text
+)
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  with me as (
+    select
+      (
+        subscription_tier = 'elite'
+        and (subscription_expires_at is null or subscription_expires_at > now())
+      ) as unlocked
+    from public.profiles
+    where id = auth.uid()
+  )
+  select
+    m.id as match_id,
+    p.id as candidate_id,
+    case when me.unlocked then p.full_name else null end as full_name,
+    p.age,
+    p.location,
+    case when me.unlocked then p.about_me else null end as about_me,
+    coalesce(iv.status = 'verified', false) as is_verified,
+    m.updated_at as matched_at,
+    coalesce(me.unlocked, false) as is_unlocked,
+    (
+      select msg.milestone
+      from public.messages msg
+      where msg.match_id = m.id and msg.milestone is not null
+      order by msg.created_at desc
+      limit 1
+    ) as current_milestone
+  from public.matches m
+  join public.profiles p
+    on p.id = (case when m.candidate_a = auth.uid() then m.candidate_b else m.candidate_a end)
+  left join public.identity_verifications iv on iv.profile_id = p.id
+  cross join me
+  where (m.candidate_a = auth.uid() or m.candidate_b = auth.uid())
+    and m.status = 'mutual'
+    and not exists (
+      select 1 from public.blocks b
+      where (b.blocker_id = auth.uid() and b.blocked_id = p.id)
+         or (b.blocker_id = p.id and b.blocked_id = auth.uid())
+    )
+  order by m.updated_at desc;
+$$;
+
+grant execute on function public.get_mutual_matches() to authenticated;
+
+drop function if exists public.get_match_thread(uuid);
+
+create function public.get_match_thread(p_match_id uuid)
+returns table (
+  match_id uuid,
+  candidate_id uuid,
+  full_name text,
+  age integer,
+  location text,
+  is_verified boolean,
+  is_unlocked boolean,
+  current_milestone text
+)
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  with me as (
+    select
+      (
+        subscription_tier = 'elite'
+        and (subscription_expires_at is null or subscription_expires_at > now())
+      ) as unlocked
+    from public.profiles
+    where id = auth.uid()
+  )
+  select
+    m.id as match_id,
+    p.id as candidate_id,
+    case when me.unlocked then p.full_name else null end as full_name,
+    p.age,
+    p.location,
+    coalesce(iv.status = 'verified', false) as is_verified,
+    coalesce(me.unlocked, false) as is_unlocked,
+    (
+      select msg.milestone
+      from public.messages msg
+      where msg.match_id = m.id and msg.milestone is not null
+      order by msg.created_at desc
+      limit 1
+    ) as current_milestone
+  from public.matches m
+  join public.profiles p
+    on p.id = (case when m.candidate_a = auth.uid() then m.candidate_b else m.candidate_a end)
+  left join public.identity_verifications iv on iv.profile_id = p.id
+  cross join me
+  where m.id = p_match_id
+    and (m.candidate_a = auth.uid() or m.candidate_b = auth.uid())
+    and m.status = 'mutual'
+    and not exists (
+      select 1 from public.blocks b
+      where (b.blocker_id = auth.uid() and b.blocked_id = p.id)
+         or (b.blocker_id = p.id and b.blocked_id = auth.uid())
+    );
+$$;
+
+grant execute on function public.get_match_thread(uuid) to authenticated;
+
+drop function if exists public.get_family_shared_matches(uuid);
+
+create function public.get_family_shared_matches(p_owner_id uuid)
+returns table (match_id uuid, status text, matched_at timestamptz, current_milestone text)
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select
+    m.id as match_id,
+    m.status,
+    m.updated_at as matched_at,
+    (
+      select msg.milestone
+      from public.messages msg
+      where msg.match_id = m.id and msg.milestone is not null
+      order by msg.created_at desc
+      limit 1
+    ) as current_milestone
+  from public.matches m
+  where (m.candidate_a = p_owner_id or m.candidate_b = p_owner_id)
+    and m.shared_with_family = true
+    and m.status = 'mutual'
+    and exists (
+      select 1 from public.account_links al
+      where al.collaborator_id = auth.uid()
+        and al.status = 'active'
+        and al.owner_id = p_owner_id
+    )
+  order by m.updated_at desc;
+$$;
+
+grant execute on function public.get_family_shared_matches(uuid) to authenticated;

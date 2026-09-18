@@ -8,12 +8,35 @@ export type AuthFormState = {
   error?: string;
 } | undefined;
 
+/**
+ * Where to send someone after they sign up/log in. Defaults to
+ * `/dashboard`, but a form can carry a hidden `next` field (see
+ * AuthForm's `next` prop) to come back somewhere more specific — used
+ * today by the family-invite flow (`/family/join?code=...`) so
+ * accepting an invite doesn't first bounce through the dashboard.
+ * Only ever a same-site relative path, and never back to /login or
+ * /signup themselves (which would just loop).
+ */
+function safeNextPath(raw: FormDataEntryValue | null): string {
+  const next = String(raw ?? "");
+  if (
+    next.startsWith("/") &&
+    !next.startsWith("//") &&
+    !next.startsWith("/login") &&
+    !next.startsWith("/signup")
+  ) {
+    return next;
+  }
+  return "/dashboard";
+}
+
 export async function signup(
   _prevState: AuthFormState,
   formData: FormData
 ): Promise<AuthFormState> {
   const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "");
+  const next = safeNextPath(formData.get("next"));
 
   if (!email || !password) {
     return { error: "Email and password are required." };
@@ -30,7 +53,7 @@ export async function signup(
   }
 
   revalidatePath("/", "layout");
-  redirect("/dashboard");
+  redirect(next);
 }
 
 export async function login(
@@ -39,6 +62,7 @@ export async function login(
 ): Promise<AuthFormState> {
   const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "");
+  const next = safeNextPath(formData.get("next"));
 
   if (!email || !password) {
     return { error: "Email and password are required." };
@@ -55,7 +79,7 @@ export async function login(
   }
 
   revalidatePath("/", "layout");
-  redirect("/dashboard");
+  redirect(next);
 }
 
 export async function logout() {

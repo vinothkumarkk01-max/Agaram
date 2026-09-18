@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { MessageThread } from "@/components/MessageThread";
 import { blockMember } from "@/app/actions/blocks";
 import { getDictionary } from "@/lib/i18n/server";
+import { milestoneLabel, type MessageMilestone } from "@/lib/milestones";
 
 type MatchThread = {
   match_id: string;
@@ -12,6 +13,7 @@ type MatchThread = {
   location: string | null;
   is_verified: boolean;
   is_unlocked: boolean;
+  current_milestone: MessageMilestone | null;
 };
 
 export default async function MatchThreadPage({
@@ -70,7 +72,7 @@ export default async function MatchThreadPage({
 
   const { data: messages } = await supabase
     .from("messages")
-    .select("id, sender_id, body, created_at")
+    .select("id, sender_id, body, created_at, milestone")
     .eq("match_id", matchId)
     .order("created_at", { ascending: true });
 
@@ -99,6 +101,12 @@ export default async function MatchThreadPage({
             {thread.age} {t.dashboard.years}{thread.location ? ` · ${thread.location}` : ""}
             {thread.is_verified ? ` · ${t.dashboard.identityVerified}` : ""}
           </div>
+          {thread.current_milestone && (
+            <div className="text-xs mt-0.5 font-semibold" style={{ color: "var(--ok)" }}>
+              {t.matches.milestoneCurrentPrefix}
+              {milestoneLabel(t, thread.current_milestone)}
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-3 shrink-0">
           <Link

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { logout } from "@/app/actions/auth";
 import { getDictionary } from "@/lib/i18n/server";
@@ -19,6 +20,24 @@ export default async function DashboardPage() {
         .eq("id", user.id)
         .maybeSingle()
     : { data: null };
+
+  // A pure Family Collaborator (no candidate profile of their own)
+  // never goes through onboarding -- send them straight to their own
+  // read-only dashboard instead of showing the "let's set up your
+  // profile" nudge below, which doesn't apply to them at all.
+  const { data: familyLink } = user
+    ? await supabase
+        .from("account_links")
+        .select("id")
+        .eq("collaborator_id", user.id)
+        .eq("status", "active")
+        .limit(1)
+        .maybeSingle()
+    : { data: null };
+
+  if (user && !profile && familyLink) {
+    redirect("/family");
+  }
 
   const { data: preferences } = user
     ? await supabase
@@ -241,6 +260,19 @@ export default async function DashboardPage() {
             >
               {t.dashboard.accountPrivacy}
             </Link>
+            {familyLink && (
+              <Link
+                href="/family"
+                className="block text-center rounded-xl py-2.5 text-sm font-semibold mb-3"
+                style={{
+                  background: "var(--bg-raised)",
+                  border: "1px solid var(--line)",
+                  color: "var(--text)",
+                }}
+              >
+                {t.family.title}
+              </Link>
+            )}
             {profile.is_admin && (
               <Link
                 href="/admin"

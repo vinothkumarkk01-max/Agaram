@@ -34,6 +34,8 @@ export async function GET() {
     receivedMatches,
     reportsFiled,
     blocked,
+    familyLinksAsOwner,
+    familyLinksAsCollaborator,
   ] = await Promise.all([
     supabase.from("profiles").select("*").eq("id", user.id).maybeSingle(),
     supabase
@@ -59,6 +61,18 @@ export async function GET() {
       .select("match_id, reported_id, reason, status, created_at, resolved_at")
       .eq("reporter_id", user.id),
     supabase.rpc("get_blocked_members"),
+    // account_links, both directions this member can see under its
+    // own RLS policies (Phase 10/V1): the invite(s) they've sent as a
+    // candidate, and the link(s) they hold as someone else's Family
+    // Collaborator.
+    supabase
+      .from("account_links")
+      .select("status, collaborator_name, created_at, accepted_at, revoked_at")
+      .eq("owner_id", user.id),
+    supabase
+      .from("account_links")
+      .select("owner_id, status, accepted_at")
+      .eq("collaborator_id", user.id),
   ]);
 
   const matches = [...(sentMatches.data ?? []), ...(receivedMatches.data ?? [])];
@@ -67,7 +81,7 @@ export async function GET() {
   const messages = matchIds.length
     ? await supabase
         .from("messages")
-        .select("match_id, sender_id, body, created_at")
+        .select("match_id, sender_id, body, created_at, milestone")
         .in("match_id", matchIds)
         .order("created_at", { ascending: true })
     : { data: [] };
@@ -84,6 +98,9 @@ export async function GET() {
       messages: messages.data ?? [],
       reports_you_filed: reportsFiled.data ?? [],
       blocked_members: blocked.data ?? [],
+      family_invites_you_sent: familyLinksAsOwner.data ?? [],
+      family_links_where_you_are_the_collaborator:
+        familyLinksAsCollaborator.data ?? [],
       note:
         "Reports filed against you (rather than by you) are not included in this export — see the project README for why.",
     },

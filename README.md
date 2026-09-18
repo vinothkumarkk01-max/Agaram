@@ -240,11 +240,8 @@ button on `/matches/mutual` opens a real two-way chat thread at
   realtime subscription lifecycle, and the delay is barely
   noticeable. Worth upgrading to Realtime later if message volume
   grows or the delay starts to bother people.
-- **No milestone tracking yet** — the PRD's fuller model (§8, §12)
-  tags each message with a relationship milestone (getting-to-know,
-  family-intro, video-call, planning-to-meet) for the family-sharing
-  and journey-tracking features. That's deferred; V0 messages are
-  just plain text, unlabeled.
+- **Milestone tagging is now built** — see "Message milestone
+  tagging (V1)" below.
 - **No read receipts, typing indicators, or push notifications** —
   none of these are built. You'll see new messages within ~4 seconds
   of opening the thread, but there's no badge or alert telling you
@@ -569,17 +566,193 @@ account/data-export/deletion, and the error/not-found pages.
   look at Vercel's build output and wonder why those routes changed
   from a static `○` to a dynamic `ƒ`.
 
+## Family Collaborator accounts (V1)
+
+The third deferred V1 feature from Section 3 — a deliberately
+scoped-down slice of the PRD's full Family Collaborator model (§5),
+not the whole thing. What's built: a candidate can invite one parent
+or family member to get their own login with persistent, read-only
+access to that candidate's basic profile and the status of whatever
+matches the candidate chooses to share — nothing else. What's **not**
+built this round, and why: the PRD's fuller model also has a parent
+creating a profile *before* the candidate even signs up (with a later
+claim/ownership-transfer step), and a sibling/friend proxy-creator
+flow whose access auto-expires once the real candidate takes over.
+Both are real extra scope on top of this app's current
+one-account-per-profile model, and neither was needed to make family
+sharing genuinely useful — they're listed here so a future session
+doesn't have to rediscover that they're still open.
+
+- **Inviting someone.** A new **Family sharing** section on `/account`
+  (candidates only — a pure Family Collaborator with no profile of
+  their own doesn't see it) has a **Generate invite link** button.
+  This creates a row in the new `account_links` table with a random,
+  unguessable code and a 7-day expiry, and shows a copyable URL like
+  `https://your-app/family/join?code=<code>` — the candidate shares it
+  themselves however they like (WhatsApp, SMS, email); there's no
+  email-sending vendor involved, on purpose, to avoid a new
+  integration for a V1 slice. Only one live invite/link per candidate
+  at a time (a partial unique index enforces this at the database
+  level), matching the PRD's "steady state: one persistent Family
+  Collaborator" model — generating a new one only appears once the
+  previous invite is cancelled or the link is revoked.
+- **Accepting an invite.** `/family/join?code=...` works whether or
+  not you're already signed in: signed out, it explains what the link
+  is and sends you to sign up or log in — carrying the invite code
+  through as a `next` redirect param (a small, generic addition to
+  `src/app/actions/auth.ts` and `AuthForm`, not family-specific
+  itself) so you land back on the same invite page afterward instead
+  of the dashboard. Signed in, it looks up the invite (by code, via a
+  `SECURITY DEFINER` function so an invalid guess never leaks whether
+  *any* invite exists), shows who invited you, and asks for your name
+  before accepting — that name is shown back to the candidate on
+  their `/account` page ("X is helping with your search"), since
+  otherwise there'd be no way to show them who accepted.
+- **What a Family Collaborator can and can't see**, enforced at the
+  database layer via a new set of `SECURITY DEFINER` functions
+  (`get_family_links_for_collaborator()`, `get_family_shared_matches()`)
+  — the same "hand-picked column list, `profiles` itself stays locked
+  to one row per person" pattern the matching-feed functions already
+  use, not a broad new RLS policy:
+  - The candidate's basic profile (name, groom/bride, age, location,
+    about-me) — read-only, at `/family`.
+  - The **status only** of matches the candidate has explicitly
+    toggled "Share with family" on `/matches/mutual` (a new
+    `shared_with_family` column, default `false` — sharing is always
+    opt-in). Deliberately shows no identity of the other person in
+    that match, not even a masked initial — the PRD's own wording
+    here ("status only") reads ambiguous, so this errs conservative.
+  - **Cannot** see any message, who else the candidate passed on,
+    private photos (there are none yet), or act on a match
+    (accept/decline/message) — there is no code path that lets a
+    Family Collaborator do any of these; `/family` is entirely
+    read-only.
+- **Revoking access** (same "Family sharing" section on `/account`)
+  also resets `shared_with_family` back to `false` on every one of the
+  candidate's matches, so a later, different collaborator doesn't
+  silently inherit whatever was shared with whoever just lost access.
+- **A pure Family Collaborator never has a `profiles` row** — they
+  never go through onboarding at all. `/dashboard` now checks for an
+  active collaborator link before showing the usual "let's set up
+  your profile" nudge, and sends them straight to `/family` instead;
+  someone who happens to be both a candidate *and* a collaborator for
+  someone else sees a normal dashboard plus a link into `/family`.
+  `/account` (data export, blocking, deletion) already worked for any
+  signed-in user regardless of profile, so it needed no changes to
+  keep working for a Family Collaborator too — including account
+  deletion, which cascades correctly since `account_links.collaborator_id`
+  references `auth.users.id` directly (not `profiles.id`, which a pure
+  collaborator doesn't have a row in).
+- **No new environment variables or vendor accounts** — same as the
+  Tamil toggle. The invite link's domain is read from the incoming
+  request's own `Host` header (`src/lib/site-url.ts`), not a hardcoded
+  URL, so it's correct on a Vercel preview deploy, a custom domain, or
+  `localhost` with zero configuration.
+- **Database:** the `account_links` table, its RLS policies, the
+  `shared_with_family` column on `matches`, and five new
+  `SECURITY DEFINER` functions are appended at the very end of
+  `supabase/schema.sql` (Phase 10). Re-run the whole file in the SQL
+  Editor, as always — every statement is safe to re-run.
+
+## Message milestone tagging (V1)
+
+Per the PRD's original messaging model (§8, §12), a mutual match's
+chat thread can now be tagged with its current stage — **Getting to
+know each other**, **Family introductions**, **Video call**, or
+**Planning to meet** — right from the chat screen at
+`/matches/mutual/<match id>`.
+
+- **How it works** — a row of four small stage buttons sits above the
+  message box. Tapping one inserts a distinct, centered divider into
+  the thread (not a normal chat bubble) announcing the new stage, and
+  the most recently set stage becomes the match's "current" one —
+  shown at the top of the chat, next to each match on `/matches/mutual`,
+  and (when that match is shared) on the Family Collaborator's
+  `/family` dashboard.
+- **Either person in the match can set it, at any pace** — there's no
+  enforced one-way progression (you can re-mark an earlier stage, or
+  jump straight to "Planning to meet"). This is a shared, informational
+  tag for both people to see, not a gate on anything else in the app.
+- **Same gate as sending a message, because it *is* a message** — a
+  milestone tag is stored as an ordinary row in the `messages` table
+  with a `milestone` column set, insertable only through the exact
+  same RLS policy as a normal chat message (match participant, mutual
+  match, active Elite subscription, not blocked). No separate
+  permission model to get wrong.
+- **A nice fit with Family Collaborator accounts** — a collaborator
+  already only ever sees a shared match's status, never its messages;
+  now they also see *which stage* that match has reached (e.g.
+  "Currently: Family introductions"), without the tag ever exposing
+  message content.
+- **Database:** a nullable `milestone` column (with a `CHECK` against
+  the four allowed values) was added directly to the `messages` table,
+  and `get_mutual_matches()`, `get_match_thread()`, and
+  `get_family_shared_matches()` were all re-created (Phase 11, at the
+  very end of `supabase/schema.sql`) to also return each match's
+  current milestone. Re-run the whole file, as always.
+
+## Test accounts (dev utility)
+
+Testing most features — a mutual match, messaging, milestone tagging,
+Family Collaborator accounts — needs at least two separate signed-in
+accounts, which normally means signing up with two different real
+email addresses. This utility skips that: it creates (or resets) five
+fixed test accounts directly, no email confirmation needed.
+
+**It's off by default.** Add `DEV_SEED_SECRET` as an environment
+variable (a long random value you make up — `.env.local` for
+`npm run dev`, or Vercel's Project Settings → Environment Variables for
+your live deploy, redeploying afterward same as any other env var
+change here). Until you set it, `/api/dev/seed-test-data` always
+returns a 404 and creates nothing.
+
+Once it's set, visit (replacing the domain with `localhost:3000` if
+you're testing locally, and `<secret>` with the exact value you set):
+
+```
+https://agaram-ten.vercel.app/api/dev/seed-test-data?secret=<secret>
+```
+
+That creates:
+
+- **Test Bride A** (`bride.a@agaram-test.dev`) and **Test Groom A**
+  (`groom.a@agaram-test.dev`) — already a confirmed mutual match, both
+  Elite and identity-verified, ready to open straight away for
+  messaging, milestone tagging, and family-sharing tests.
+- **Test Bride B** and **Test Groom B** — Elite and verified, but not
+  matched with anyone, for testing Browse → send interest → accept.
+- **Test Collaborator** (`collaborator@agaram-test.dev`) — deliberately
+  has no profile at all, so it's ready to accept a Family invite link
+  from one of the other accounts and land on the read-only `/family`
+  dashboard.
+
+The page that loads back shows every account's email and a shared
+password (`AgaramTest#2026` — change it in the route file if you'd
+rather use your own). Log in at `/login` with any of them. Visiting
+the URL again is safe — it updates these same five accounts in place
+rather than creating duplicates.
+
+**This is a testing convenience, not something to leave reachable
+once real members are signing up.** Keep `DEV_SEED_SECRET` private —
+anyone who has it can (re)create or reset these fake profiles on your
+live database at any time. When you're done testing for good, either
+remove the environment variable (the route goes back to always
+404ing) or delete `src/app/api/dev/seed-test-data/route.ts` outright.
+
 ## What's next
 
-All 8 V0 build-plan phases are live, plus these first two V1 features.
-Two of the four deferred V1 options from Section 3 are still open —
-Family Collaborator accounts and messaging upgrades — alongside the
-rest of the admin tooling (message-content access, member
-search/suspension, an audit log), the DPDP-Act grievance-officer
-contact, and the vendor/business work: the real HyperVerge (or
-Signzy) Aadhaar check once sandbox access comes through, Razorpay live
-mode once business KYC is done, the DPDP-Act legal review flagged
-throughout the Phase 8 section above, and CSP graduation from
-Report-Only to enforcing once a full manual click-through is confirmed
-clean. Bring this repo and `Agaram_Premium_PRD_v2.md` / the clickable
-prototype into your next session for any of those.
+All 8 V0 build-plan phases are live, plus these first four V1
+features. Messaging still has room to grow beyond this — read
+receipts, typing indicators, and moving off the 4-second poll onto a
+realtime channel are all still open — alongside the rest of the admin
+tooling (message-content access, member search/suspension, an audit
+log), the DPDP-Act grievance-officer contact, the Family Collaborator
+model's still-deferred parent-creates-profile-first and sibling/friend
+proxy-creator flows (see the section above), and the vendor/business
+work: the real HyperVerge (or Signzy) Aadhaar check once sandbox
+access comes through, Razorpay live mode once business KYC is done,
+the DPDP-Act legal review flagged throughout the Phase 8 section
+above, and CSP graduation from Report-Only to enforcing once a full
+manual click-through is confirmed clean. Bring this repo and
+`Agaram_Premium_PRD_v2.md` / the clickable prototype into your next
+session for any of those.
