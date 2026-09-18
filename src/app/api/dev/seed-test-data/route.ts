@@ -122,7 +122,11 @@ async function findUserByEmail(
 }
 
 export async function GET(request: Request) {
-  const expectedSecret = process.env.DEV_SEED_SECRET;
+  // .trim() on both sides guards against the single most common way
+  // this mismatches even when it "should" work: a stray trailing
+  // space or newline left over from copy-pasting the secret into
+  // Vercel's env var field or into the URL.
+  const expectedSecret = process.env.DEV_SEED_SECRET?.trim();
   if (!expectedSecret) {
     return Response.json(
       {
@@ -133,7 +137,16 @@ export async function GET(request: Request) {
     );
   }
 
-  const providedSecret = new URL(request.url).searchParams.get("secret");
+  const providedSecret = new URL(request.url).searchParams.get("secret")?.trim();
+  if (!providedSecret) {
+    return Response.json(
+      {
+        error:
+          "Missing ?secret=<value> at the end of this URL — the address bar needs to end with ?secret=YOUR_SECRET, not just a bare '?'.",
+      },
+      { status: 404 }
+    );
+  }
   if (providedSecret !== expectedSecret) {
     return Response.json({ error: "Not found." }, { status: 404 });
   }
