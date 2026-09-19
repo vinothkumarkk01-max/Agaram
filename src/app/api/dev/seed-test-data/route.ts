@@ -12,7 +12,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
  * account deletion, src/lib/supabase/admin.ts) to create real
  * `auth.users` rows with `email_confirm: true`, so there's no
  * confirmation email to click — you can log in immediately. It never
- * touches real member data; it only ever creates or updates the five
+ * touches real member data; it only ever creates or updates the seven
  * fixed test accounts below (safe to call more than once — it
  * updates them in place rather than duplicating anything).
  *
@@ -44,6 +44,14 @@ type SeedProfile = {
   age: number;
   location: string;
   about_me: string;
+  created_by_relation?:
+    | "self"
+    | "son"
+    | "daughter"
+    | "brother"
+    | "sister"
+    | "friend"
+    | "relative";
 };
 
 type SeedAccount = {
@@ -104,6 +112,32 @@ const ACCOUNTS: SeedAccount[] = [
     label:
       "Test Collaborator — deliberately has NO profile at all. Use this account to accept a Family invite link (generated from one of the other accounts' /account page) and test the read-only Family dashboard.",
     profile: null,
+  },
+  {
+    email: "son-profile@agaram-test.dev",
+    label:
+      "Test Son Profile — created_by_relation is 'son'. Log in, go to /account → Family sharing, and you should see the parent-track nudge (t.family.parentTrackNudge) pointing at the invite link, since a son/daughter profile is exactly the case that nudge targets.",
+    profile: {
+      full_name: "Test Son Profile",
+      profile_type: "groom",
+      age: 29,
+      location: "Madurai",
+      about_me: "Seeded test profile — safe to ignore or delete.",
+      created_by_relation: "son",
+    },
+  },
+  {
+    email: "relative-profile@agaram-test.dev",
+    label:
+      "Test Relative Profile — created_by_relation is 'relative'. Log in, go to /account → Family sharing, and you should see the proxy-creator nudge (t.family.proxyCreatorNudge) instead of the parent-track one — any relation other than self/son/daughter routes here.",
+    profile: {
+      full_name: "Test Relative Profile",
+      profile_type: "bride",
+      age: 27,
+      location: "Trichy",
+      about_me: "Seeded test profile — safe to ignore or delete.",
+      created_by_relation: "relative",
+    },
   },
 ];
 
@@ -179,7 +213,8 @@ export async function GET(request: Request) {
 
     if (!account.profile) continue; // the collaborator account has no profile row
 
-    const { full_name, profile_type, age, location, about_me } = account.profile;
+    const { full_name, profile_type, age, location, about_me, created_by_relation } =
+      account.profile;
 
     await admin.from("profiles").upsert(
       {
@@ -189,6 +224,10 @@ export async function GET(request: Request) {
         age,
         location,
         about_me,
+        // Falls back to the schema's own 'self' default when a seed
+        // profile doesn't set this — every account except the two
+        // relation-testing ones below.
+        created_by_relation: created_by_relation ?? "self",
         subscription_tier: "elite",
         subscription_expires_at: ONE_YEAR_FROM_NOW,
       },

@@ -951,7 +951,7 @@ not the whole review.
 Testing most features — a mutual match, messaging, milestone tagging,
 Family Collaborator accounts — needs at least two separate signed-in
 accounts, which normally means signing up with two different real
-email addresses. This utility skips that: it creates (or resets) five
+email addresses. This utility skips that: it creates (or resets) seven
 fixed test accounts directly, no email confirmation needed.
 
 **It's off by default.** Add `DEV_SEED_SECRET` as an environment
@@ -980,11 +980,20 @@ That creates:
   has no profile at all, so it's ready to accept a Family invite link
   from one of the other accounts and land on the read-only `/family`
   dashboard.
+- **Test Son Profile** (`son-profile@agaram-test.dev`) — seeded with
+  `created_by_relation` set to `son`, so logging in and opening
+  `/account` → Family sharing shows the parent-track nudge (the one
+  aimed at a son/daughter profile) without you having to walk through
+  onboarding by hand to set that value yourself.
+- **Test Relative Profile** (`relative-profile@agaram-test.dev`) —
+  seeded with `created_by_relation` set to `relative`, to show the
+  *other* nudge (any relation besides self/son/daughter) on the same
+  screen.
 
 The page that loads back shows every account's email and a shared
 password (`AgaramTest#2026` — change it in the route file if you'd
 rather use your own). Log in at `/login` with any of them. Visiting
-the URL again is safe — it updates these same five accounts in place
+the URL again is safe — it updates these same seven accounts in place
 rather than creating duplicates.
 
 **This is a testing convenience, not something to leave reachable
