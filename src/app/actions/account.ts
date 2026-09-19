@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -77,4 +78,30 @@ export async function deleteAccount(
   }
 
   redirect("/");
+}
+
+/**
+ * Flips the weekly-digest opt-out flag (Phase 20, supabase/schema.sql)
+ * for the signed-in member. This is the logged-in equivalent of the
+ * one-click unsubscribe link every digest email carries (see
+ * api/digest/unsubscribe) — that route exists for someone who doesn't
+ * want to sign back in just to stop the emails; this one is for
+ * managing the same preference from /account. weekly_digest_opt_out
+ * is an ordinary member-owned column (no revoke on it), so a plain
+ * update through the member's own RLS-scoped session is enough — no
+ * RPC needed.
+ */
+export async function toggleWeeklyDigest(currentlyOptedOut: boolean) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  await supabase
+    .from("profiles")
+    .update({ weekly_digest_opt_out: !currentlyOptedOut, updated_at: new Date().toISOString() })
+    .eq("id", user.id);
+
+  revalidatePath("/account");
 }

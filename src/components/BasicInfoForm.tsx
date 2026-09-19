@@ -35,6 +35,7 @@ export function BasicInfoForm({
     age?: number;
     location?: string;
     about_me?: string;
+    created_by_relation?: string;
   };
   t: Dictionary;
 }) {
@@ -42,6 +43,26 @@ export function BasicInfoForm({
 
   return (
     <form action={formAction} className="flex flex-col gap-5">
+      <div>
+        <div style={fieldLabel}>{t.onboarding.relationQuestion}</div>
+        <select
+          name="created_by_relation"
+          defaultValue={defaults?.created_by_relation ?? "self"}
+          style={inputStyle}
+        >
+          <option value="self">{t.onboarding.relationSelf}</option>
+          <option value="son">{t.onboarding.relationSon}</option>
+          <option value="daughter">{t.onboarding.relationDaughter}</option>
+          <option value="brother">{t.onboarding.relationBrother}</option>
+          <option value="sister">{t.onboarding.relationSister}</option>
+          <option value="friend">{t.onboarding.relationFriend}</option>
+          <option value="relative">{t.onboarding.relationRelative}</option>
+        </select>
+        <p className="text-xs mt-2" style={{ color: "var(--text-soft)" }}>
+          {t.onboarding.relationHelp}
+        </p>
+      </div>
+
       <div>
         <div style={fieldLabel}>{t.onboarding.fullName}</div>
         <input

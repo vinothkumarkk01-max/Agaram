@@ -168,6 +168,16 @@ const en = {
     verifyMyIdentity: "Verify my identity",
     mockNote:
       "This is a mock check for now — see below for what changes when the real verification vendor is connected.",
+    relationQuestion: "Who's setting up this profile?",
+    relationSelf: "Myself",
+    relationSon: "My son",
+    relationDaughter: "My daughter",
+    relationBrother: "My brother",
+    relationSister: "My sister",
+    relationFriend: "A friend",
+    relationRelative: "A relative",
+    relationHelp:
+      "If you're a parent or relative setting this up, you can invite the person you're helping to join in later — see Family sharing on their account page once the profile's created.",
   },
   matches: {
     title: "Matches",
@@ -270,6 +280,37 @@ const en = {
     notificationsTurnOn: "Turn on",
     notificationsTurnOff: "Turn off",
     notificationsError: "Something went wrong — please try again.",
+    employmentHeading: "Employment / education verification",
+    employmentDesc:
+      "Add a verified employer or education badge to your profile — verify with your work email, or ask us to check with your employer directly.",
+    employmentStatusVerifiedWorkEmail: "✓ Work email verified.",
+    employmentStatusVerifiedEmployer: "✓ Employer verified.",
+    employmentStatusPending:
+      "Your employer verification request is with our team — we'll update this once there's a result.",
+    employmentStatusUnable:
+      "We weren't able to verify this — you can try again with a different method below.",
+    employmentMethodWorkEmail: "Verify with work email",
+    employmentMethodEmployer: "Ask us to contact my employer",
+    employmentWorkEmailLabel: "Your work email address",
+    employmentSending: "Sending…",
+    employmentSendCode: "Send code",
+    employmentCodeLabel: "6-digit code",
+    employmentConfirming: "Confirming…",
+    employmentConfirmCode: "Confirm code",
+    employmentTryDifferentMethod: "Try a different method",
+    employmentEmployerNameLabel: "Employer name",
+    employmentEmployerContactLabel: "Employer contact email (e.g. HR)",
+    employmentConsentLabel:
+      "I consent to Agaram contacting my employer to confirm my employment.",
+    employmentSubmitting: "Submitting…",
+    employmentSubmitRequest: "Submit request",
+    digestHeading: "Weekly match digest",
+    digestDesc:
+      "A weekly email summarizing new candidates, interests received, and unread messages — so you don't have to keep checking.",
+    digestOn: "Weekly digest emails are on.",
+    digestOff: "Weekly digest emails are off.",
+    digestTurnOn: "Turn on",
+    digestTurnOff: "Turn off",
   },
   family: {
     title: "Family access",
@@ -320,6 +361,10 @@ const en = {
     ownInviteTitle: "This is your own invite link",
     ownInviteDesc:
       "Send it to the person you'd like to help you instead — they'll accept it from their own account.",
+    parentTrackNudge:
+      "Since you told us this profile is for your son or daughter, they can join in themselves any time — invite them below and they'll see their own basic profile and the matches you choose to share.",
+    proxyCreatorNudge:
+      "Since you set this profile up on someone else's behalf, consider inviting them to help manage it directly — invite below.",
   },
   upgrade: {
     youreOnElite: "You're on Elite.",
@@ -348,6 +393,22 @@ const en = {
     openingCheckout: "Opening checkout…",
     checkoutLoadError:
       "Couldn't load the checkout — check your connection and try again.",
+  },
+  concierge: {
+    label: "Royal Concierge",
+    cardTitle: "Want a more hands-on search?",
+    cardDesc:
+      "Royal Concierge is a founder-run, hands-on matchmaking service — a real phone call to understand what you're looking for, with pricing agreed directly, not an automated checkout.",
+    cardCta: "Request a call",
+    applyTitle: "Request Royal Concierge",
+    applyDesc:
+      "Leave your number and anything you'd like us to know — we'll call you within a couple of days to talk through it.",
+    phoneLabel: "Phone number",
+    phonePlaceholder: "+91 98765 43210",
+    notesLabel: "Anything you'd like us to know",
+    notesPlaceholder: "Optional",
+    submitting: "Submitting…",
+    submitRequest: "Submit request",
   },
   errors: {
     somethingWrong: "Something went wrong.",
@@ -497,6 +558,16 @@ const ta: Dictionary = {
     verifyMyIdentity: "என் அடையாளத்தை உறுதிசெய்",
     mockNote:
       "இது இப்போதைக்கு ஒரு போலிச் சோதனை — உண்மையான சரிபார்ப்பு நிறுவனம் இணைக்கப்படும் போது என்ன மாறும் என்பதை கீழே பார்க்கவும்.",
+    relationQuestion: "இந்த சுயவிவரத்தை யார் அமைக்கிறார்கள்?",
+    relationSelf: "நானே",
+    relationSon: "என் மகன்",
+    relationDaughter: "என் மகள்",
+    relationBrother: "என் சகோதரர்",
+    relationSister: "என் சகோதரி",
+    relationFriend: "ஒரு நண்பர்",
+    relationRelative: "ஒரு உறவினர்",
+    relationHelp:
+      "நீங்கள் ஒரு பெற்றோர் அல்லது உறவினராக இதை அமைத்தால், நீங்கள் உதவும் நபரை பின்னர் இணைக்க அழைக்கலாம் — சுயவிவரம் உருவான பின் அவர்களின் கணக்குப் பக்கத்தில் 'குடும்பப் பகிர்வை' பார்க்கவும்.",
   },
   matches: {
     title: "இணைகள்",
@@ -597,6 +668,37 @@ const ta: Dictionary = {
     notificationsTurnOn: "இயக்கு",
     notificationsTurnOff: "நிறுத்து",
     notificationsError: "ஏதோ தவறு ஏற்பட்டது — மீண்டும் முயற்சிக்கவும்.",
+    employmentHeading: "வேலை / கல்வி சரிபார்ப்பு",
+    employmentDesc:
+      "உங்கள் சுயவிவரத்தில் சரிபார்க்கப்பட்ட வேலை அல்லது கல்விக் குறியீட்டைச் சேர்க்கவும் — உங்கள் பணியிட மின்னஞ்சலால் சரிபார்க்கவும், அல்லது உங்கள் முதலாளியிடம் நேரடியாகச் சரிபார்க்குமாறு எங்களிடம் கேளுங்கள்.",
+    employmentStatusVerifiedWorkEmail: "✓ பணியிட மின்னஞ்சல் உறுதிசெய்யப்பட்டது.",
+    employmentStatusVerifiedEmployer: "✓ முதலாளி உறுதிசெய்யப்பட்டார்.",
+    employmentStatusPending:
+      "உங்கள் முதலாளி சரிபார்ப்புக் கோரிக்கை எங்கள் குழுவிடம் உள்ளது — முடிவு கிடைத்தவுடன் இதைப் புதுப்பிப்போம்.",
+    employmentStatusUnable:
+      "இதை சரிபார்க்க முடியவில்லை — கீழே வேறு முறையில் மீண்டும் முயற்சிக்கலாம்.",
+    employmentMethodWorkEmail: "பணியிட மின்னஞ்சலால் சரிபார்",
+    employmentMethodEmployer: "என் முதலாளியைத் தொடர்பு கொள்ளச் சொல்",
+    employmentWorkEmailLabel: "உங்கள் பணியிட மின்னஞ்சல் முகவரி",
+    employmentSending: "அனுப்புகிறது…",
+    employmentSendCode: "குறியீட்டை அனுப்பு",
+    employmentCodeLabel: "6-இலக்க குறியீடு",
+    employmentConfirming: "உறுதிசெய்கிறது…",
+    employmentConfirmCode: "குறியீட்டை உறுதிசெய்",
+    employmentTryDifferentMethod: "வேறு முறையை முயற்சிக்கவும்",
+    employmentEmployerNameLabel: "முதலாளியின் பெயர்",
+    employmentEmployerContactLabel: "முதலாளியின் தொடர்பு மின்னஞ்சல் (எ.கா. HR)",
+    employmentConsentLabel:
+      "என் வேலையை உறுதிசெய்ய அகரம் என் முதலாளியைத் தொடர்பு கொள்ள நான் ஒப்புதல் அளிக்கிறேன்.",
+    employmentSubmitting: "சமர்ப்பிக்கிறது…",
+    employmentSubmitRequest: "கோரிக்கையை சமர்ப்பி",
+    digestHeading: "வாராந்திர இணை சுருக்கம்",
+    digestDesc:
+      "புதிய வேட்பாளர்கள், பெறப்பட்ட ஆர்வங்கள், படிக்காத செய்திகள் பற்றிய வாராந்திர சுருக்க மின்னஞ்சல் — நீங்கள் தொடர்ந்து பார்க்க வேண்டியதில்லை.",
+    digestOn: "வாராந்திர சுருக்க மின்னஞ்சல்கள் இயக்கத்தில் உள்ளன.",
+    digestOff: "வாராந்திர சுருக்க மின்னஞ்சல்கள் நிறுத்தப்பட்டுள்ளன.",
+    digestTurnOn: "இயக்கு",
+    digestTurnOff: "நிறுத்து",
   },
   family: {
     title: "குடும்ப அணுகல்",
@@ -647,6 +749,10 @@ const ta: Dictionary = {
     ownInviteTitle: "இது உங்கள் சொந்த அழைப்பு இணைப்பு",
     ownInviteDesc:
       "இதற்குப் பதிலாக நீங்கள் யாருடைய உதவியை விரும்புகிறீர்களோ அவருக்கு இதை அனுப்புங்கள் — அவர்கள் தங்கள் சொந்தக் கணக்கிலிருந்து இதை ஏற்றுக்கொள்வார்கள்.",
+    parentTrackNudge:
+      "இந்த சுயவிவரம் உங்கள் மகன் அல்லது மகளுக்கானது என்று நீங்கள் கூறியதால், அவர்கள் எப்போது வேண்டுமானாலும் சொந்தமாக இணையலாம் — கீழே அவர்களை அழைக்கவும், அவர்கள் தங்கள் சொந்த அடிப்படை சுயவிவரத்தையும் நீங்கள் பகிரும் இணைகளையும் பார்ப்பார்கள்.",
+    proxyCreatorNudge:
+      "நீங்கள் இந்த சுயவிவரத்தை மற்றொருவருக்காக அமைத்ததால், அதை நேரடியாக நிர்வகிக்க அவர்களை அழைப்பதைக் கருதுங்கள் — கீழே அழைக்கவும்.",
   },
   upgrade: {
     youreOnElite: "நீங்கள் எலீட் திட்டத்தில் உள்ளீர்கள்.",
@@ -675,6 +781,22 @@ const ta: Dictionary = {
     autoRenewLabel: "ஒவ்வொரு 6 மாதங்களும் தானியங்கி புதுப்பிப்பு (பரிந்துரைக்கப்படுகிறது) — எப்போது வேண்டுமானாலும் ரத்துசெய்யலாம்.",
     openingCheckout: "செக்அவுட் திறக்கிறது…",
     checkoutLoadError: "செக்அவுட்டை ஏற்ற முடியவில்லை — உங்கள் இணைப்பைச் சரிபார்த்து மீண்டும் முயற்சிக்கவும்.",
+  },
+  concierge: {
+    label: "ராயல் கான்சியர்ஜ்",
+    cardTitle: "மேலும் நேரடி உதவியுடன் தேட விரும்புகிறீர்களா?",
+    cardDesc:
+      "ராயல் கான்சியர்ஜ் என்பது நிறுவனரே நேரடியாக நடத்தும் ஒரு தனிப்பட்ட பொருத்தச் சேவை — நீங்கள் என்ன தேடுகிறீர்கள் என்பதை புரிந்துகொள்ள ஒரு உண்மையான தொலைபேசி அழைப்பு, விலை நேரடியாக பேசி முடிவு செய்யப்படும், தானியங்கி செக்அவுட் இல்லை.",
+    cardCta: "அழைப்பு கோரவும்",
+    applyTitle: "ராயல் கான்சியர்ஜ் கோரவும்",
+    applyDesc:
+      "உங்கள் எண்ணையும் நாங்கள் அறிய வேண்டியதையும் விடுங்கள் — சில நாட்களில் உங்களை அழைத்து பேசுவோம்.",
+    phoneLabel: "தொலைபேசி எண்",
+    phonePlaceholder: "+91 98765 43210",
+    notesLabel: "நாங்கள் அறிய வேண்டிய ஏதேனும்",
+    notesPlaceholder: "விருப்பத்தேர்வு",
+    submitting: "சமர்ப்பிக்கிறது…",
+    submitRequest: "கோரிக்கையை சமர்ப்பி",
   },
   errors: {
     somethingWrong: "ஏதோ தவறு நடந்தது.",

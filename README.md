@@ -738,12 +738,22 @@ section.
     period + interval, so "Monthly" with interval `6`), any plan name
     you like. Copy its Plan ID (`plan_...`) and add it as
     `RAZORPAY_PLAN_ID` — locally in `.env.local`, and in Vercel's
-    environment variables. Then **Settings → Webhooks → add a new
-    webhook**, URL `https://<your-domain>/api/webhooks/razorpay`,
-    active events: `subscription.charged`, `subscription.cancelled`,
+    environment variables. Then, webhooks live somewhere else in the
+    dashboard — they're account-wide, not under Subscriptions —
+    **Account & Settings (bottom of the left sidebar) → Website and
+    app settings → Webhooks → "+ Add New Webhook"**, URL
+    `https://<your-domain>/api/webhooks/razorpay`, active events:
+    `subscription.charged`, `subscription.cancelled`,
     `subscription.completed`, `subscription.halted`. Razorpay shows
     you a webhook secret when you create it — add that as
-    `RAZORPAY_WEBHOOK_SECRET` (same two places). Without
+    `RAZORPAY_WEBHOOK_SECRET` (same two places). **Test Mode and Live
+    Mode each have their own separate webhooks and their own separate
+    Plans** (the Test/Live toggle near the top of the dashboard
+    switches which one you're looking at) — while you're still on
+    test keys (`RAZORPAY_KEY_ID`/`RAZORPAY_KEY_SECRET` starting with
+    `rzp_test_`), create the Plan and the webhook while that toggle is
+    set to **Test Mode**; you'll repeat both steps once more, in Live
+    Mode, when you eventually go live. Without
     `RAZORPAY_PLAN_ID` set, the auto-renew checkbox still shows, but
     trying to use it gives a clear "not configured yet" error instead
     of a broken checkout — the one-time path keeps working regardless.
@@ -984,30 +994,142 @@ live database at any time. When you're done testing for good, either
 remove the environment variable (the route goes back to always
 404ing) or delete `src/app/api/dev/seed-test-data/route.ts` outright.
 
+## Employment & education verification (V1)
+
+A second, independent trust badge on `/account` alongside identity
+verification (Phase 3) — a member can verify their employment either
+automatically or with human help.
+
+- **Work email (fully automated).** Enter your work email address, get
+  a 6-digit code, enter it back — same shape as any OTP flow. No
+  vendor involved: it's real Resend email plus a hash comparison done
+  inside Postgres (`confirm_work_email_otp()`, `supabase/schema.sql`
+  Phase 18), so the code itself is never trusted client-side.
+- **Employer attestation (human-reviewed).** For anyone without a
+  company email address, consent to Agaram contacting your employer's
+  HR/manager directly. This lands in a queue on `/admin` →
+  **Employment** for you to review by hand — there's no vendor (like
+  Attestr/IDfy) wired in for automated EPFO checks yet, so this is the
+  honest fallback, mirroring how identity verification's mock check
+  works today.
+- **One-time setup:** requires `RESEND_API_KEY` and
+  `RESEND_FROM_ADDRESS` (see `.env.local.example`) — without them, the
+  work-email path shows a clear "email sending isn't configured yet"
+  message instead of silently failing; employer attestation doesn't
+  need email at all and works regardless.
+- **Database:** `employment_verifications` (Phase 18) — one row per
+  member, RLS-scoped to their own row plus admin read/update, same
+  shape as `identity_verifications`.
+
+## Family Collaborator: relation context at onboarding (V1)
+
+Onboarding's first question is now "Who's setting up this profile?" —
+self, son, daughter, brother, sister, friend, or relative — stored as
+`profiles.created_by_relation` (`supabase/schema.sql` Phase 19).
+
+This is a deliberately scoped-down piece of the PRD's full "parent
+creates the profile, child claims it later with their own login"
+model. Building that fully means transferring a `profiles` row's
+primary key from one `auth.users` id to another — which would also
+need to migrate every `matches` row for that person (the
+`matches_pair_order` check constraint means the two candidate columns
+have to stay sorted, so a changed id can require re-sorting the row),
+plus `preferences`, `identity_verifications`, `messages`, `payments`,
+and more. That's a lot of blast radius for a live app to take on in
+one round, so V1 ships the safer slice instead: recording *why* the
+profile was created, and using it to nudge the parent/relative toward
+the Family Collaborator invite mechanism that already exists (Phase
+10 — see "Family Collaborator accounts (V1)" above) rather than
+inventing new ownership-transfer machinery. On `/account`, a member
+whose profile says "for my son/daughter" or another relation sees a
+tailored nudge inside the existing Family sharing section pointing
+them at the invite link. Revisit the full transfer model separately if
+it becomes a real blocker.
+
+## Weekly curated match digest (V1)
+
+A weekly email — "N new profiles, N interests received, N unread
+messages" — the closest honest version of the PRD's "Friday 4pm, your
+3 introductions" idea that this app can compute without a real
+Jathagam/ML matching engine behind it.
+
+- **On by default** (it's core engagement, not marketing) — turn it
+  off from `/account` → **Weekly match digest**, or with the one-click
+  unsubscribe link at the bottom of every digest email (no login
+  needed for that link).
+- **One-time setup:** three environment variables, on top of the
+  `RESEND_API_KEY`/`RESEND_FROM_ADDRESS` pair above (see
+  `.env.local.example` for the full explanation of each):
+  ```
+  CRON_SECRET=<a long random value you make up>
+  DIGEST_UNSUB_SECRET=<a different long random value>
+  ```
+  `CRON_SECRET` also needs to exist as a Vercel project environment
+  variable (same value) — once it's set, Vercel Cron picks up the
+  schedule already committed in `vercel.json` (Fridays, 10:00 UTC ≈
+  3:30pm IST) with **no dashboard configuration required**; it sends
+  that secret back automatically as an `Authorization: Bearer` header
+  so `api/cron/weekly-digest` can confirm the call is really from
+  Vercel Cron and not a random visitor hitting the URL.
+- **Never spams an empty week.** If a member has nothing new (no new
+  candidates, no interests, no unread messages) since their last
+  digest, no email goes out that week — but the "since" watermark
+  (`profiles.last_digest_sent_at`, Phase 20) still advances, so a quiet
+  month doesn't turn into one giant catch-up email later.
+- **Runs entirely through the service-role client**
+  (`src/lib/supabase/admin.ts`) since a cron trigger has no signed-in
+  member session and needs to read/write every member's row in turn —
+  the same reason the Razorpay webhook route needs it.
+
+## Royal Concierge tier intake (V1)
+
+A third tier, alongside Free and Elite, on `/upgrade` — but
+deliberately **not** another automated checkout. Royal Concierge (PRD
+§11) is a founder-run, hands-on matchmaking service: a real phone
+call, pricing negotiated directly. Wiring a Razorpay flow to something
+that's actually a human conversation would be pretending a level of
+automation that doesn't exist yet.
+
+- **Member side:** `/concierge/apply` — phone number plus optional
+  notes, nothing else. Submitting just files a row; there's no payment
+  step here at all.
+- **Founder side:** `/admin` → **Concierge** — a simple queue you
+  advance by hand as you actually talk to each applicant: submitted →
+  contacted → in progress → closed. This is your own record of where
+  a real conversation has gotten to, not a status the member sees
+  reflected anywhere.
+- **Database:** `concierge_applications` (Phase 21) — member can
+  insert/view their own applications, admin can view/update all.
+
 ## What's next
 
-All 8 V0 build-plan phases are live, plus twelve V1 features now:
+All 8 V0 build-plan phases are live, plus sixteen V1 features now:
 member blocking/data export/account deletion, the Tamil UI toggle,
 Family Collaborator accounts, message milestone tagging, subscription
 renewal & billing history, real auto-recurring billing with
 self-serve cancellation, push notifications for messages, admin
 member search & suspension, admin message oversight & an action audit
 log, the messaging upgrades (Realtime/typing/read receipts), the
-DPDP-Act grievance officer contact, and DPDP consent capture at
-signup. Still open: the Family Collaborator model's still-deferred
-parent-creates-profile-first and sibling/friend proxy-creator flows
-(see the section above), and the vendor/business work: the real
-HyperVerge (or a cheaper alternative like Deepvue/Sandbox) Aadhaar
-check once sandbox access comes through, Razorpay live mode once
-business KYC is done, the DPDP-Act legal review flagged throughout the
-Phase 8 section above (naming a grievance officer and capturing
-signup consent are two pieces of that review, now done — the rest,
-e.g. a full compliance read-through covering data retention and
-breach notification, isn't), and CSP graduation from Report-Only to
-enforcing — now a one-variable `CSP_ENFORCE=true` toggle rather than a
-code change, but still deliberately not flipped by default until a
-full manual click-through (including both payment flows and push
-notifications) is confirmed clean against the live deployment. Bring
-this repo and `Agaram_Premium_PRD_v2.md` / the clickable prototype
-into your next
+DPDP-Act grievance officer contact, DPDP consent capture at signup,
+employment/education verification, relation context at onboarding (a
+scoped-down slice of the Family Collaborator model), the weekly
+curated match digest, and Royal Concierge tier intake. Still open: the
+Family Collaborator model's full parent-creates-profile-first
+identity-transfer flow (deliberately deferred as too high-risk for a
+live app — see "Family Collaborator: relation context at onboarding"
+above for what shipped instead and why), the employer-attestation
+verification path's still-manual review (no Attestr/IDfy/EPFO vendor
+wired in yet), and the vendor/business work: the real HyperVerge (or a
+cheaper alternative like Deepvue/Sandbox) Aadhaar check once sandbox
+access comes through, Razorpay live mode once business KYC is done,
+the DPDP-Act legal review flagged throughout the Phase 8 section above
+(naming a grievance officer and capturing signup consent are two
+pieces of that review, now done — the rest, e.g. a full compliance
+read-through covering data retention and breach notification, isn't),
+and CSP graduation from Report-Only to enforcing — now a one-variable
+`CSP_ENFORCE=true` toggle rather than a code change, but still
+deliberately not flipped by default until a full manual click-through
+(including both payment flows and push notifications) is confirmed
+clean against the live deployment. Bring this repo and
+`Agaram_Premium_PRD_v2.md` / the clickable prototype into your next
 session for any of those.

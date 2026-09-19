@@ -1853,3 +1853,237 @@ create policy "Admins can view all messages"
 -- once, same as full_name or location — so no revoke here.
 alter table public.profiles
   add column if not exists terms_accepted_at timestamptz;
+
+-- ============================================================
+-- Phase 18 (V1) — Employment & education verification
+-- ============================================================
+--
+-- A real (not yet vendor-backed) verification flow for the
+-- Employment/Professional/Education badges that Phase 3 left as
+-- "not yet verified" placeholders (see the build plan, Section 3).
+-- Two methods, matching two of the three named on the PRD's
+-- EmploymentVerificationMethod screen (§7.1.1/§7.1.3) — EPFO
+-- verification needs a real vendor (IDfy/AuthBridge) integration and
+-- stays deferred, same as Aadhaar e-KYC:
+--
+--   work_email           — genuinely automated, no vendor needed: a
+--                           one-time code is emailed to the claimed
+--                           work address via Resend, and confirming
+--                           it is a real, working verification —
+--                           proving control of a company-domain inbox
+--                           is a legitimate Medium-confidence signal
+--                           per §7.1.2.
+--   employer_attestation — the "ask your employer" path (§7.1.3).
+--                           Without Attestr/VerifyAll wired in, this
+--                           stays the honest hybrid the PRD itself
+--                           allows for the residual manual case
+--                           (§7.1.1's "what stays manual, and why
+--                           that's fine"): the candidate records
+--                           consent + the employer's contact, and it
+--                           lands in the admin queue for a human
+--                           decision, exactly like identity
+--                           verification does today.
+create extension if not exists pgcrypto;
+
+create table if not exists public.employment_verifications (
+  profile_id uuid primary key references public.profiles (id) on delete cascade,
+  method text not null check (method in ('work_email', 'employer_attestation')),
+  status text not null default 'pending' check (status in ('pending', 'verified', 'unable_to_verify')),
+  work_email text,
+  otp_code_hash text,
+  otp_expires_at timestamptz,
+  otp_attempts integer not null default 0,
+  employer_name text,
+  employer_contact_email text,
+  consent_at timestamptz,
+  admin_note text,
+  submitted_at timestamptz not null default now(),
+  verified_at timestamptz,
+  updated_at timestamptz not null default now()
+);
+
+alter table public.employment_verifications enable row level security;
+
+drop policy if exists "Users can view own employment verification" on public.employment_verifications;
+create policy "Users can view own employment verification"
+  on public.employment_verifications for select
+  using (auth.uid() = profile_id);
+
+-- Same pattern as identity_verifications (Phase 3/8): a member can
+-- freely write their own row while requesting a code or submitting an
+-- attestation, but WITH CHECK pins the WRITTEN status to 'pending' on
+-- every client-side write — only confirm_work_email_otp() below
+-- (SECURITY DEFINER) can ever move a row to 'verified', and only an
+-- admin (separate policy below) can move one to 'unable_to_verify'.
+drop policy if exists "Users can insert own employment verification" on public.employment_verifications;
+create policy "Users can insert own employment verification"
+  on public.employment_verifications for insert
+  with check (auth.uid() = profile_id and status = 'pending');
+
+drop policy if exists "Users can update own employment verification" on public.employment_verifications;
+create policy "Users can update own employment verification"
+  on public.employment_verifications for update
+  using (auth.uid() = profile_id)
+  with check (auth.uid() = profile_id and status = 'pending');
+
+drop policy if exists "Admins can view all employment verifications" on public.employment_verifications;
+create policy "Admins can view all employment verifications"
+  on public.employment_verifications for select
+  using (is_admin());
+
+drop policy if exists "Admins can update all employment verifications" on public.employment_verifications;
+create policy "Admins can update all employment verifications"
+  on public.employment_verifications for update
+  using (is_admin());
+
+-- The one legitimate way a work_email row moves to 'verified'. Takes
+-- the candidate's submitted code as a parameter and does the hash
+-- comparison INSIDE this SECURITY DEFINER function, rather than
+-- trusting a boolean the caller computed — a function that just
+-- flipped status to 'verified' with no parameter, the way
+-- resolve_mock_verification() does for identity, would let any
+-- signed-in member call it directly from the browser console and
+-- self-verify with no code at all, since grant execute ... to
+-- authenticated makes it callable by anyone. The code is hashed with
+-- sha256 both here and where it's generated (src/app/actions/
+-- employment.ts) so the raw code is never stored in the clear.
+create or replace function public.confirm_work_email_otp(p_code text)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_row public.employment_verifications%rowtype;
+begin
+  select * into v_row
+  from public.employment_verifications
+  where profile_id = auth.uid()
+    and method = 'work_email'
+    and status = 'pending'
+  for update;
+
+  if not found or v_row.otp_expires_at is null or v_row.otp_expires_at < now() then
+    return false;
+  end if;
+
+  if v_row.otp_attempts >= 5 then
+    return false;
+  end if;
+
+  if v_row.otp_code_hash is distinct from encode(digest(p_code, 'sha256'), 'hex') then
+    update public.employment_verifications
+    set otp_attempts = otp_attempts + 1, updated_at = now()
+    where profile_id = auth.uid();
+    return false;
+  end if;
+
+  update public.employment_verifications
+  set status = 'verified',
+      verified_at = now(),
+      updated_at = now(),
+      otp_code_hash = null
+  where profile_id = auth.uid();
+
+  return true;
+end;
+$$;
+
+grant execute on function public.confirm_work_email_otp(text) to authenticated;
+
+-- ============================================================
+-- Phase 19 (V1) — "Who is this profile for?" (created_by_relation)
+-- ============================================================
+--
+-- Records the PRD's relation list (§5's "Elite Alliance for" field:
+-- Self/Son/Daughter/Brother/Sister/Friend/Relative) at onboarding.
+-- This is deliberately NOT the PRD's full parent-creates-profile-first
+-- model — that model needs the actual candidate to eventually take
+-- over an INDEPENDENT login from whoever first created the account,
+-- which means transferring a profile's identity from one auth.users
+-- row to another (matches, messages, payments and every other table
+-- keyed to profiles.id would all need to move with it, including
+-- re-satisfying the matches table's candidate_a < candidate_b
+-- ordering constraint). That's real, higher-risk data-migration
+-- engineering this round doesn't take on — see the build plan for the
+-- honest scoping note. What this phase DOES do: record who actually
+-- filled the profile in, and use it (src/app/account/page.tsx) to
+-- point a parent toward the existing, already-safe Family
+-- Collaborator invite (Phase 10) as a standing way to keep following
+-- along, and to set honest expectations for a proxy creator
+-- (sibling/friend/relative) that their own access is a one-time
+-- favor, not a permanent role, exactly as the PRD states.
+alter table public.profiles
+  add column if not exists created_by_relation text
+    not null default 'self'
+    check (created_by_relation in ('self', 'son', 'daughter', 'brother', 'sister', 'friend', 'relative'));
+
+-- ============================================================
+-- Phase 20 (V1) — Weekly curated match digest
+-- ============================================================
+--
+-- A scheduled email (see /api/cron/weekly-digest) summarizing new
+-- Browse candidates, interests received, and unread mutual-match
+-- messages since the member's last digest — the closest honest
+-- approximation of the PRD's automated "Friday 4pm, your 3
+-- introductions" cadence (§8) that's buildable without the real
+-- Jathagam/ML matching engine described there. On by default (this is
+-- core product engagement, not marketing) with a one-click,
+-- no-login-required unsubscribe link in every email (see
+-- /api/digest/unsubscribe) — weekly_digest_opt_out is an ordinary
+-- member-owned preference (no revoke needed, same as locale).
+-- last_digest_sent_at is system-managed (only ever written by the
+-- cron route's service-role client, which bypasses these grants
+-- entirely) so it gets the same revoke treatment as other
+-- admin/system-only columns — an ordinary member has no legitimate
+-- reason to write it themselves.
+alter table public.profiles
+  add column if not exists weekly_digest_opt_out boolean not null default false,
+  add column if not exists last_digest_sent_at timestamptz;
+
+revoke insert (last_digest_sent_at) on public.profiles from authenticated;
+revoke update (last_digest_sent_at) on public.profiles from authenticated;
+
+-- ============================================================
+-- Phase 21 (V1) — Royal Concierge tier intake
+-- ============================================================
+--
+-- The Concierge tier (§11) is explicitly a human-run matchmaking
+-- service, not a software feature — this table is just the front
+-- door: an application lands here, and you work it by hand (phone
+-- call, negotiate pricing, etc.), tracked from a new /admin/concierge
+-- queue. No Razorpay checkout is wired to this tier in this round —
+-- per §11's own flow (a qualification call before anything is
+-- charged), an instant self-serve checkout would be the wrong shape
+-- for this tier anyway.
+create table if not exists public.concierge_applications (
+  id uuid primary key default gen_random_uuid(),
+  profile_id uuid not null references public.profiles (id) on delete cascade,
+  contact_phone text not null,
+  notes text,
+  status text not null default 'submitted' check (status in ('submitted', 'contacted', 'in_progress', 'closed')),
+  submitted_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.concierge_applications enable row level security;
+
+drop policy if exists "Members can submit their own concierge application" on public.concierge_applications;
+create policy "Members can submit their own concierge application"
+  on public.concierge_applications for insert
+  with check (profile_id = auth.uid());
+
+drop policy if exists "Members can view their own concierge applications" on public.concierge_applications;
+create policy "Members can view their own concierge applications"
+  on public.concierge_applications for select
+  using (profile_id = auth.uid());
+
+drop policy if exists "Admins can view all concierge applications" on public.concierge_applications;
+create policy "Admins can view all concierge applications"
+  on public.concierge_applications for select
+  using (is_admin());
+
+drop policy if exists "Admins can update all concierge applications" on public.concierge_applications;
+create policy "Admins can update all concierge applications"
+  on public.concierge_applications for update
+  using (is_admin());

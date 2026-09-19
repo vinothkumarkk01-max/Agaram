@@ -33,6 +33,11 @@ export async function saveBasicInfo(
   const location = String(formData.get("location") ?? "").trim();
   const aboutMe = String(formData.get("about_me") ?? "").trim();
   const termsAccepted = formData.get("terms_accepted");
+  const createdByRelationRaw = String(formData.get("created_by_relation") ?? "self");
+  const validRelations = ["self", "son", "daughter", "brother", "sister", "friend", "relative"];
+  const createdByRelation = validRelations.includes(createdByRelationRaw)
+    ? createdByRelationRaw
+    : "self";
 
   if (!fullName) {
     return { error: "Please enter your full name." };
@@ -64,6 +69,7 @@ export async function saveBasicInfo(
     age,
     location,
     about_me: aboutMe || null,
+    created_by_relation: createdByRelation,
     terms_accepted_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   });

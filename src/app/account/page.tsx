@@ -2,9 +2,11 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { unblockMember } from "@/app/actions/blocks";
 import { createFamilyInvite, revokeFamilyLink } from "@/app/actions/family";
+import { toggleWeeklyDigest } from "@/app/actions/account";
 import { CancelSubscriptionButton } from "@/components/CancelSubscriptionButton";
 import { DeleteAccountForm } from "@/components/DeleteAccountForm";
 import { NotificationsToggle } from "@/components/NotificationsToggle";
+import { EmploymentVerification } from "@/components/EmploymentVerification";
 import { FamilyInviteLink } from "@/components/FamilyInviteLink";
 import { getDictionary } from "@/lib/i18n/server";
 import { intlLocale } from "@/lib/i18n/locale";
@@ -61,9 +63,17 @@ export default async function AccountPage() {
     ? await supabase
         .from("profiles")
         .select(
-          "id, subscription_tier, subscription_expires_at, razorpay_subscription_id, subscription_status"
+          "id, subscription_tier, subscription_expires_at, razorpay_subscription_id, subscription_status, created_by_relation, weekly_digest_opt_out"
         )
         .eq("id", user.id)
+        .maybeSingle()
+    : { data: null };
+
+  const { data: employmentData } = ownProfile
+    ? await supabase
+        .from("employment_verifications")
+        .select("status, method, work_email")
+        .eq("profile_id", user!.id)
         .maybeSingle()
     : { data: null };
 
@@ -268,6 +278,54 @@ export default async function AccountPage() {
           <NotificationsToggle t={t} />
         </section>
 
+        {ownProfile && (
+        <section
+          className="rounded-2xl p-6"
+          style={{ background: "var(--bg-raised)", border: "1px solid var(--line)" }}
+        >
+          <h2 className="text-base font-bold mb-1.5">{t.account.employmentHeading}</h2>
+          <p className="text-sm mb-4" style={{ color: "var(--text-soft)" }}>
+            {t.account.employmentDesc}
+          </p>
+          <EmploymentVerification
+            t={t}
+            status={(employmentData?.status as "pending" | "verified" | "unable_to_verify" | undefined) ?? null}
+            method={(employmentData?.method as "work_email" | "employer_attestation" | undefined) ?? null}
+            workEmail={employmentData?.work_email ?? null}
+          />
+        </section>
+        )}
+
+        {ownProfile && (
+        <section
+          className="rounded-2xl p-6"
+          style={{ background: "var(--bg-raised)", border: "1px solid var(--line)" }}
+        >
+          <h2 className="text-base font-bold mb-1.5">{t.account.digestHeading}</h2>
+          <p className="text-sm mb-4" style={{ color: "var(--text-soft)" }}>
+            {t.account.digestDesc}
+          </p>
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-sm" style={{ color: "var(--text-soft)" }}>
+              {ownProfile.weekly_digest_opt_out ? t.account.digestOff : t.account.digestOn}
+            </p>
+            <form action={toggleWeeklyDigest.bind(null, !!ownProfile.weekly_digest_opt_out)}>
+              <button
+                type="submit"
+                className="shrink-0 rounded-lg px-3 py-1.5 text-xs font-semibold"
+                style={{
+                  background: "var(--bg-sunken)",
+                  border: "1px solid var(--line)",
+                  color: "var(--text)",
+                }}
+              >
+                {ownProfile.weekly_digest_opt_out ? t.account.digestTurnOn : t.account.digestTurnOff}
+              </button>
+            </form>
+          </div>
+        </section>
+        )}
+
         <section
           className="rounded-2xl p-6"
           style={{ background: "var(--bg-raised)", border: "1px solid var(--line)" }}
@@ -320,6 +378,27 @@ export default async function AccountPage() {
           <p className="text-sm mb-4" style={{ color: "var(--text-soft)" }}>
             {t.family.sharingDesc}
           </p>
+
+          {!familyLink &&
+            (ownProfile?.created_by_relation === "son" ||
+              ownProfile?.created_by_relation === "daughter") && (
+              <p
+                className="text-xs mb-4 rounded-xl p-3"
+                style={{ background: "var(--bg-sunken)", color: "var(--text-soft)" }}
+              >
+                {t.family.parentTrackNudge}
+              </p>
+            )}
+          {!familyLink &&
+            ownProfile?.created_by_relation &&
+            !["self", "son", "daughter"].includes(ownProfile.created_by_relation) && (
+              <p
+                className="text-xs mb-4 rounded-xl p-3"
+                style={{ background: "var(--bg-sunken)", color: "var(--text-soft)" }}
+              >
+                {t.family.proxyCreatorNudge}
+              </p>
+            )}
 
           {!familyLink && (
             <form action={createFamilyInvite}>

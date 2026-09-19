@@ -37,7 +37,7 @@ export default async function UpgradePage() {
 
   return (
     <div
-      className="min-h-screen w-full flex items-center justify-center px-4 py-10"
+      className="min-h-screen w-full flex flex-col items-center justify-center px-4 py-10"
       style={{
         background:
           "radial-gradient(120% 70% at 50% -10%, #FFFFFF 0%, var(--bg) 55%)",
@@ -156,6 +156,35 @@ export default async function UpgradePage() {
             </p>
           </>
         )}
+      </div>
+
+      <div
+        className="w-full max-w-md rounded-2xl p-6 shadow-sm mt-4"
+        style={{ background: "var(--bg-raised)", border: "1px solid var(--line)" }}
+      >
+        <div
+          className="text-xs uppercase tracking-wider font-semibold mb-2"
+          style={{ color: "var(--accent-strong)" }}
+        >
+          {t.concierge.label}
+        </div>
+        <h2 className="text-lg mb-1.5" style={{ fontFamily: "var(--font-display)" }}>
+          {t.concierge.cardTitle}
+        </h2>
+        <p className="text-sm mb-4" style={{ color: "var(--text-soft)" }}>
+          {t.concierge.cardDesc}
+        </p>
+        <Link
+          href="/concierge/apply"
+          className="inline-block rounded-xl px-4 py-2.5 text-sm font-bold"
+          style={{
+            background: "var(--bg-sunken)",
+            border: "1px solid var(--line)",
+            color: "var(--text)",
+          }}
+        >
+          {t.concierge.cardCta}
+        </Link>
       </div>
     </div>
   );

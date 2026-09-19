@@ -7,13 +7,20 @@ import { createClient as createSupabaseClient } from "@supabase/supabase-js";
  * entirely, so it must never be exposed to the browser and must never
  * act on anything other than the caller's own id.
  *
- * Used for exactly one thing today: actions/account.ts's
- * deleteAccount(), which needs to delete a row from `auth.users` — an
- * operation only the Supabase Admin API can do; there's no RLS policy
- * that could grant a regular user permission to delete their own auth
- * account, because deleting from `auth.users` isn't something a
- * regular Postgres role can be granted at all (Supabase Auth manages
- * that schema itself).
+ * Used for a handful of things that genuinely can't go through a
+ * member's own RLS-scoped session: actions/account.ts's
+ * deleteAccount() (deleting a row from `auth.users`, which only the
+ * Supabase Admin API can do — no regular Postgres role can be granted
+ * that, since Supabase Auth manages that schema itself); the Razorpay
+ * webhook route (api/webhooks/razorpay), which has no member session
+ * at all; lib/push/send.ts's stale-subscription cleanup (deleting a
+ * push_subscriptions row that belongs to the message RECIPIENT, not
+ * whoever triggered the send); and the weekly-digest cron route
+ * (api/cron/weekly-digest), which reads and writes across every
+ * member's profile at once rather than one signed-in member's own
+ * row. Every one of these runs with no member logged in, or needs to
+ * touch a row that isn't the caller's own — exactly the two cases RLS
+ * can't accommodate.
  *
  * SUPABASE_SERVICE_ROLE_KEY (no NEXT_PUBLIC_ prefix — it must never
  * reach client-side code) comes from Project Settings -> API in the

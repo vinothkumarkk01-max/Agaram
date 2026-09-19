@@ -181,3 +181,65 @@ export async function unsuspendMember(profileId: string) {
 
   revalidatePath("/admin/members");
 }
+
+/**
+ * Reviews an employer_attestation request (Phase 18, supabase/
+ * schema.sql) — the one employment-verification method that still
+ * needs a human decision, same treatment as identity verification's
+ * mock review above. A plain .update() (not an RPC) works here for
+ * the same reason setVerificationStatus above doesn't need one either:
+ * "Admins can update all employment verifications" already lets an
+ * is_admin() session write any row directly.
+ */
+export async function setEmploymentVerificationStatus(
+  profileId: string,
+  status: "verified" | "unable_to_verify",
+  note?: string
+) {
+  const { supabase, user } = await requireAdmin();
+
+  await supabase
+    .from("employment_verifications")
+    .update({
+      status,
+      verified_at: status === "verified" ? new Date().toISOString() : null,
+      admin_note: note ?? null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("profile_id", profileId);
+
+  await logAdminAction(
+    supabase,
+    user.id,
+    status === "verified" ? "verified_employment" : "failed_employment_verification",
+    "profile",
+    profileId,
+    note
+  );
+
+  revalidatePath("/admin/employment");
+}
+
+/**
+ * Advances a Royal Concierge application (Phase 21, supabase/
+ * schema.sql) through the manual pipeline described in the PRD (§11):
+ * submitted -> contacted -> in_progress -> closed. There is no
+ * automated matching or billing behind this — updating the status
+ * here is literally the founder's own record of where a real phone
+ * conversation with that member has gotten to.
+ */
+export async function setConciergeStatus(
+  applicationId: string,
+  status: "contacted" | "in_progress" | "closed"
+) {
+  const { supabase, user } = await requireAdmin();
+
+  await supabase
+    .from("concierge_applications")
+    .update({ status, updated_at: new Date().toISOString() })
+    .eq("id", applicationId);
+
+  await logAdminAction(supabase, user.id, `concierge_${status}`, "concierge_application", applicationId);
+
+  revalidatePath("/admin/concierge");
+}

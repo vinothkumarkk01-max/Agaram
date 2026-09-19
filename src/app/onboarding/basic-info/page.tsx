@@ -13,7 +13,7 @@ export default async function BasicInfoPage() {
   const { data: profile } = user
     ? await supabase
         .from("profiles")
-        .select("full_name, profile_type, age, location, about_me")
+        .select("full_name, profile_type, age, location, about_me, created_by_relation")
         .eq("id", user.id)
         .maybeSingle()
     : { data: null };
