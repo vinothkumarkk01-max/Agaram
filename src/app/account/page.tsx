@@ -2,7 +2,9 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { unblockMember } from "@/app/actions/blocks";
 import { createFamilyInvite, revokeFamilyLink } from "@/app/actions/family";
+import { CancelSubscriptionButton } from "@/components/CancelSubscriptionButton";
 import { DeleteAccountForm } from "@/components/DeleteAccountForm";
+import { NotificationsToggle } from "@/components/NotificationsToggle";
 import { FamilyInviteLink } from "@/components/FamilyInviteLink";
 import { getDictionary } from "@/lib/i18n/server";
 import { intlLocale } from "@/lib/i18n/locale";
@@ -25,6 +27,22 @@ type FamilyLink = {
   collaborator_name: string | null;
 };
 
+type Payment = {
+  id: string;
+  amount: number;
+  currency: string;
+  status: "created" | "paid" | "failed";
+  created_at: string;
+};
+
+function formatRupees(amountInPaise: number, locale: string): string {
+  return new Intl.NumberFormat(locale, {
+    style: "currency",
+    currency: "INR",
+    maximumFractionDigits: 0,
+  }).format(amountInPaise / 100);
+}
+
 export default async function AccountPage() {
   const supabase = await createClient();
   const {
@@ -40,8 +58,32 @@ export default async function AccountPage() {
   // profile of their own has no search to share, so this whole
   // section stays hidden for them.
   const { data: ownProfile } = user
-    ? await supabase.from("profiles").select("id").eq("id", user.id).maybeSingle()
+    ? await supabase
+        .from("profiles")
+        .select(
+          "id, subscription_tier, subscription_expires_at, razorpay_subscription_id, subscription_status"
+        )
+        .eq("id", user.id)
+        .maybeSingle()
     : { data: null };
+
+  const { data: paymentsData } = ownProfile
+    ? await supabase
+        .from("payments")
+        .select("id, amount, currency, status, created_at")
+        .eq("profile_id", user!.id)
+        .order("created_at", { ascending: false })
+    : { data: null };
+  const payments = (paymentsData ?? []) as Payment[];
+
+  const billingExpiresAt = ownProfile?.subscription_expires_at
+    ? new Date(ownProfile.subscription_expires_at)
+    : null;
+  const isBillingElite =
+    ownProfile?.subscription_tier === "elite" &&
+    (!billingExpiresAt || billingExpiresAt > new Date());
+  const hasAutoRenew = !!ownProfile?.razorpay_subscription_id;
+  const subscriptionStatus = ownProfile?.subscription_status ?? null;
 
   const { data: familyLinkData } = ownProfile
     ? await supabase
@@ -105,6 +147,125 @@ export default async function AccountPage() {
           >
             {t.account.downloadMyData}
           </a>
+        </section>
+
+        {ownProfile && (
+        <section
+          className="rounded-2xl p-6"
+          style={{ background: "var(--bg-raised)", border: "1px solid var(--line)" }}
+        >
+          <h2 className="text-base font-bold mb-1.5">{t.account.billingHeading}</h2>
+          <p className="text-sm mb-4" style={{ color: "var(--text-soft)" }}>
+            {isBillingElite ? (
+              <>
+                {t.account.billingPlanElitePrefix}
+                {billingExpiresAt
+                  ? billingExpiresAt.toLocaleDateString(intlLocale(locale))
+                  : "—"}
+                {t.account.billingPlanEliteSuffix}
+              </>
+            ) : ownProfile.subscription_tier === "elite" && billingExpiresAt ? (
+              <>
+                {t.account.billingPlanExpiredPrefix}
+                {billingExpiresAt.toLocaleDateString(intlLocale(locale))}
+                {t.account.billingPlanExpiredSuffix}
+              </>
+            ) : (
+              t.account.billingPlanFree
+            )}
+          </p>
+          {hasAutoRenew && (
+            <p className="text-xs mb-4" style={{ color: "var(--text-soft)" }}>
+              {subscriptionStatus === "halted"
+                ? t.account.autoRenewHalted
+                : subscriptionStatus === "cancel_requested" ||
+                    subscriptionStatus === "cancelled"
+                  ? t.account.autoRenewCancelRequested
+                  : t.account.autoRenewOn}
+            </p>
+          )}
+
+          <Link
+            href="/upgrade"
+            className="inline-block rounded-xl px-4 py-2.5 text-sm font-bold mb-5"
+            style={{
+              background: "var(--bg-sunken)",
+              border: "1px solid var(--line)",
+              color: "var(--text)",
+            }}
+          >
+            {t.account.manageBilling}
+          </Link>
+
+          {hasAutoRenew &&
+            (subscriptionStatus === "created" || subscriptionStatus === "active") && (
+              <div className="mb-5">
+                <CancelSubscriptionButton t={t} />
+              </div>
+            )}
+
+          <h3
+            className="text-xs font-semibold uppercase tracking-wider mb-2.5"
+            style={{ color: "var(--text-soft)" }}
+          >
+            {t.account.paymentHistoryHeading}
+          </h3>
+          {payments.length === 0 ? (
+            <p className="text-sm" style={{ color: "var(--text-soft)" }}>
+              {t.account.noPayments}
+            </p>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {payments.map((p) => (
+                <div
+                  key={p.id}
+                  className="rounded-xl p-3.5 flex items-center justify-between gap-3"
+                  style={{ background: "var(--bg-sunken)" }}
+                >
+                  <div className="text-sm">
+                    <div className="font-semibold">{t.account.paymentEliteSixMonths}</div>
+                    <div className="text-xs" style={{ color: "var(--text-soft)" }}>
+                      {new Date(p.created_at).toLocaleDateString(intlLocale(locale))}
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <div className="text-sm font-semibold">
+                      {formatRupees(p.amount, intlLocale(locale))}
+                    </div>
+                    <div
+                      className="text-xs font-semibold"
+                      style={{
+                        color:
+                          p.status === "paid"
+                            ? "var(--ok)"
+                            : p.status === "failed"
+                              ? "var(--accent-strong)"
+                              : "var(--text-soft)",
+                      }}
+                    >
+                      {p.status === "paid"
+                        ? t.account.paymentStatusPaid
+                        : p.status === "failed"
+                          ? t.account.paymentStatusFailed
+                          : t.account.paymentStatusCreated}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+        )}
+
+        <section
+          className="rounded-2xl p-6"
+          style={{ background: "var(--bg-raised)", border: "1px solid var(--line)" }}
+        >
+          <h2 className="text-base font-bold mb-1.5">{t.account.notificationsHeading}</h2>
+          <p className="text-sm mb-4" style={{ color: "var(--text-soft)" }}>
+            {t.account.notificationsDesc}
+          </p>
+          <NotificationsToggle t={t} />
         </section>
 
         <section

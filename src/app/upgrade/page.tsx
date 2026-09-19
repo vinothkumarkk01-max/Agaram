@@ -19,10 +19,21 @@ export default async function UpgradePage() {
     .eq("id", user.id)
     .maybeSingle();
 
-  const isElite =
-    profile?.subscription_tier === "elite" &&
-    (!profile.subscription_expires_at ||
-      new Date(profile.subscription_expires_at) > new Date());
+  const expiresAt = profile?.subscription_expires_at
+    ? new Date(profile.subscription_expires_at)
+    : null;
+  const now = new Date();
+  const isElite = profile?.subscription_tier === "elite" && (!expiresAt || expiresAt > now);
+  const hasExpiredElite =
+    profile?.subscription_tier === "elite" && !!expiresAt && expiresAt <= now;
+
+  // Within 14 days of lapsing, lead with a renewal prompt rather than
+  // the plain "you're on Elite" line — same underlying checkout either
+  // way (see UpgradeButton), just a more useful framing near the edge.
+  const daysLeft = expiresAt
+    ? Math.ceil((expiresAt.getTime() - now.getTime()) / (24 * 60 * 60 * 1000))
+    : null;
+  const isExpiringSoon = isElite && daysLeft !== null && daysLeft <= 14;
 
   return (
     <div
@@ -44,7 +55,38 @@ export default async function UpgradePage() {
           {t.common.backDashboard}
         </Link>
 
-        {isElite ? (
+        {isExpiringSoon ? (
+          <>
+            <div
+              className="text-xs uppercase tracking-wider font-semibold mb-2.5"
+              style={{ color: "var(--accent-strong)" }}
+            >
+              {t.upgrade.eliteLabel}
+            </div>
+            <h1
+              className="text-2xl mb-2"
+              style={{ fontFamily: "var(--font-display)" }}
+            >
+              {t.upgrade.expiringSoonTitle}
+            </h1>
+            <p className="text-sm mb-6" style={{ color: "var(--text-soft)" }}>
+              {t.upgrade.expiringSoonPrefix}
+              {expiresAt!.toLocaleDateString(intlLocale(locale))}
+              {t.upgrade.expiringSoonSuffix}
+            </p>
+            <UpgradeButton
+              userEmail={user.email ?? undefined}
+              t={t}
+              label={t.upgrade.renewButtonLabel}
+            />
+            <p
+              className="text-xs text-center mt-4"
+              style={{ color: "var(--text-soft)" }}
+            >
+              {t.upgrade.renewalHint}
+            </p>
+          </>
+        ) : isElite ? (
           <>
             <h1
               className="text-2xl mb-2"
@@ -52,14 +94,21 @@ export default async function UpgradePage() {
             >
               {t.upgrade.youreOnElite}
             </h1>
-            <p className="text-sm" style={{ color: "var(--text-soft)" }}>
+            <p className="text-sm mb-6" style={{ color: "var(--text-soft)" }}>
               {t.upgrade.activeUntilPrefix}
-              {profile?.subscription_expires_at
-                ? new Date(profile.subscription_expires_at).toLocaleDateString(
-                    intlLocale(locale)
-                  )
-                : "—"}
+              {expiresAt ? expiresAt.toLocaleDateString(intlLocale(locale)) : "—"}
               {t.upgrade.activeUntilSuffix}
+            </p>
+            <UpgradeButton
+              userEmail={user.email ?? undefined}
+              t={t}
+              label={t.upgrade.renewButtonLabel}
+            />
+            <p
+              className="text-xs text-center mt-4"
+              style={{ color: "var(--text-soft)" }}
+            >
+              {t.upgrade.renewalHint}
             </p>
           </>
         ) : (
@@ -74,8 +123,15 @@ export default async function UpgradePage() {
               className="text-2xl mb-2"
               style={{ fontFamily: "var(--font-display)" }}
             >
-              {t.upgrade.eliteTitle}
+              {hasExpiredElite ? t.upgrade.expiredTitle : t.upgrade.eliteTitle}
             </h1>
+            {hasExpiredElite && (
+              <p className="text-sm mb-2" style={{ color: "var(--text-soft)" }}>
+                {t.upgrade.expiredPrefix}
+                {expiresAt!.toLocaleDateString(intlLocale(locale))}
+                {t.upgrade.expiredSuffix}
+              </p>
+            )}
             <p className="text-sm mb-6" style={{ color: "var(--text-soft)" }}>
               {t.upgrade.pricing}
             </p>
@@ -87,7 +143,11 @@ export default async function UpgradePage() {
               <li>{t.upgrade.benefit2}</li>
               <li>{t.upgrade.benefit3}</li>
             </ul>
-            <UpgradeButton userEmail={user.email ?? undefined} t={t} />
+            <UpgradeButton
+              userEmail={user.email ?? undefined}
+              t={t}
+              label={hasExpiredElite ? t.upgrade.renewButtonLabel : undefined}
+            />
             <p
               className="text-xs text-center mt-4"
               style={{ color: "var(--text-soft)" }}

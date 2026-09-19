@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { resolveReport } from "@/app/actions/admin";
+import { resolveReport, viewReportMessages } from "@/app/actions/admin";
 
 type Report = {
   id: string;
@@ -94,20 +94,35 @@ export default async function AdminReportsPage() {
             {r.resolved_at &&
               ` · Resolved ${new Date(r.resolved_at).toLocaleString()}`}
           </div>
-          {r.status === "open" && (
-            <form action={resolveReport.bind(null, r.id)}>
+          <div className="flex gap-2">
+            <form action={viewReportMessages.bind(null, r.id)}>
               <button
                 type="submit"
-                className="rounded-xl py-2 px-4 font-bold text-white text-sm"
+                className="rounded-xl py-2 px-4 font-semibold text-sm"
                 style={{
-                  background:
-                    "linear-gradient(135deg, var(--accent), var(--accent-strong))",
+                  background: "var(--bg-raised)",
+                  border: "1px solid var(--line)",
+                  color: "var(--text)",
                 }}
               >
-                Mark resolved
+                View conversation
               </button>
             </form>
-          )}
+            {r.status === "open" && (
+              <form action={resolveReport.bind(null, r.id)}>
+                <button
+                  type="submit"
+                  className="rounded-xl py-2 px-4 font-bold text-white text-sm"
+                  style={{
+                    background:
+                      "linear-gradient(135deg, var(--accent), var(--accent-strong))",
+                  }}
+                >
+                  Mark resolved
+                </button>
+              </form>
+            )}
+          </div>
         </div>
       ))}
     </div>

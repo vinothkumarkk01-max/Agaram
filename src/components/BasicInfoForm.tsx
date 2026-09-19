@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, type CSSProperties } from "react";
+import Link from "next/link";
 import { saveBasicInfo } from "@/app/actions/profile";
 import { PillGroup } from "@/components/PillGroup";
 import type { Dictionary } from "@/lib/i18n/dictionary";
@@ -104,6 +105,26 @@ export function BasicInfoForm({
           placeholder={t.onboarding.aboutPlaceholder}
         />
       </div>
+
+      <label
+        className="flex items-start gap-3 text-sm"
+        style={{ color: "var(--text-soft)" }}
+      >
+        <input
+          type="checkbox"
+          name="terms_accepted"
+          required
+          className="mt-0.5"
+          style={{ accentColor: "var(--accent-strong)" }}
+        />
+        <span>
+          {t.onboarding.termsLabelPrefix}
+          <Link href="/privacy" target="_blank" className="underline">
+            {t.onboarding.termsLabelLink}
+          </Link>
+          {t.onboarding.termsLabelSuffix}
+        </span>
+      </label>
 
       {state?.error && (
         <p className="text-sm" style={{ color: "var(--accent-strong)" }}>

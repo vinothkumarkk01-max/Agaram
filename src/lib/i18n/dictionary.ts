@@ -39,6 +39,7 @@ const en = {
     back: "← Back",
     privacyPolicy: "Privacy Policy",
     backToDashboard: "Back to dashboard",
+    cancel: "Cancel",
   },
   landing: {
     tagline:
@@ -137,6 +138,9 @@ const en = {
     continueBtn: "Continue",
     basicInfoFooter:
       "Next: your must-have preferences — identity and other checks come after.",
+    termsLabelPrefix: "I agree to Agaram's ",
+    termsLabelLink: "Privacy Policy",
+    termsLabelSuffix: ", including how my data is used and my rights under the DPDP Act, 2023.",
     any: "Any",
     yes: "Yes",
     maybe: "Maybe",
@@ -213,6 +217,8 @@ const en = {
     milestoneVideoCall: "Video call",
     milestonePlanningToMeet: "Planning to meet",
     milestoneCurrentPrefix: "Currently: ",
+    typingIndicator: "Typing…",
+    seen: "Seen",
   },
   account: {
     yourAccount: "Your account",
@@ -232,6 +238,38 @@ const en = {
     typeToConfirmSuffix: " to confirm",
     deleting: "Deleting…",
     permanentlyDelete: "Permanently delete my account",
+    billingHeading: "Billing",
+    billingPlanFree: "You're on the Free plan.",
+    billingPlanElitePrefix: "Elite — active until ",
+    billingPlanEliteSuffix: "",
+    billingPlanExpiredPrefix: "Elite — expired on ",
+    billingPlanExpiredSuffix: "",
+    manageBilling: "Manage / renew",
+    paymentHistoryHeading: "Payment history",
+    noPayments: "No payments yet.",
+    paymentEliteSixMonths: "Elite — 6 months",
+    paymentStatusPaid: "Paid",
+    paymentStatusFailed: "Failed",
+    paymentStatusCreated: "Incomplete",
+    autoRenewOn: "Auto-renew is on — you'll be charged automatically every 6 months.",
+    autoRenewCancelRequested:
+      "Auto-renew is off — you'll keep Elite until it lapses, then it won't renew.",
+    autoRenewHalted:
+      "We couldn't charge your card for auto-renewal. Renew manually, or subscribe again with a different payment method.",
+    cancelAutoRenew: "Cancel auto-renew",
+    cancelAutoRenewConfirm:
+      "This stops future charges. You'll keep Elite until your current period ends — nothing is refunded or revoked early.",
+    cancelling: "Cancelling…",
+    notificationsHeading: "Message notifications",
+    notificationsDesc:
+      "Get notified in your browser when a mutual match sends you a message — even when Agaram isn't open.",
+    notificationsOn: "Notifications are on for this browser.",
+    notificationsOff: "Notifications are off for this browser.",
+    notificationsDenied:
+      "Notifications are blocked for this site in your browser settings — enable them there to turn this on.",
+    notificationsTurnOn: "Turn on",
+    notificationsTurnOff: "Turn off",
+    notificationsError: "Something went wrong — please try again.",
   },
   family: {
     title: "Family access",
@@ -286,16 +324,27 @@ const en = {
   upgrade: {
     youreOnElite: "You're on Elite.",
     activeUntilPrefix: "Active until ",
-    activeUntilSuffix:
-      ". Mutual matches unlock automatically, and you'll be able to message once messaging ships.",
+    activeUntilSuffix: ". Your mutual matches stay unlocked and you can keep messaging.",
+    renewalHint:
+      "Renewing adds 6 more months from your current expiry — you never lose time you've already paid for. Turn on auto-renew below so this never happens by hand again.",
+    renewButtonLabel: "Renew Elite — ₹15,000 / 6 months",
+    expiringSoonTitle: "Your Elite membership is expiring soon.",
+    expiringSoonPrefix: "It expires on ",
+    expiringSoonSuffix:
+      ". Renew now to keep your matches unlocked and keep messaging without a gap.",
+    expiredTitle: "Your Elite membership has expired.",
+    expiredPrefix: "It expired on ",
+    expiredSuffix: ". Renew to unlock your matches and keep messaging.",
     eliteLabel: "Elite",
     eliteTitle: "A serious search, without the endless scrolling.",
     pricing: "₹15,000 for 6 months.",
     benefit1: "✓ Full profile — name and about-me — once you're a mutual match",
-    benefit2: "✓ In-app messaging, once it ships",
+    benefit2: "✓ In-app messaging",
     benefit3: "✓ Everything in Free: browsing, verification, expressing interest",
-    oneTimeNote: "6 months from purchase, one-time payment — no auto-renewal in this V0.",
+    oneTimeNote:
+      "₹15,000 every 6 months either way. Auto-renew (above) means Razorpay charges you automatically each cycle — cancel anytime from your account. Uncheck it to pay manually each time instead.",
     upgradeButtonLabel: "Upgrade to Elite — ₹15,000 / 6 months",
+    autoRenewLabel: "Auto-renew every 6 months (recommended) — cancel anytime.",
     openingCheckout: "Opening checkout…",
     checkoutLoadError:
       "Couldn't load the checkout — check your connection and try again.",
@@ -321,6 +370,7 @@ const ta: Dictionary = {
     back: "← பின்",
     privacyPolicy: "தனியுரிமைக் கொள்கை",
     backToDashboard: "டாஷ்போர்டுக்குத் திரும்பு",
+    cancel: "ரத்துசெய்",
   },
   landing: {
     tagline:
@@ -417,6 +467,10 @@ const ta: Dictionary = {
     saving: "சேமிக்கிறது…",
     continueBtn: "தொடரவும்",
     basicInfoFooter: "அடுத்து: உங்கள் கட்டாய விருப்பங்கள் — அடையாளச் சரிபார்ப்பு பின்னர் வரும்.",
+    termsLabelPrefix: "நான் அகரத்தின் ",
+    termsLabelLink: "தனியுரிமைக் கொள்கையை",
+    termsLabelSuffix:
+      " ஏற்கிறேன், எனது தரவு எவ்வாறு பயன்படுத்தப்படுகிறது மற்றும் DPDP சட்டம், 2023-ன் கீழ் எனது உரிமைகள் உட்பட.",
     any: "எதுவும்",
     yes: "ஆம்",
     maybe: "இருக்கலாம்",
@@ -491,6 +545,8 @@ const ta: Dictionary = {
     milestoneVideoCall: "வீடியோ அழைப்பு",
     milestonePlanningToMeet: "சந்திக்க திட்டமிடுகிறோம்",
     milestoneCurrentPrefix: "தற்போதைய கட்டம்: ",
+    typingIndicator: "தட்டச்சு செய்கிறார்…",
+    seen: "பார்க்கப்பட்டது",
   },
   account: {
     yourAccount: "உங்கள் கணக்கு",
@@ -509,6 +565,38 @@ const ta: Dictionary = {
     typeToConfirmSuffix: " என்று தட்டச்சு செய்யவும்",
     deleting: "நீக்குகிறது…",
     permanentlyDelete: "என் கணக்கை நிரந்தரமாக நீக்கு",
+    billingHeading: "பில்லிங்",
+    billingPlanFree: "நீங்கள் இலவசத் திட்டத்தில் உள்ளீர்கள்.",
+    billingPlanElitePrefix: "எலீட் — ",
+    billingPlanEliteSuffix: " வரை செயலில் உள்ளது",
+    billingPlanExpiredPrefix: "எலீட் — ",
+    billingPlanExpiredSuffix: " அன்று காலாவதியானது",
+    manageBilling: "நிர்வகி / புதுப்பி",
+    paymentHistoryHeading: "பணம் செலுத்திய வரலாறு",
+    noPayments: "இன்னும் பணம் செலுத்தல் எதுவும் இல்லை.",
+    paymentEliteSixMonths: "எலீட் — 6 மாதங்கள்",
+    paymentStatusPaid: "செலுத்தப்பட்டது",
+    paymentStatusFailed: "தோல்வியடைந்தது",
+    paymentStatusCreated: "முடிக்கப்படவில்லை",
+    autoRenewOn: "தானியங்கி புதுப்பித்தல் இயக்கத்தில் உள்ளது — ஒவ்வொரு 6 மாதங்களுக்கும் தானாகக் கட்டணம் வசூலிக்கப்படும்.",
+    autoRenewCancelRequested:
+      "தானியங்கி புதுப்பித்தல் நிறுத்தப்பட்டது — காலாவதியாகும் வரை எலீட் தொடரும், பின் புதுப்பிக்கப்படாது.",
+    autoRenewHalted:
+      "தானியங்கி புதுப்பித்தலுக்கு உங்கள் கார்டில் கட்டணம் வசூலிக்க முடியவில்லை. கைமுறையாகப் புதுப்பிக்கவும் அல்லது வேறு கட்டண முறையில் மீண்டும் சந்தா செய்யவும்.",
+    cancelAutoRenew: "தானியங்கி புதுப்பித்தலை நிறுத்து",
+    cancelAutoRenewConfirm:
+      "இது எதிர்கால கட்டணங்களை நிறுத்தும். உங்கள் தற்போதைய காலம் முடியும் வரை எலீட் தொடரும் — எதுவும் திரும்பப்பெறப்படாது அல்லது முன்கூட்டியே நீக்கப்படாது.",
+    cancelling: "ரத்துசெய்கிறது…",
+    notificationsHeading: "செய்தி அறிவிப்புகள்",
+    notificationsDesc:
+      "இருதரப்பு இணை உங்களுக்கு செய்தி அனுப்பும்போது உங்கள் உலாவியில் அறிவிப்பு பெறுங்கள் — அகரம் திறந்திருக்காவிட்டாலும்.",
+    notificationsOn: "இந்த உலாவிக்கு அறிவிப்புகள் இயக்கத்தில் உள்ளன.",
+    notificationsOff: "இந்த உலாவிக்கு அறிவிப்புகள் நிறுத்தப்பட்டுள்ளன.",
+    notificationsDenied:
+      "இந்த தளத்திற்கான அறிவிப்புகள் உங்கள் உலாவி அமைப்புகளில் தடுக்கப்பட்டுள்ளன — இதை இயக்க அங்கு அனுமதிக்கவும்.",
+    notificationsTurnOn: "இயக்கு",
+    notificationsTurnOff: "நிறுத்து",
+    notificationsError: "ஏதோ தவறு ஏற்பட்டது — மீண்டும் முயற்சிக்கவும்.",
   },
   family: {
     title: "குடும்ப அணுகல்",
@@ -564,15 +652,27 @@ const ta: Dictionary = {
     youreOnElite: "நீங்கள் எலீட் திட்டத்தில் உள்ளீர்கள்.",
     activeUntilPrefix: "",
     activeUntilSuffix:
-      " வரை செயலில் உள்ளது. இருதரப்பு இணைகள் தானாகவே திறக்கும், செய்தி அனுப்பும் வசதி வந்ததும் நீங்கள் செய்தி அனுப்பலாம்.",
+      " வரை செயலில் உள்ளது. உங்கள் இருதரப்பு இணைகள் திறந்தே இருக்கும், நீங்கள் செய்தி அனுப்பிக்கொண்டே இருக்கலாம்.",
+    renewalHint:
+      "புதுப்பித்தல் உங்கள் தற்போதைய காலாவதியிலிருந்து மேலும் 6 மாதங்களைச் சேர்க்கும் — நீங்கள் ஏற்கனவே பணம் செலுத்திய நாட்களை இழக்க மாட்டீர்கள். இது கைமுறையாக நடக்காமல் இருக்க கீழே தானியங்கி புதுப்பித்தலை இயக்கவும்.",
+    renewButtonLabel: "எலீட்டைப் புதுப்பிக்கவும் — ₹15,000 / 6 மாதங்கள்",
+    expiringSoonTitle: "உங்கள் எலீட் உறுப்பினர் விரைவில் காலாவதியாகிறது.",
+    expiringSoonPrefix: "இது ",
+    expiringSoonSuffix:
+      " அன்று காலாவதியாகும். உங்கள் இணைகள் திறந்திருக்கவும், இடைவெளியின்றி செய்தி அனுப்பிக்கொண்டே இருக்கவும் இப்போதே புதுப்பிக்கவும்.",
+    expiredTitle: "உங்கள் எலீட் உறுப்பினர் காலாவதியாகிவிட்டது.",
+    expiredPrefix: "இது ",
+    expiredSuffix: " அன்று காலாவதியானது. உங்கள் இணைகளைத் திறக்கவும் செய்தி அனுப்பிக்கொண்டே இருக்கவும் புதுப்பிக்கவும்.",
     eliteLabel: "எலீட்",
     eliteTitle: "முடிவற்ற ஸ்க்ரோலிங் இல்லாமல், இலக்கு நோக்கிய தேடல்.",
     pricing: "6 மாதங்களுக்கு ₹15,000.",
     benefit1: "✓ முழு சுயவிவரம் — பெயரும் உங்களைப் பற்றியும் — இருதரப்பு இணையான உடனே",
-    benefit2: "✓ செயலிக்குள் செய்தி அனுப்பும் வசதி, வந்ததும்",
+    benefit2: "✓ செயலிக்குள் செய்தி அனுப்பும் வசதி",
     benefit3: "✓ இலவசத்தில் உள்ள அனைத்தும்: பார்வையிடுதல், சரிபார்ப்பு, ஆர்வம் தெரிவித்தல்",
-    oneTimeNote: "வாங்கிய நாளிலிருந்து 6 மாதங்கள், ஒரு முறை கட்டணம் — இந்த V0-இல் தானியங்கி புதுப்பித்தல் இல்லை.",
+    oneTimeNote:
+      "இரு வகையிலும் ₹15,000, 6 மாதங்களுக்கு. தானியங்கி புதுப்பித்தல் (மேலே) என்றால் ஒவ்வொரு சுழற்சியிலும் Razorpay தானாகக் கட்டணம் வசூலிக்கும் — உங்கள் கணக்கிலிருந்து எப்போது வேண்டுமானாலும் ரத்துசெய்யலாம். அதற்குப் பதிலாக ஒவ்வொரு முறையும் கைமுறையாகச் செலுத்த அதைத் தேர்வுநீக்கவும்.",
     upgradeButtonLabel: "எலீட் ஆக மேம்படுத்தவும் — ₹15,000 / 6 மாதங்கள்",
+    autoRenewLabel: "ஒவ்வொரு 6 மாதங்களும் தானியங்கி புதுப்பிப்பு (பரிந்துரைக்கப்படுகிறது) — எப்போது வேண்டுமானாலும் ரத்துசெய்யலாம்.",
     openingCheckout: "செக்அவுட் திறக்கிறது…",
     checkoutLoadError: "செக்அவுட்டை ஏற்ற முடியவில்லை — உங்கள் இணைப்பைச் சரிபார்த்து மீண்டும் முயற்சிக்கவும்.",
   },

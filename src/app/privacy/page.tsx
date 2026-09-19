@@ -237,12 +237,27 @@ export default function PrivacyPage() {
               <h2 className="text-base font-bold mb-2">
                 8. Grievances &amp; contact
               </h2>
-              <p>
+              <p className="mb-2">
                 For any question about this policy, to exercise a right
                 under Section 6, or to raise a grievance about how your
-                data has been handled: [GRIEVANCE OFFICER NAME AND EMAIL —
-                the DPDP Act requires naming a real contact for this; not
-                yet filled in].
+                data has been handled, contact Agaram&rsquo;s Grievance
+                Officer, as required under Section 8 read with Section 13
+                of the DPDP Act:
+              </p>
+              <p className="mb-2">
+                <strong>Vinothkumar Kannan</strong>, Founder &amp; Grievance
+                Officer
+                <br />
+                Email:{" "}
+                <a href="mailto:privacy@agaram.app" className="underline">
+                  privacy@agaram.app
+                </a>
+              </p>
+              <p>
+                We aim to acknowledge every grievance and respond within 30
+                days. This is a dedicated inbox set up for exactly this
+                purpose — not a personal address — and is monitored
+                regularly once real members are using the app.
               </p>
             </section>
 

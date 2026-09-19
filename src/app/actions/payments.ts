@@ -144,3 +144,181 @@ export async function verifyElitePayment(
 
   return { success: true };
 }
+
+// Razorpay Subscriptions requires a fixed total_count of billing
+// cycles — there's no "until cancelled" option. 100 cycles of the
+// 6-month plan is ~50 years, which is effectively that in practice;
+// cancelSubscription() below is the real stop button.
+const ELITE_SUBSCRIPTION_TOTAL_COUNT = 100;
+
+export type CreateSubscriptionResult =
+  | { error: string }
+  | { subscriptionId: string; keyId: string };
+
+/**
+ * Creates a Razorpay Subscription against the Plan configured via
+ * RAZORPAY_PLAN_ID (a one-time setup the founder does in the Razorpay
+ * dashboard — see README) and records its id on the member's own
+ * profile via start_elite_subscription() (supabase/schema.sql, Phase
+ * 14). The actual grant — Elite tier, expiry, a payments row — only
+ * ever happens later, from the subscription.charged webhook event in
+ * src/app/api/webhooks/razorpay/route.ts, once Razorpay confirms
+ * money actually moved. This action and verifySubscriptionPayment()
+ * below just get the checkout flow started and let the UI move on
+ * quickly instead of blocking on the webhook.
+ */
+export async function createEliteSubscription(): Promise<CreateSubscriptionResult> {
+  const keyId = process.env.RAZORPAY_KEY_ID;
+  const keySecret = process.env.RAZORPAY_KEY_SECRET;
+  const planId = process.env.RAZORPAY_PLAN_ID;
+  if (!keyId || !keySecret) {
+    return {
+      error:
+        "Payments aren't configured yet — add RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET to your environment variables.",
+    };
+  }
+  if (!planId) {
+    return {
+      error:
+        "Auto-renewal isn't configured yet — add RAZORPAY_PLAN_ID to your environment variables (see README).",
+    };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return { error: "Please sign in first." };
+  }
+
+  const razorpay = new Razorpay({ key_id: keyId, key_secret: keySecret });
+
+  let subscription;
+  try {
+    subscription = await razorpay.subscriptions.create({
+      plan_id: planId,
+      total_count: ELITE_SUBSCRIPTION_TOTAL_COUNT,
+      customer_notify: 1,
+      notes: { profile_id: user.id, plan: "elite" },
+    });
+  } catch (err) {
+    return {
+      error:
+        err instanceof Error
+          ? err.message
+          : "Could not start checkout — please try again.",
+    };
+  }
+
+  const { error: rpcError } = await supabase.rpc("start_elite_subscription", {
+    p_subscription_id: subscription.id,
+  });
+  if (rpcError) {
+    return { error: rpcError.message };
+  }
+
+  return { subscriptionId: subscription.id, keyId };
+}
+
+/**
+ * Verifies a completed subscription checkout's signature (the
+ * documented razorpay_payment_id|subscription_id HMAC-SHA256 check,
+ * per Razorpay's Subscriptions integration guide — note the field
+ * order is reversed from the one-time-order check above). Unlike
+ * verifyElitePayment(), this does NOT itself grant Elite or write a
+ * payments row — see the comment on createEliteSubscription() above
+ * for why that's the webhook's job. A failed check here just means
+ * the UI shows an error instead of quietly refreshing; it isn't what
+ * stands between a member and unpaid access, since nothing this
+ * function does moves subscription_tier either way.
+ */
+export async function verifySubscriptionPayment(
+  razorpaySubscriptionId: string,
+  razorpayPaymentId: string,
+  razorpaySignature: string
+): Promise<VerifyPaymentResult> {
+  const keySecret = process.env.RAZORPAY_KEY_SECRET;
+  if (!keySecret) {
+    return { success: false, error: "Payments aren't configured yet." };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return { success: false, error: "Please sign in first." };
+  }
+
+  const expectedSignature = crypto
+    .createHmac("sha256", keySecret)
+    .update(`${razorpayPaymentId}|${razorpaySubscriptionId}`)
+    .digest("hex");
+
+  if (expectedSignature !== razorpaySignature) {
+    return { success: false, error: "Payment verification failed." };
+  }
+
+  return { success: true };
+}
+
+export type CancelSubscriptionResult =
+  | { success: true }
+  | { success: false; error: string };
+
+/**
+ * Stops future auto-renewal without touching the member's current
+ * Elite access — cancel_at_cycle_end so Razorpay doesn't charge again,
+ * while whatever's already been paid for keeps running until
+ * subscription_expires_at, same as if they'd let a one-time purchase
+ * lapse on its own. record_subscription_cancel_requested()
+ * (supabase/schema.sql, Phase 14) records the intent immediately; the
+ * webhook moves the status on to 'cancelled' once Razorpay confirms
+ * the final cycle has actually ended.
+ */
+export async function cancelSubscription(): Promise<CancelSubscriptionResult> {
+  const keyId = process.env.RAZORPAY_KEY_ID;
+  const keySecret = process.env.RAZORPAY_KEY_SECRET;
+  if (!keyId || !keySecret) {
+    return { success: false, error: "Payments aren't configured yet." };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return { success: false, error: "Please sign in first." };
+  }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("razorpay_subscription_id")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (!profile?.razorpay_subscription_id) {
+    return { success: false, error: "You don't have an auto-renewing subscription to cancel." };
+  }
+
+  const razorpay = new Razorpay({ key_id: keyId, key_secret: keySecret });
+
+  try {
+    await razorpay.subscriptions.cancel(profile.razorpay_subscription_id, true);
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Could not cancel — please try again.",
+    };
+  }
+
+  const { error: rpcError } = await supabase.rpc(
+    "record_subscription_cancel_requested"
+  );
+  if (rpcError) {
+    return { success: false, error: rpcError.message };
+  }
+
+  return { success: true };
+}

@@ -56,9 +56,11 @@ export default async function AdminLayout({
           Admin
         </h1>
         <p className="text-sm mb-6" style={{ color: "var(--text-soft)" }}>
-          V0 basics only — member reports and manual verification
-          review. Visible to your account because it&rsquo;s marked as
-          admin in the database.
+          Member reports (with a read-only view of the conversation
+          being reported), manual verification review, member search
+          &amp; suspension, and an audit log of everything done here.
+          Visible to your account because it&rsquo;s marked as admin in
+          the database.
         </p>
 
         <AdminNav />

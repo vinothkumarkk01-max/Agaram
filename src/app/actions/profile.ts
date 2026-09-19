@@ -32,6 +32,7 @@ export async function saveBasicInfo(
   const ageRaw = String(formData.get("age") ?? "");
   const location = String(formData.get("location") ?? "").trim();
   const aboutMe = String(formData.get("about_me") ?? "").trim();
+  const termsAccepted = formData.get("terms_accepted");
 
   if (!fullName) {
     return { error: "Please enter your full name." };
@@ -46,7 +47,16 @@ export async function saveBasicInfo(
   if (!location) {
     return { error: "Please enter your city — matches are filtered by location." };
   }
+  if (termsAccepted !== "on") {
+    return { error: "Please confirm you agree to the Privacy Policy to continue." };
+  }
 
+  // terms_accepted_at (Phase 17, supabase/schema.sql) — the DPDP-Act
+  // consent capture Section 7 of /privacy has always described. This
+  // form only runs once, as the very first onboarding step, so
+  // setting it unconditionally on every submit (rather than only if
+  // it isn't already set) is fine — there's no "re-editing basic info
+  // later" path that reuses saveBasicInfo.
   const { error } = await supabase.from("profiles").upsert({
     id: user.id,
     full_name: fullName,
@@ -54,6 +64,7 @@ export async function saveBasicInfo(
     age,
     location,
     about_me: aboutMe || null,
+    terms_accepted_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   });
 

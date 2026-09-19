@@ -16,19 +16,24 @@ function sentryConnectSrc(): string | null {
   }
 }
 
-// Content-Security-Policy — shipped as Report-Only deliberately (see
+// Content-Security-Policy — shipped as Report-Only by default (see
 // README, "Security pass (Phase 8)"). It's built from what this app
 // is actually known to load: Supabase's API, Razorpay's checkout
 // script/frame/beacons, and Sentry's ingestion endpoint. Razorpay in
 // particular uses several subdomains for its checkout flow (card
 // entry, 3D-Secure/OTP redirects, QR/UPI) that aren't all exercised
-// by a single test transaction, so this is enforced as Report-Only
-// rather than blocking: nothing breaks, but violations show up in the
-// browser console (and can be wired to a reporting endpoint later) so
-// they can be checked against a real signup → verification → Elite
-// checkout → messaging run before switching the header below from
-// "Content-Security-Policy-Report-Only" to "Content-Security-Policy"
-// to actually enforce it.
+// by a single test transaction, so Report-Only is the safe default:
+// nothing breaks, but violations show up in the browser console.
+//
+// CSP_ENFORCE=true (V1, Phase 17) switches the header from
+// "Content-Security-Policy-Report-Only" to the real, blocking
+// "Content-Security-Policy" — as an env var rather than a code change,
+// so flipping it (after you've actually watched a real signup →
+// verification → Elite checkout (both one-time and auto-renew) →
+// messaging run with the browser console open and seen zero
+// violations) doesn't need a new deploy of anything else, and
+// un-flipping it if something unexpected breaks is just as fast.
+// Leave it unset until you've done that run-through.
 function buildCsp(): string {
   const directives: Record<string, string[]> = {
     "default-src": ["'self'"],
@@ -95,7 +100,13 @@ const nextConfig: NextConfig = {
             key: "Permissions-Policy",
             value: "camera=(), microphone=(), geolocation=()",
           },
-          { key: "Content-Security-Policy-Report-Only", value: buildCsp() },
+          {
+            key:
+              process.env.CSP_ENFORCE === "true"
+                ? "Content-Security-Policy"
+                : "Content-Security-Policy-Report-Only",
+            value: buildCsp(),
+          },
         ],
       },
     ];

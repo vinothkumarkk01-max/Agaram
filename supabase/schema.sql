@@ -498,13 +498,21 @@ create policy "Users can update own payments"
 
 -- Called by verifyElitePayment() ONLY after the HMAC-SHA256 signature
 -- check passes. Marks the matching "created" order paid and activates
--- Elite in one transaction. SECURITY DEFINER so it can write
--- payments.status and profiles.subscription_tier/expires_at, both
--- locked against direct member writes (see the policy above and the
--- column-privilege revoke below). Returns false if there's no
+-- (or renews) Elite in one transaction. SECURITY DEFINER so it can
+-- write payments.status and profiles.subscription_tier/expires_at,
+-- both locked against direct member writes (see the policy above and
+-- the column-privilege revoke below). Returns false if there's no
 -- matching "created" order for this caller to finalize (already
 -- finalized, wrong order, or not theirs) so the caller can surface a
 -- clear error instead of silently no-op'ing.
+--
+-- Renewal note (V1): the new expiry EXTENDS from whichever is later
+-- — the member's current subscription_expires_at, or now() —
+-- rather than always resetting from now(). Someone renewing a few
+-- weeks before their Elite lapses keeps the remaining paid days
+-- instead of losing them; someone renewing after it's already
+-- expired (or a first-time purchase, subscription_expires_at null)
+-- simply starts fresh from now(), same as before.
 create or replace function public.finalize_elite_payment(
   p_order_id text,
   p_payment_id text,
@@ -536,7 +544,9 @@ begin
 
   update public.profiles
   set subscription_tier = 'elite',
-      subscription_expires_at = now() + make_interval(days => p_period_days),
+      subscription_expires_at =
+        greatest(now(), coalesce(subscription_expires_at, now()))
+        + make_interval(days => p_period_days),
       updated_at = now()
   where id = auth.uid();
 
@@ -715,7 +725,17 @@ create policy "Elite members can message their mutual matches"
 -- Single-match version of get_mutual_matches, for the thread header:
 -- who am I talking to, and is my own subscription unlocked (so the
 -- page can show the upgrade prompt instead of the thread otherwise).
-create or replace function public.get_match_thread(p_match_id uuid)
+-- DROP + CREATE, not CREATE OR REPLACE — Phase 11 further down this
+-- file changes this function's column list again (adds
+-- current_milestone), and CREATE OR REPLACE can't do that. Without
+-- the drop here, re-running this whole file on a database where
+-- Phase 11 has already applied fails with "cannot change return type
+-- of existing function" the moment Postgres reaches THIS earlier
+-- definition, before it ever gets to Phase 11's — this bug shipped
+-- with Phase 11 and is fixed here.
+drop function if exists public.get_match_thread(uuid);
+
+create function public.get_match_thread(p_match_id uuid)
 returns table (
   match_id uuid,
   candidate_id uuid,
@@ -1114,7 +1134,14 @@ grant execute on function public.get_family_links_for_collaborator() to authenti
 -- the other candidate in the match -- not their name, initial, age,
 -- or location -- since the PRD is explicit that a Family Collaborator
 -- reviews matches the candidate shared, not the match's counterpart.
-create or replace function public.get_family_shared_matches(p_owner_id uuid)
+-- DROP + CREATE, not CREATE OR REPLACE — same reasoning as
+-- get_match_thread() above: Phase 11 further down adds
+-- current_milestone to this function's column list, and re-running
+-- the whole file after Phase 11 has already applied would otherwise
+-- fail right here.
+drop function if exists public.get_family_shared_matches(uuid);
+
+create function public.get_family_shared_matches(p_owner_id uuid)
 returns table (match_id uuid, status text, matched_at timestamptz)
 language sql
 security definer
@@ -1334,3 +1361,495 @@ as $$
 $$;
 
 grant execute on function public.get_family_shared_matches(uuid) to authenticated;
+
+-- ============================================================
+-- Phase 12 (V1) — Admin: member search & suspension
+-- ============================================================
+--
+-- Search itself needs no new function: "Admins can view all profiles"
+-- (Phase 7) already lets an is_admin() account select any profile
+-- row directly, so /admin/members just queries public.profiles with
+-- .ilike()/.eq() like any other read. Suspension is the part that
+-- needs care.
+
+alter table public.profiles
+  add column if not exists is_suspended boolean not null default false,
+  add column if not exists suspended_at timestamptz,
+  add column if not exists suspended_reason text;
+
+-- Same privileged-column treatment as is_admin / subscription_tier /
+-- subscription_expires_at (Phase 8): these three are only ever
+-- supposed to change via set_member_suspended() below, after the
+-- is_admin() check inside it — never by a member writing their own
+-- row directly. Without this revoke, a signed-in member could call
+-- supabase.from("profiles").update({is_suspended: false}) on their
+-- own row and lift their own suspension.
+revoke insert (is_suspended, suspended_at, suspended_reason)
+  on public.profiles from authenticated;
+revoke update (is_suspended, suspended_at, suspended_reason)
+  on public.profiles from authenticated;
+
+-- SECURITY DEFINER so it can write the privileged columns above after
+-- checking is_admin() itself — same belt-and-suspenders pattern as
+-- finalize_elite_payment(). Suspending is a soft block, not a
+-- deletion or a ban from signing in: a suspended member's row,
+-- matches, and messages are all left alone, and they can still sign
+-- in and see their own /account (V0 has no separate appeals flow, so
+-- that's deliberately where any dispute has to start). What actually
+-- changes is enforced at the two points below — get_match_candidates
+-- (new Browse discovery) and the messages insert policy (new
+-- outgoing messages) — not a blanket account lock.
+create or replace function public.set_member_suspended(
+  p_profile_id uuid,
+  p_suspended boolean,
+  p_reason text default null
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not public.is_admin() then
+    raise exception 'Not authorized.';
+  end if;
+
+  update public.profiles
+  set is_suspended = p_suspended,
+      suspended_at = case when p_suspended then now() else null end,
+      suspended_reason = case when p_suspended then p_reason else null end,
+      updated_at = now()
+  where id = p_profile_id;
+end;
+$$;
+
+grant execute on function public.set_member_suspended(uuid, boolean, text) to authenticated;
+
+-- get_match_candidates (Phase 4) needs to stop surfacing suspended
+-- profiles in Browse. CREATE OR REPLACE is enough here (unlike the
+-- Phase 11 functions) because the column list isn't changing — but
+-- it still has to live down here, after is_suspended exists above,
+-- since a `language sql` function body is validated against the
+-- catalog at creation time and Phase 4 runs long before this section
+-- on a fresh database.
+create or replace function public.get_match_candidates()
+returns table (
+  id uuid,
+  age integer,
+  location text,
+  initial text,
+  is_verified boolean
+)
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  with me as (
+    select profile_type from public.profiles where id = auth.uid()
+  ),
+  my_prefs as (
+    select age_min, age_max, preferred_locations
+    from public.preferences
+    where profile_id = auth.uid()
+  )
+  select
+    p.id,
+    p.age,
+    p.location,
+    left(p.full_name, 1) as initial,
+    coalesce(iv.status = 'verified', false) as is_verified
+  from public.profiles p
+  left join public.identity_verifications iv on iv.profile_id = p.id
+  cross join me
+  left join my_prefs on true
+  where p.id <> auth.uid()
+    and p.profile_type <> me.profile_type
+    and not p.is_suspended
+    and not exists (
+      select 1 from public.matches m
+      where (m.candidate_a = auth.uid() and m.candidate_b = p.id)
+         or (m.candidate_a = p.id and m.candidate_b = auth.uid())
+    )
+    and not exists (
+      select 1 from public.blocks b
+      where (b.blocker_id = auth.uid() and b.blocked_id = p.id)
+         or (b.blocker_id = p.id and b.blocked_id = auth.uid())
+    )
+    and p.age between coalesce(my_prefs.age_min, 18) and coalesce(my_prefs.age_max, 100)
+    and (
+      my_prefs.preferred_locations is null
+      or array_length(my_prefs.preferred_locations, 1) is null
+      or p.location = any (my_prefs.preferred_locations)
+    );
+$$;
+
+grant execute on function public.get_match_candidates() to authenticated;
+
+-- Messages insert policy (Phase 6) needs the same stop: a suspended
+-- member can still read existing threads (their "select" policy is
+-- untouched) but can't send new ones. Extends the same
+-- profiles-lookup subquery that already checks the sender's Elite
+-- subscription, rather than adding a separate exists() clause.
+drop policy if exists "Elite members can message their mutual matches" on public.messages;
+create policy "Elite members can message their mutual matches"
+  on public.messages for insert
+  with check (
+    sender_id = auth.uid()
+    and exists (
+      select 1 from public.matches m
+      where m.id = messages.match_id
+        and m.status = 'mutual'
+        and (m.candidate_a = auth.uid() or m.candidate_b = auth.uid())
+    )
+    and exists (
+      select 1 from public.profiles p
+      where p.id = auth.uid()
+        and p.subscription_tier = 'elite'
+        and (p.subscription_expires_at is null or p.subscription_expires_at > now())
+        and not p.is_suspended
+    )
+    and not exists (
+      select 1 from public.blocks b
+      where (b.blocker_id = auth.uid() and b.blocked_id = (
+        select case when m2.candidate_a = auth.uid() then m2.candidate_b else m2.candidate_a end
+        from public.matches m2 where m2.id = messages.match_id
+      ))
+      or (b.blocked_id = auth.uid() and b.blocker_id = (
+        select case when m2.candidate_a = auth.uid() then m2.candidate_b else m2.candidate_a end
+        from public.matches m2 where m2.id = messages.match_id
+      ))
+    )
+  );
+
+-- ============================================================
+-- Phase 13 (V1) — Messaging upgrades: Realtime, typing, read receipts
+-- ============================================================
+
+-- Swaps MessageThread's 4-second poll (see the V0 comment on that
+-- component) for a live Supabase Realtime subscription on new rows
+-- in a match's thread. Postgres Changes only ever streams a row to a
+-- client whose own RLS SELECT policy would already return it —
+-- Realtime authorizes each change against the connecting user's
+-- session the same way a normal query would — so this adds no new
+-- exposure beyond what "Match participants can view messages"
+-- (Phase 6) already allows; it's the same reads, just pushed instead
+-- of polled. The guard makes re-running this file safe — ALTER
+-- PUBLICATION ... ADD TABLE has no IF NOT EXISTS form and errors on
+-- a second run.
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime'
+      and schemaname = 'public'
+      and tablename = 'messages'
+  ) then
+    alter publication supabase_realtime add table public.messages;
+  end if;
+end $$;
+
+-- One row per (match, member): how far that member has read into the
+-- thread. Lets each side show "Seen" on their own latest message once
+-- the other participant's last_read_at passes it — nothing more
+-- granular than that (no per-message read state, no "delivered" vs
+-- "read" distinction, and typing indicators below are ephemeral
+-- Realtime Broadcast events, not stored here or anywhere at all).
+create table if not exists public.message_read_state (
+  match_id uuid not null references public.matches (id) on delete cascade,
+  profile_id uuid not null references public.profiles (id) on delete cascade,
+  last_read_at timestamptz not null default now(),
+  primary key (match_id, profile_id)
+);
+
+alter table public.message_read_state enable row level security;
+
+-- Deliberately readable by BOTH participants, not just "your own
+-- row" — the whole point is that each side needs to see the OTHER
+-- person's last_read_at to know whether their own messages have been
+-- seen.
+drop policy if exists "Match participants can view read state" on public.message_read_state;
+create policy "Match participants can view read state"
+  on public.message_read_state for select
+  using (
+    exists (
+      select 1 from public.matches m
+      where m.id = message_read_state.match_id
+        and (m.candidate_a = auth.uid() or m.candidate_b = auth.uid())
+    )
+  );
+
+drop policy if exists "Members can set their own read state" on public.message_read_state;
+create policy "Members can set their own read state"
+  on public.message_read_state for insert
+  with check (
+    profile_id = auth.uid()
+    and exists (
+      select 1 from public.matches m
+      where m.id = message_read_state.match_id
+        and (m.candidate_a = auth.uid() or m.candidate_b = auth.uid())
+    )
+  );
+
+drop policy if exists "Members can update their own read state" on public.message_read_state;
+create policy "Members can update their own read state"
+  on public.message_read_state for update
+  using (profile_id = auth.uid())
+  with check (profile_id = auth.uid());
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime'
+      and schemaname = 'public'
+      and tablename = 'message_read_state'
+  ) then
+    alter publication supabase_realtime add table public.message_read_state;
+  end if;
+end $$;
+
+-- ============================================================
+-- Phase 14 (V1) — Subscription lifecycle: auto-renewing billing
+-- ============================================================
+--
+-- Everything up to here only ever moved Elite forward through a
+-- one-off Razorpay Order — the member had to come back and click
+-- "Renew" by hand every six months. finalize_elite_payment() (Phase
+-- 5, above) already extends the expiry rather than resetting it, so
+-- no paid days are lost, but nothing re-charges automatically. This
+-- phase adds a genuinely recurring option on top, using Razorpay's
+-- Subscriptions product: createEliteSubscription()
+-- (src/app/actions/payments.ts) creates a Razorpay Subscription tied
+-- to a Plan the founder creates once in the Razorpay dashboard (see
+-- README), and a webhook (src/app/api/webhooks/razorpay/route.ts)
+-- does the actual renewal work every time Razorpay successfully
+-- charges it — using the service-role client (src/lib/supabase/
+-- admin.ts), the same one deleteAccount() already uses, since a
+-- webhook call has no member session to run RLS as. The original
+-- one-time-order path is untouched and still works side by side: a
+-- member who'd rather pay manually every time, with no auto-renewal,
+-- can still do that.
+
+alter table public.profiles
+  add column if not exists razorpay_subscription_id text,
+  add column if not exists subscription_status text
+    check (subscription_status in ('created', 'active', 'cancel_requested', 'cancelled', 'halted', 'completed'));
+
+-- Same treatment as is_admin/subscription_tier/is_suspended above:
+-- locked against ordinary member writes, only ever changed through
+-- the SECURITY DEFINER functions below (member-initiated, via their
+-- own session) or the webhook route (service-role key, which bypasses
+-- RLS and these column grants entirely — they're only revoked from
+-- `authenticated`).
+revoke insert (razorpay_subscription_id, subscription_status)
+  on public.profiles from authenticated;
+revoke update (razorpay_subscription_id, subscription_status)
+  on public.profiles from authenticated;
+
+-- A subscription charge has no "order" in the classic Orders-API
+-- sense the way a one-time payment does, so razorpay_order_id can no
+-- longer be required on every row (the UNIQUE constraint still holds
+-- fine — Postgres allows any number of NULLs under a unique
+-- constraint). razorpay_subscription_id links a charge row back to
+-- the subscription that produced it. The partial unique index on
+-- razorpay_payment_id is what makes the webhook safe to receive twice
+-- for the same charge (Razorpay retries a webhook delivery whenever
+-- it doesn't get a 2xx back) — the second insert attempt for the same
+-- payment id just fails, and the handler treats that as "already
+-- recorded, nothing to do."
+alter table public.payments
+  alter column razorpay_order_id drop not null,
+  add column if not exists razorpay_subscription_id text;
+
+create unique index if not exists payments_razorpay_payment_id_key
+  on public.payments (razorpay_payment_id)
+  where razorpay_payment_id is not null;
+
+-- Called right after createEliteSubscription() creates the Razorpay
+-- Subscription object, before the checkout modal even opens, so the
+-- subscription id is on file regardless of whether the member
+-- actually finishes the first payment.
+create or replace function public.start_elite_subscription(p_subscription_id text)
+returns void
+language sql
+security definer
+set search_path = public
+as $$
+  update public.profiles
+  set razorpay_subscription_id = p_subscription_id,
+      subscription_status = 'created',
+      updated_at = now()
+  where id = auth.uid();
+$$;
+
+grant execute on function public.start_elite_subscription(text) to authenticated;
+
+-- Called by cancelSubscription() right after the Razorpay API call to
+-- cancel (with cancel_at_cycle_end: true) succeeds. Deliberately
+-- doesn't touch subscription_tier/subscription_expires_at — the
+-- member keeps Elite for whatever period they've already paid for;
+-- only future auto-renewal stops. The webhook moves this on to
+-- 'cancelled' once Razorpay confirms the final cycle has actually
+-- ended.
+create or replace function public.record_subscription_cancel_requested()
+returns void
+language sql
+security definer
+set search_path = public
+as $$
+  update public.profiles
+  set subscription_status = 'cancel_requested',
+      updated_at = now()
+  where id = auth.uid()
+    and razorpay_subscription_id is not null;
+$$;
+
+grant execute on function public.record_subscription_cancel_requested() to authenticated;
+
+-- ============================================================
+-- Phase 15 (V1) — Push notifications for new messages
+-- ============================================================
+--
+-- One row per browser/device a member has turned notifications on
+-- for (a member can have several — phone, laptop, ...). Populated by
+-- savePushSubscription() (src/app/actions/push.ts) after the browser
+-- grants Notification permission and the Push API hands back a
+-- subscription object; consumed by sendMessage()
+-- (src/app/actions/messages.ts), which looks up the OTHER match
+-- participant's rows here and pushes to each one via web-push
+-- (src/lib/push/send.ts).
+create table if not exists public.push_subscriptions (
+  id uuid primary key default gen_random_uuid(),
+  profile_id uuid not null references public.profiles (id) on delete cascade,
+  endpoint text not null unique,
+  p256dh text not null,
+  auth text not null,
+  created_at timestamptz not null default now()
+);
+
+alter table public.push_subscriptions enable row level security;
+
+drop policy if exists "Users can view own push subscriptions" on public.push_subscriptions;
+create policy "Users can view own push subscriptions"
+  on public.push_subscriptions for select
+  using (auth.uid() = profile_id);
+
+drop policy if exists "Users can create own push subscriptions" on public.push_subscriptions;
+create policy "Users can create own push subscriptions"
+  on public.push_subscriptions for insert
+  with check (auth.uid() = profile_id);
+
+-- savePushSubscription() upserts on conflict (endpoint) — needed for
+-- the ordinary case of the SAME member re-registering the same
+-- browser (permission re-granted, app reopened, ...). An endpoint
+-- colliding with a DIFFERENT member's row is, in practice,
+-- cryptographically impossible (push endpoints are unique per
+-- browser registration), so this being scoped to own profile_id costs
+-- nothing real while still being the correct boundary.
+drop policy if exists "Users can update own push subscriptions" on public.push_subscriptions;
+create policy "Users can update own push subscriptions"
+  on public.push_subscriptions for update
+  using (auth.uid() = profile_id)
+  with check (auth.uid() = profile_id);
+
+drop policy if exists "Users can delete own push subscriptions" on public.push_subscriptions;
+create policy "Users can delete own push subscriptions"
+  on public.push_subscriptions for delete
+  using (auth.uid() = profile_id);
+
+-- sendMessage() runs as the SENDER's own session, but needs to read
+-- the RECIPIENT's push_subscriptions rows — which the owner-only
+-- policy above deliberately doesn't allow directly. SECURITY DEFINER
+-- sidesteps that the same way get_match_thread()/get_mutual_matches()
+-- already do for other cross-member reads, and is scoped tightly: it
+-- only ever returns rows for whichever profile is the OTHER half of
+-- a match auth.uid() is actually part of (the case expression
+-- resolves to null, matching no rows, for anyone who isn't).
+create or replace function public.get_push_subscriptions_for_match_peer(p_match_id uuid)
+returns table (endpoint text, p256dh text, auth text)
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select ps.endpoint, ps.p256dh, ps.auth
+  from public.push_subscriptions ps
+  join public.matches m on m.id = p_match_id
+  where ps.profile_id = case
+      when m.candidate_a = (select auth.uid()) then m.candidate_b
+      when m.candidate_b = (select auth.uid()) then m.candidate_a
+      else null
+    end;
+$$;
+
+grant execute on function public.get_push_subscriptions_for_match_peer(uuid) to authenticated;
+
+-- ============================================================
+-- Phase 16 (V1) — Admin message oversight & action audit log
+-- ============================================================
+--
+-- Two things: a record of what admins have done (so a solo founder
+-- with more than one admin account, or just their own future self,
+-- can see who suspended whom and why), and a narrow, logged way for
+-- an admin to read a reported conversation's messages when
+-- investigating a report — something admins previously couldn't do
+-- at all, even from the Reports queue.
+create table if not exists public.admin_actions (
+  id uuid primary key default gen_random_uuid(),
+  admin_id uuid not null references public.profiles (id) on delete cascade,
+  action text not null,
+  target_type text not null,
+  target_id uuid,
+  detail text,
+  created_at timestamptz not null default now()
+);
+
+alter table public.admin_actions enable row level security;
+
+drop policy if exists "Admins can view the audit log" on public.admin_actions;
+create policy "Admins can view the audit log"
+  on public.admin_actions for select
+  using (is_admin());
+
+-- Every admin server action (src/app/actions/admin.ts) inserts its
+-- own row right after acting, using the admin's own session — never
+-- a service-role key or a SECURITY DEFINER function — so admin_id is
+-- always genuinely whoever was signed in when it happened; the WITH
+-- CHECK below is what stops anyone else from forging an entry as
+-- someone else.
+drop policy if exists "Admins can log their own actions" on public.admin_actions;
+create policy "Admins can log their own actions"
+  on public.admin_actions for insert
+  with check (is_admin() and admin_id = auth.uid());
+
+-- Lets an admin open a reported conversation's message history from
+-- /admin/reports (see src/app/admin/reports/[id]/messages/page.tsx —
+-- the one place this is surfaced in the UI; there's no general
+-- "browse all messages" screen). That page also writes an
+-- admin_actions row every single time it's opened, since reading
+-- someone else's private messages is exactly the kind of action that
+-- most needs a record. This is a SEPARATE, additional select policy
+-- alongside "Match participants can view messages" (Phase 6) —
+-- Postgres OR's multiple permissive policies together, so this only
+-- ever widens who can read, never narrows the existing participant
+-- access.
+drop policy if exists "Admins can view all messages" on public.messages;
+create policy "Admins can view all messages"
+  on public.messages for select
+  using (is_admin());
+
+-- ============================================================
+-- Phase 17 (V1) — DPDP consent capture at signup
+-- ============================================================
+--
+-- Section 7 of /privacy has always said "explicit consent (a checkbox
+-- naming the DPDP Act directly)" is how Agaram gets consent — true
+-- for the Aadhaar identity check (Phase 3's consent column on
+-- identity_verifications) but never actually captured for account
+-- creation itself. saveBasicInfo() (src/app/actions/profile.ts), the
+-- very first onboarding step after signup, now requires and records
+-- this. Not a privileged column — a member sets it about themselves,
+-- once, same as full_name or location — so no revoke here.
+alter table public.profiles
+  add column if not exists terms_accepted_at timestamptz;

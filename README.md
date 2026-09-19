@@ -206,10 +206,14 @@ real Razorpay Checkout popup.
   the HMAC-SHA256 signature from the returned order/payment IDs
   (`verifyElitePayment`) before ever marking a subscription active —
   the client-side "success" callback alone is never enough.
-- **One-time payment, no auto-renewal in this V0.** Elite lasts 182
-  days (~6 months) from the payment date; there's no recurring billing
-  or reminder yet — that's a deliberate scope cut from the build plan,
-  not a bug.
+- **Two ways to pay: one-time, or genuinely auto-renewing.** The
+  original one-time Razorpay Checkout (order → signature verify)
+  still works exactly as described above and always will — renewing
+  manually now correctly *extends* from your current expiry rather
+  than resetting from today, so renewing early never throws away days
+  you already paid for. Alongside it, V1 added real recurring billing
+  via Razorpay's separate Subscriptions API — see "Subscription
+  lifecycle: renewal & billing" below for both.
 - **Database:** the `payments` table and the updated
   `get_mutual_matches()` function are new additions at the bottom of
   `supabase/schema.sql` — re-run the whole file in the SQL Editor, it's
@@ -234,18 +238,19 @@ button on `/matches/mutual` opens a real two-way chat thread at
   - All three live in `supabase/schema.sql`'s `messages` table RLS
     policies — re-run the whole file (safe, as always) to pick this
     up.
-- **No Supabase Realtime channel — the thread polls every 4
-  seconds.** A deliberate V0 simplification: for a two-person chat at
-  this scale, polling is one fewer moving part than wiring up a
-  realtime subscription lifecycle, and the delay is barely
-  noticeable. Worth upgrading to Realtime later if message volume
-  grows or the delay starts to bother people.
+- **Now on Supabase Realtime, not a plain poll.** The original V0
+  build polled every 4 seconds; it's since been upgraded to a live
+  Realtime subscription (with a slow 15-second poll left in only as
+  a safety net for a dropped socket) — see "Messaging upgrades" (V1)
+  below for the details, including typing indicators and read
+  receipts.
 - **Milestone tagging is now built** — see "Message milestone
   tagging (V1)" below.
-- **No read receipts, typing indicators, or push notifications** —
-  none of these are built. You'll see new messages within ~4 seconds
-  of opening the thread, but there's no badge or alert telling you
-  one arrived while you were elsewhere in the app.
+- **Push notifications are now built** — see "Push notifications for
+  messages" below. You'll see a new message the moment it arrives
+  *while the thread is open* regardless (Realtime, above); this adds
+  a browser notification for when you're elsewhere in the app, or
+  the app isn't open at all.
 - **Testing this needs the same two-account setup as Phase 4**, both
   now also upgraded to Elite (Phase 5) — sign a message from each
   account and confirm it shows up on the other side within a few
@@ -287,20 +292,16 @@ verification.
 - **What's deliberately NOT built yet:**
   - **No blocking yet in V0** — added afterward, see "Member
     blocking, data export & account deletion" below.
-  - **Admins can't read message content.** A report shows who
-    reported whom and their stated reason, not the conversation
-    itself. Giving admin access to private messages is a deliberate,
-    separate decision with real privacy weight — not something to fold
-    quietly into "admin basics."
-  - **No member search, account suspension, or broader moderation
-    tooling** — just enough to close the loop on reports and
-    verification, per the build plan's own "basic admin dashboard,
-    just enough to..." scope.
-  - **No admin action audit log** — the PRD's data model (§12) has an
-    `admin_actions` table for this; not built yet, so there's currently
-    no record of *which* admin resolved a report or overrode a
-    verification beyond the `resolved_by` column on `reports` itself
-    (verification overrides aren't attributed to an admin at all yet).
+  - **Member search &amp; suspension are now built** — see "Admin:
+    member search &amp; suspension (V1)" below.
+  - **Admin message oversight &amp; an action audit log are now
+    built too** — see "Admin message oversight &amp; audit log (V1)"
+    below. Admins can read a *reported* conversation's messages (and
+    only that — there's still no general "browse all messages"
+    screen), and every admin action anywhere in `/admin` — resolving
+    a report, a verification override, a suspension, opening a
+    reported conversation — is now recorded in an `admin_actions`
+    table with who, what, and when.
 
 ## Polish & harden (Phase 8) — error tracking, a security pass, and a privacy policy
 
@@ -413,12 +414,16 @@ state), not the React components sitting in front of them.
   every path against the live deployment risked silently breaking
   checkout, which is already confirmed working. Report-Only mode
   changes nothing for members; it just logs would-be violations to the
-  browser console. **Next step:** sign up, verify identity, run an
-  Elite checkout, and send a message while watching the browser console
-  for `[Report Only]` CSP warnings — once a full run-through is clean,
-  change the header key in `next.config.ts` from
-  `Content-Security-Policy-Report-Only` to `Content-Security-Policy` to
-  actually enforce it.
+  browser console. **Flipping it to enforcing is now a config
+  toggle, not a code change:** set `CSP_ENFORCE=true` as an
+  environment variable (locally and in Vercel) once — but only once —
+  you've done a full run-through with the browser console open (sign
+  up, verify identity, run an Elite checkout *both* ways — one-time
+  and auto-renew — send a message, turn on notifications) and seen
+  zero `[Report Only]` CSP warnings. Leave it unset until then; if
+  something unexpected breaks after setting it, just remove the
+  environment variable and redeploy to fall back to Report-Only
+  immediately.
 - **Not changed:** rate limiting on login/signup relies on Supabase
   Auth's own built-in limits — nothing custom added here. Worth
   revisiting (Vercel's WAF, or a library like Arcjet) if real signups
@@ -691,6 +696,246 @@ know each other**, **Family introductions**, **Video call**, or
   very end of `supabase/schema.sql`) to also return each match's
   current milestone. Re-run the whole file, as always.
 
+## Subscription lifecycle: renewal & billing (V1)
+
+`/upgrade` now handles the whole lifecycle of an Elite subscription,
+not just the first purchase, and `/account` gained a **Billing**
+section.
+
+- **Renewing now correctly extends, not resets.**
+  `finalize_elite_payment()` used to always set
+  `subscription_expires_at = now() + 182 days` — fine for a first
+  purchase, but it meant renewing two weeks before expiry threw away
+  those two remaining weeks. It now extends from whichever is later,
+  your current expiry or now, so renewing early never costs you paid
+  time. (Database: `supabase/schema.sql`, the in-place fix to
+  `finalize_elite_payment()` in the Phase 5 section — safe to re-run
+  the whole file, as always.)
+- **`/upgrade` now has three states**, not two: the original "Free →
+  Upgrade to Elite" pitch is unchanged, but an active Elite member now
+  sees a **Renew** option too (same Razorpay checkout, just relabeled
+  and reusing the extend-not-reset fix above), and within 14 days of
+  expiry that becomes a more prominent "expiring soon, renew now"
+  prompt. An Elite member whose subscription has already lapsed sees
+  a dedicated "expired, renew to continue" message instead of being
+  quietly dropped back into the first-time-buyer pitch.
+- **`/account` → Billing** shows your current plan (Free, active
+  Elite with its expiry date, or expired Elite) plus every payment
+  you've made — date, amount, and status (Paid / Failed / Incomplete)
+  — pulled straight from the `payments` table your own RLS policy
+  already lets you read (no new function needed for this part).
+- **Real auto-recurring billing is now built too, alongside the
+  manual path above — not instead of it.** On `/upgrade`, an
+  "Auto-renew every 6 months" checkbox (checked by default) sits
+  above the Upgrade/Renew button. Checked, it creates a Razorpay
+  *Subscription* against a Plan you create once (see below) instead
+  of a one-time Order; unchecked, it's the exact same one-time-order
+  flow as before, unchanged.
+  - **One-time setup you have to do yourself, in the Razorpay
+    dashboard** (this can't be done from here — it's your business's
+    Razorpay account): **Subscriptions → Plans → create a plan** —
+    ₹15,000, billing frequency "every 6 months" (Razorpay Plans are
+    period + interval, so "Monthly" with interval `6`), any plan name
+    you like. Copy its Plan ID (`plan_...`) and add it as
+    `RAZORPAY_PLAN_ID` — locally in `.env.local`, and in Vercel's
+    environment variables. Then **Settings → Webhooks → add a new
+    webhook**, URL `https://<your-domain>/api/webhooks/razorpay`,
+    active events: `subscription.charged`, `subscription.cancelled`,
+    `subscription.completed`, `subscription.halted`. Razorpay shows
+    you a webhook secret when you create it — add that as
+    `RAZORPAY_WEBHOOK_SECRET` (same two places). Without
+    `RAZORPAY_PLAN_ID` set, the auto-renew checkbox still shows, but
+    trying to use it gives a clear "not configured yet" error instead
+    of a broken checkout — the one-time path keeps working regardless.
+  - **The webhook, not the checkout success callback, is what
+    actually grants Elite for a subscription charge** —
+    `src/app/api/webhooks/razorpay/route.ts`, verified via
+    HMAC-SHA256 over the raw request body against
+    `RAZORPAY_WEBHOOK_SECRET` (Razorpay's own documented scheme),
+    using the service-role client since a server-to-server webhook
+    call has no member session. This is deliberate: Razorpay's own
+    confirmation that money actually moved is the one source of
+    truth, not the browser's "checkout succeeded" callback, which is
+    only used to make the UI feel responsive while the real webhook
+    (usually a few seconds behind) does the actual work.
+  - **Cancelling stops future charges without cutting off access
+    early.** A "Cancel auto-renew" button on `/account` → Billing
+    (shown whenever you have an active or newly-created subscription)
+    calls Razorpay's cancel API with `cancel_at_cycle_end`, so you
+    keep Elite until whatever period you've already paid for actually
+    ends — same as letting a one-time payment lapse naturally. You
+    can subscribe again afterward if you change your mind.
+  - **Database:** `profiles` gained `razorpay_subscription_id` /
+    `subscription_status`, locked down with the same column-privilege
+    revoke as `is_admin`/`subscription_tier`; `payments.razorpay_order_id`
+    is now nullable (a subscription charge has no classic "order"),
+    and a partial unique index on `razorpay_payment_id` makes the
+    webhook safe to receive the same event twice (Razorpay retries on
+    anything but a 2xx response) — all in the new Phase 14 section at
+    the end of `supabase/schema.sql`. Safe to re-run the whole file.
+
+## Push notifications for messages (V1)
+
+Turn it on from `/account` → **Message notifications** — a browser
+push notification arrives when a mutual match sends you a message,
+even if Agaram isn't open in a tab.
+
+- **One-time setup:** generate a VAPID keypair (`npx web-push
+  generate-vapid-keys` — pure crypto, no account needed) and add
+  three environment variables, locally and in Vercel:
+  ```
+  NEXT_PUBLIC_VAPID_PUBLIC_KEY=<the public key>
+  VAPID_PUBLIC_KEY=<the same public key>
+  VAPID_PRIVATE_KEY=<the private key — keep this one secret>
+  VAPID_SUBJECT=mailto:you@example.com
+  ```
+  (The public key needs both names because the browser reads the
+  `NEXT_PUBLIC_` one and the server reads the plain one — same value,
+  different variable so only what's meant to be public is exposed.)
+  Without these set, the "Message notifications" section on `/account`
+  simply doesn't appear — nothing breaks, it just isn't offered.
+- **Opt-in, per browser, and reversible.** Turning it on asks the
+  browser's own notification permission, registers a minimal service
+  worker (`public/sw.js`), and saves the resulting subscription;
+  turning it off removes that subscription. A member can have several
+  (phone, laptop, ...) — each is notified independently.
+- **Sent from inside `sendMessage()` itself** (`src/app/actions/
+  messages.ts`), right after the message insert succeeds, using
+  `web-push` and a narrowly-scoped `SECURITY DEFINER` function
+  (`get_push_subscriptions_for_match_peer`) that only ever returns
+  the *other* participant's subscriptions for a match the sender is
+  actually part of. A push failure — a stale subscription, the push
+  service being briefly unreachable — never affects whether the
+  message itself sent; a stale subscription (404/410 from the push
+  service) is quietly deleted so it stops being retried.
+- **Deliberately minimal.** No message preview in the notification
+  body (just "New message from <name>", for the same reason a lock
+  screen shouldn't show private content), no read/unread badge count,
+  no notification for milestone-tag messages — just "someone sent you
+  a message, go look."
+
+## Admin: member search & suspension (V1)
+
+A **Members** tab on `/admin`, alongside Reports and Verifications.
+
+- **Search, don't browse.** The page shows nothing until you search
+  by full name or paste an exact profile ID (e.g. from a report
+  elsewhere in `/admin`) — deliberately not a scrollable list of every
+  member, so it doesn't become its own moderation surface to worry
+  about. It just runs a straightforward `.ilike()` / `.eq()` query
+  against `profiles`, since "Admins can view all profiles" (Phase 7)
+  already permits that — no new read function needed.
+- **Suspension is a soft block, not a ban.** A suspended member's
+  profile, matches, and messages are all left completely alone, and
+  they can still sign in and see their own `/account` — V0 has no
+  separate appeals flow, so that's deliberately where any dispute has
+  to start. What actually changes: they drop out of everyone else's
+  Browse feed (`get_match_candidates()`), and they can't send new
+  messages (the messages insert policy) — existing threads stay
+  readable on both sides. Suspending always requires typing a short
+  reason first (kept as an admin-only note next to the member, since
+  V0 still has no separate audit-log table); unsuspending is one
+  click.
+- **Database:** `profiles` gained `is_suspended` / `suspended_at` /
+  `suspended_reason`, locked down with the same column-privilege
+  revoke as `is_admin`/`subscription_tier` (Phase 8) — only
+  `set_member_suspended()`, a new `SECURITY DEFINER` function that
+  checks `is_admin()` itself, can ever write them.
+  `get_match_candidates()` and the messages insert policy were both
+  updated to check `is_suspended` (Phase 12, at the end of
+  `supabase/schema.sql`, for the same "function body validated at
+  creation time" ordering reason as Phase 11's milestone work). Safe
+  to re-run the whole file, as always.
+
+## Admin message oversight & audit log (V1)
+
+Two related additions to `/admin`, both about accountability for what
+admin access actually lets you do.
+
+- **A "View conversation" link on every row in `/admin/reports`**
+  opens a read-only view of that specific reported match's message
+  history — `viewReportMessages()` (`src/app/actions/admin.ts`) logs
+  the fact that this happened, then redirects to
+  `/admin/reports/[id]/messages`. This is deliberately narrow: there's
+  still no general "browse all members' messages" screen anywhere —
+  the only way in is from a specific report, and every time it's
+  used, it's on the record. Enforced by a new, additional,
+  admin-only `select` policy on `messages` in `supabase/schema.sql`
+  (Phase 16) — on top of, not instead of, the existing
+  participants-only policy.
+- **An `admin_actions` audit log**, with a new **Audit log** tab on
+  `/admin`. Every admin action anywhere in the app — resolving a
+  report, a manual verification override, suspending or unsuspending
+  a member, opening a reported conversation — now writes one row:
+  who, what, against whom/what, when, and (where relevant, like a
+  suspension reason) why. Read-only in the UI; there's no way to
+  edit or delete a logged entry, by design.
+- **Database:** the new `admin_actions` table (Phase 16,
+  `supabase/schema.sql`) — admins can read all rows, and can only
+  ever insert a row with their own `admin_id`, enforced by RLS, not a
+  service-role key or a `SECURITY DEFINER` function, so `admin_id` is
+  always genuinely whoever was signed in.
+
+## Messaging upgrades: Realtime, typing indicators & read receipts (V1)
+
+The chat thread at `/matches/mutual/<match id>` no longer just polls.
+
+- **Realtime.** New messages now arrive over a live Supabase Realtime
+  subscription (Postgres Changes on the `messages` table) instead of
+  waiting for the next poll tick. A slow 15-second poll is still
+  there underneath, purely as a safety net in case a socket silently
+  drops — it's not the primary path anymore. Postgres Changes only
+  ever streams a row to a session whose own RLS `select` policy would
+  already return it, so this is exactly the same access as before,
+  just pushed instead of pulled.
+- **Typing indicators.** Each side broadcasts a lightweight "typing"
+  event (throttled to at most one every 1.5 seconds) over a Realtime
+  Broadcast channel while composing a reply; the other side shows
+  "Typing…" for up to 3 seconds after the last event. Nothing here is
+  ever written to the database — there's no "stopped typing" event
+  either, it just expires client-side.
+- **Read receipts.** A new `message_read_state` table holds one row
+  per (match, member): how recently that member has viewed the
+  thread. Your own latest message shows a small "Seen" once the other
+  person's read-state passes its timestamp. Deliberately coarse — no
+  per-message read state, no "delivered" vs. "read" distinction, just
+  "have they looked at the thread since I sent this."
+- **Database:** `message_read_state` (new table, RLS policies letting
+  both match participants read either row but only their own row's
+  owner write it) plus `messages` and `message_read_state` both added
+  to the `supabase_realtime` publication — all in the new Phase 13
+  section at the end of `supabase/schema.sql`. Re-run the whole file;
+  the publication-membership checks are written to be safe on a
+  second run too, unlike a plain `ALTER PUBLICATION ... ADD TABLE`.
+
+## DPDP-Act grievance officer (V1)
+
+`/privacy`'s Section 8 named a real contact instead of a
+`[bracketed placeholder]`: Vinothkumar Kannan, Founder & Grievance
+Officer, at a dedicated `privacy@agaram.app` inbox (not a personal
+address) — required under Section 8 read with Section 13 of the DPDP
+Act, 2023. **This inbox still needs to actually exist** — set up
+`privacy@agaram.app` (Google Workspace, or forwarding from wherever
+you'll host the real domain) before this page goes in front of real
+members; right now it's correct copy on a page still marked "draft,
+not yet reviewed by a lawyer," same as the rest of `/privacy`. The
+`[DATE]` and `[When live]` placeholders elsewhere on that page are
+unrelated and still open, per the Phase 8 privacy-policy note above.
+
+**A related but separate DPDP gap, also closed this round: consent
+was never actually captured at account creation.** Section 7 of
+`/privacy` has always described "explicit consent (a checkbox naming
+the DPDP Act directly)" as how Agaram gets consent, and the Aadhaar
+identity check (Phase 3) always did capture it — but plain account
+creation itself never did. The very first onboarding step (Basic
+Info, right after signup) now has a required checkbox linking to
+`/privacy`, and `saveBasicInfo()` records the timestamp in a new
+`profiles.terms_accepted_at` column (Phase 17, `supabase/schema.sql`
+— safe to re-run the whole file). This is narrower than the full
+DPDP-Act legal review the build plan's Section 7 calls for (still
+open, see "What's next") — it closes one concrete, checkable gap,
+not the whole review.
+
 ## Test accounts (dev utility)
 
 Testing most features — a mutual match, messaging, milestone tagging,
@@ -741,18 +986,28 @@ remove the environment variable (the route goes back to always
 
 ## What's next
 
-All 8 V0 build-plan phases are live, plus these first four V1
-features. Messaging still has room to grow beyond this — read
-receipts, typing indicators, and moving off the 4-second poll onto a
-realtime channel are all still open — alongside the rest of the admin
-tooling (message-content access, member search/suspension, an audit
-log), the DPDP-Act grievance-officer contact, the Family Collaborator
-model's still-deferred parent-creates-profile-first and sibling/friend
-proxy-creator flows (see the section above), and the vendor/business
-work: the real HyperVerge (or Signzy) Aadhaar check once sandbox
-access comes through, Razorpay live mode once business KYC is done,
-the DPDP-Act legal review flagged throughout the Phase 8 section
-above, and CSP graduation from Report-Only to enforcing once a full
-manual click-through is confirmed clean. Bring this repo and
-`Agaram_Premium_PRD_v2.md` / the clickable prototype into your next
+All 8 V0 build-plan phases are live, plus twelve V1 features now:
+member blocking/data export/account deletion, the Tamil UI toggle,
+Family Collaborator accounts, message milestone tagging, subscription
+renewal & billing history, real auto-recurring billing with
+self-serve cancellation, push notifications for messages, admin
+member search & suspension, admin message oversight & an action audit
+log, the messaging upgrades (Realtime/typing/read receipts), the
+DPDP-Act grievance officer contact, and DPDP consent capture at
+signup. Still open: the Family Collaborator model's still-deferred
+parent-creates-profile-first and sibling/friend proxy-creator flows
+(see the section above), and the vendor/business work: the real
+HyperVerge (or a cheaper alternative like Deepvue/Sandbox) Aadhaar
+check once sandbox access comes through, Razorpay live mode once
+business KYC is done, the DPDP-Act legal review flagged throughout the
+Phase 8 section above (naming a grievance officer and capturing
+signup consent are two pieces of that review, now done — the rest,
+e.g. a full compliance read-through covering data retention and
+breach notification, isn't), and CSP graduation from Report-Only to
+enforcing — now a one-variable `CSP_ENFORCE=true` toggle rather than a
+code change, but still deliberately not flipped by default until a
+full manual click-through (including both payment flows and push
+notifications) is confirmed clean against the live deployment. Bring
+this repo and `Agaram_Premium_PRD_v2.md` / the clickable prototype
+into your next
 session for any of those.
