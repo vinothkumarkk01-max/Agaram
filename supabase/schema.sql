@@ -2087,3 +2087,541 @@ drop policy if exists "Admins can update all concierge applications" on public.c
 create policy "Admins can update all concierge applications"
   on public.concierge_applications for update
   using (is_admin());
+
+-- ============================================================
+-- Phase 22 (V1) — Profile photos: private storage + blur-until-match
+-- ============================================================
+--
+-- Storage layout, per profile: profile-photos/<profile_id>/original.jpg
+-- (the real photo, full quality) and profile-photos/<profile_id>/blurred.jpg
+-- (a heavily blurred derivative generated at upload time — see
+-- actions/photo.ts). The bucket itself is PRIVATE (not public) —
+-- every read goes through a signed URL or one of the policies below,
+-- never a guessable public path. The two-file layout is what makes
+-- "blur until mutual match" a storage-level guarantee rather than a
+-- UI-level one: a browsing member's client is only ever handed a
+-- signed URL to blurred.jpg, and Postgres itself refuses a request
+-- for original.jpg unless the match is already mutual (or the
+-- requester is the owner or an admin) — there's no code path in the
+-- app that could accidentally leak the unblurred photo early, because
+-- the database enforces it independent of the app.
+insert into storage.buckets (id, name, public)
+values ('profile-photos', 'profile-photos', false)
+on conflict (id) do nothing;
+
+-- Mirrors is_admin() above: a SECURITY DEFINER function so this can
+-- be called from a storage.objects policy without that policy having
+-- to reason about RLS on public.matches itself. Deliberately narrower
+-- than "are these two profiles matched at all" — only 'mutual' counts,
+-- exactly matching the PRD's blur-until-match rule.
+create or replace function public.is_mutual_match_with(p_other_profile_id uuid)
+returns boolean
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select exists (
+    select 1 from public.matches
+    where status = 'mutual'
+      and (
+        (candidate_a = auth.uid() and candidate_b = p_other_profile_id)
+        or (candidate_a = p_other_profile_id and candidate_b = auth.uid())
+      )
+  );
+$$;
+
+grant execute on function public.is_mutual_match_with(uuid) to authenticated;
+
+-- storage.objects ships with row level security already enabled on
+-- every Supabase project — these are additive policies scoped to the
+-- profile-photos bucket only, and multiple permissive policies on the
+-- same table/action are OR'd together by Postgres, so a request is
+-- allowed the moment ANY one of these four matches.
+
+-- storage.foldername(name) splits "abc-123/original.jpg" into
+-- {'abc-123', 'original.jpg'} — [1] is the profile id segment, which
+-- this policy set treats as the owning member's own id (enforced by
+-- casting it against auth.uid() below, not by trusting the client).
+drop policy if exists "Members manage their own profile photo folder" on storage.objects;
+create policy "Members manage their own profile photo folder"
+  on storage.objects for all
+  using (
+    bucket_id = 'profile-photos'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  )
+  with check (
+    bucket_id = 'profile-photos'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+-- Any signed-in member can view anyone's blurred.jpg — that's the
+-- whole point of it existing as a separate object from original.jpg.
+drop policy if exists "Signed-in members can view blurred profile photos" on storage.objects;
+create policy "Signed-in members can view blurred profile photos"
+  on storage.objects for select
+  to authenticated
+  using (
+    bucket_id = 'profile-photos'
+    and storage.filename(name) = 'blurred.jpg'
+  );
+
+-- Mutual-match participants can view each other's original.jpg —
+-- gated by the same 'mutual' status the rest of the app uses to
+-- reveal full profile info (get_mutual_matches()).
+drop policy if exists "Mutual match participants can view original profile photos" on storage.objects;
+create policy "Mutual match participants can view original profile photos"
+  on storage.objects for select
+  to authenticated
+  using (
+    bucket_id = 'profile-photos'
+    and storage.filename(name) = 'original.jpg'
+    and public.is_mutual_match_with(((storage.foldername(name))[1])::uuid)
+  );
+
+-- Same admin-oversight pattern as every other table in this schema
+-- (identity_verifications, concierge_applications, reports, ...).
+drop policy if exists "Admins can view all profile photos" on storage.objects;
+create policy "Admins can view all profile photos"
+  on storage.objects for select
+  using (is_admin());
+
+-- Denormalized flag so pages that list many profiles at once (Browse,
+-- Sent, Received, dashboard candidate cards) can decide whether to
+-- even attempt a signed-URL fetch for a given profile without an
+-- extra storage lookup per card. Written by the member's own upload
+-- and delete actions (actions/photo.ts) — an ordinary self-editable
+-- profile field, same trust level as full_name or about_me, not a
+-- privileged column like is_admin or subscription_tier.
+alter table public.profiles
+  add column if not exists has_photo boolean not null default false;
+
+-- has_photo needs to reach every place a candidate's masked or
+-- unlocked info is already surfaced, so the UI knows whether it's
+-- worth requesting a signed URL at all (see src/lib/photo.ts). DROP +
+-- CREATE, not CREATE OR REPLACE, since every one of these functions
+-- is gaining a column — same constraint the Phase 11 comment above
+-- explains. Each one otherwise keeps its existing logic unchanged.
+drop function if exists public.get_match_candidates();
+
+create function public.get_match_candidates()
+returns table (
+  id uuid,
+  age integer,
+  location text,
+  initial text,
+  is_verified boolean,
+  has_photo boolean
+)
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  with me as (
+    select profile_type from public.profiles where id = auth.uid()
+  ),
+  my_prefs as (
+    select age_min, age_max, preferred_locations
+    from public.preferences
+    where profile_id = auth.uid()
+  )
+  select
+    p.id,
+    p.age,
+    p.location,
+    left(p.full_name, 1) as initial,
+    coalesce(iv.status = 'verified', false) as is_verified,
+    p.has_photo
+  from public.profiles p
+  left join public.identity_verifications iv on iv.profile_id = p.id
+  cross join me
+  left join my_prefs on true
+  where p.id <> auth.uid()
+    and p.profile_type <> me.profile_type
+    and not p.is_suspended
+    and not exists (
+      select 1 from public.blocks b
+      where (b.blocker_id = auth.uid() and b.blocked_id = p.id)
+         or (b.blocker_id = p.id and b.blocked_id = auth.uid())
+    )
+    and p.age between coalesce(my_prefs.age_min, 18) and coalesce(my_prefs.age_max, 100)
+    and (
+      my_prefs.preferred_locations is null
+      or array_length(my_prefs.preferred_locations, 1) is null
+      or p.location = any (my_prefs.preferred_locations)
+    )
+    -- Phase 24 (re-surfacing cooldown) replaces the plain "no matches
+    -- row at all" exclusion below — see that section for the reason
+    -- this became an or-clause instead of a bare not exists.
+    and (
+      not exists (
+        select 1 from public.matches m
+        where (m.candidate_a = auth.uid() and m.candidate_b = p.id)
+           or (m.candidate_a = p.id and m.candidate_b = auth.uid())
+      )
+      or exists (
+        select 1 from public.matches m
+        where (
+          (m.candidate_a = auth.uid() and m.candidate_b = p.id)
+          or (m.candidate_a = p.id and m.candidate_b = auth.uid())
+        )
+        and m.status = 'declined'
+        and m.updated_at < now() - interval '30 days'
+      )
+    );
+$$;
+
+grant execute on function public.get_match_candidates() to authenticated;
+
+drop function if exists public.get_sent_interests();
+
+create function public.get_sent_interests()
+returns table (
+  match_id uuid,
+  candidate_id uuid,
+  age integer,
+  location text,
+  initial text,
+  is_verified boolean,
+  has_photo boolean,
+  status text,
+  created_at timestamptz
+)
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select
+    m.id as match_id,
+    p.id as candidate_id,
+    p.age,
+    p.location,
+    left(p.full_name, 1) as initial,
+    coalesce(iv.status = 'verified', false) as is_verified,
+    p.has_photo,
+    m.status,
+    m.created_at
+  from public.matches m
+  join public.profiles p
+    on p.id = (case when m.candidate_a = auth.uid() then m.candidate_b else m.candidate_a end)
+  left join public.identity_verifications iv on iv.profile_id = p.id
+  where m.initiated_by = auth.uid()
+    and (m.candidate_a = auth.uid() or m.candidate_b = auth.uid())
+    and m.status in ('interest_sent', 'mutual')
+  order by m.created_at desc;
+$$;
+
+grant execute on function public.get_sent_interests() to authenticated;
+
+drop function if exists public.get_received_interests();
+
+create function public.get_received_interests()
+returns table (
+  match_id uuid,
+  candidate_id uuid,
+  age integer,
+  location text,
+  initial text,
+  is_verified boolean,
+  has_photo boolean,
+  created_at timestamptz
+)
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select
+    m.id as match_id,
+    p.id as candidate_id,
+    p.age,
+    p.location,
+    left(p.full_name, 1) as initial,
+    coalesce(iv.status = 'verified', false) as is_verified,
+    p.has_photo,
+    m.created_at
+  from public.matches m
+  join public.profiles p
+    on p.id = (case when m.candidate_a = auth.uid() then m.candidate_b else m.candidate_a end)
+  left join public.identity_verifications iv on iv.profile_id = p.id
+  where m.initiated_by <> auth.uid()
+    and (m.candidate_a = auth.uid() or m.candidate_b = auth.uid())
+    and m.status = 'interest_sent'
+  order by m.created_at desc;
+$$;
+
+grant execute on function public.get_received_interests() to authenticated;
+
+drop function if exists public.get_mutual_matches();
+
+create function public.get_mutual_matches()
+returns table (
+  match_id uuid,
+  candidate_id uuid,
+  full_name text,
+  age integer,
+  location text,
+  about_me text,
+  is_verified boolean,
+  has_photo boolean,
+  matched_at timestamptz,
+  is_unlocked boolean,
+  current_milestone text
+)
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  with me as (
+    select
+      (
+        subscription_tier = 'elite'
+        and (subscription_expires_at is null or subscription_expires_at > now())
+      ) as unlocked
+    from public.profiles
+    where id = auth.uid()
+  )
+  select
+    m.id as match_id,
+    p.id as candidate_id,
+    case when me.unlocked then p.full_name else null end as full_name,
+    p.age,
+    p.location,
+    case when me.unlocked then p.about_me else null end as about_me,
+    coalesce(iv.status = 'verified', false) as is_verified,
+    p.has_photo,
+    m.updated_at as matched_at,
+    coalesce(me.unlocked, false) as is_unlocked,
+    (
+      select msg.milestone
+      from public.messages msg
+      where msg.match_id = m.id and msg.milestone is not null
+      order by msg.created_at desc
+      limit 1
+    ) as current_milestone
+  from public.matches m
+  join public.profiles p
+    on p.id = (case when m.candidate_a = auth.uid() then m.candidate_b else m.candidate_a end)
+  left join public.identity_verifications iv on iv.profile_id = p.id
+  cross join me
+  where (m.candidate_a = auth.uid() or m.candidate_b = auth.uid())
+    and m.status = 'mutual'
+    and not exists (
+      select 1 from public.blocks b
+      where (b.blocker_id = auth.uid() and b.blocked_id = p.id)
+         or (b.blocker_id = p.id and b.blocked_id = auth.uid())
+    )
+  order by m.updated_at desc;
+$$;
+
+grant execute on function public.get_mutual_matches() to authenticated;
+
+drop function if exists public.get_match_thread(uuid);
+
+create function public.get_match_thread(p_match_id uuid)
+returns table (
+  match_id uuid,
+  candidate_id uuid,
+  full_name text,
+  age integer,
+  location text,
+  is_verified boolean,
+  has_photo boolean,
+  is_unlocked boolean,
+  current_milestone text
+)
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  with me as (
+    select
+      (
+        subscription_tier = 'elite'
+        and (subscription_expires_at is null or subscription_expires_at > now())
+      ) as unlocked
+    from public.profiles
+    where id = auth.uid()
+  )
+  select
+    m.id as match_id,
+    p.id as candidate_id,
+    case when me.unlocked then p.full_name else null end as full_name,
+    p.age,
+    p.location,
+    coalesce(iv.status = 'verified', false) as is_verified,
+    p.has_photo,
+    coalesce(me.unlocked, false) as is_unlocked,
+    (
+      select msg.milestone
+      from public.messages msg
+      where msg.match_id = m.id and msg.milestone is not null
+      order by msg.created_at desc
+      limit 1
+    ) as current_milestone
+  from public.matches m
+  join public.profiles p
+    on p.id = (case when m.candidate_a = auth.uid() then m.candidate_b else m.candidate_a end)
+  left join public.identity_verifications iv on iv.profile_id = p.id
+  cross join me
+  where m.id = p_match_id
+    and (m.candidate_a = auth.uid() or m.candidate_b = auth.uid())
+    and m.status = 'mutual'
+    and not exists (
+      select 1 from public.blocks b
+      where (b.blocker_id = auth.uid() and b.blocked_id = p.id)
+         or (b.blocker_id = p.id and b.blocked_id = auth.uid())
+    );
+$$;
+
+grant execute on function public.get_match_thread(uuid) to authenticated;
+
+-- ============================================================
+-- Phase 24 (V1) — Re-surface declined matches after a cooldown
+-- ============================================================
+--
+-- Before this phase, a 'declined' matches row excluded that pair from
+-- Browse forever, on both sides, permanently — a single accidental
+-- "Pass" tap (or a change of heart 6 months later) had no way back.
+-- get_match_candidates() above now re-admits a declined pair once its
+-- updated_at is more than 30 days old (the or-clause added to that
+-- function's where-clause). A 'mutual' match is never re-surfaced —
+-- only 'declined' rows are eligible, and only after they've sat
+-- untouched for the cooldown window, so this doesn't undo an active
+-- decision either side just made.
+--
+-- The other half of this feature is in actions/matches.ts's
+-- expressInterest(): when the existing row for a re-surfaced pair is
+-- still 'declined' (the only way that's reachable is if Browse just
+-- showed it, i.e. the cooldown already passed), it now updates that
+-- row back to 'interest_sent' instead of silently no-op'ing — see the
+-- comment there. Nothing further to add here — both function bodies
+-- above already carry the actual predicate.
+
+-- ============================================================
+-- Phase 25 (V1) — Extended preferences: family / lifestyle / cultural
+-- ============================================================
+--
+-- The PRD's §7.3 describes these as "progressive" tiers, collected
+-- any time after a profile goes live — never required at signup,
+-- unlike the must-have tier (age/location/education/relocation/
+-- language) that already exists on `preferences`. That's why these
+-- live on /account (an anytime-editable settings surface) rather than
+-- onboarding, and why every one of them defaults to something inert
+-- ('no_preference' or null) instead of forcing a choice.
+--
+-- IMPORTANT SCOPING NOTE: none of these columns are read by
+-- get_match_candidates() this round. Wiring them into actual
+-- filtering/scoring is real design work (the PRD's §8 rule-based
+-- weighting model) that deserves its own pass rather than a
+-- last-minute addition here — adding a filter column that silently
+-- does nothing yet is honest; adding one that HALF-filters based on
+-- an under-designed weighting would not be. Storing them now still
+-- has value: it's real profile-completeness data the moment matching
+-- does get smarter, and it's already useful as human-readable context
+-- once two members are messaging.
+--
+-- Self-description ("who I am") vs preference ("who I want") is kept
+-- as two separate columns for every one of these, exactly like the
+-- existing profiles.community / preferences.community_preference
+-- split the PRD calls out explicitly — never inferred one from the
+-- other, never merged into one field in the UI.
+alter table public.profiles
+  add column if not exists family_type text
+    check (family_type is null or family_type in ('nuclear', 'joint')),
+  add column if not exists diet text
+    check (diet is null or diet in ('vegetarian', 'non_vegetarian')),
+  add column if not exists native_district text,
+  add column if not exists community text;
+
+alter table public.preferences
+  -- Family tier
+  add column if not exists family_type_preference text not null default 'no_preference'
+    check (family_type_preference in ('nuclear', 'joint', 'no_preference')),
+  add column if not exists family_involvement_preference text not null default 'no_preference'
+    check (family_involvement_preference in ('low', 'medium', 'high', 'no_preference')),
+  -- Lifestyle tier
+  add column if not exists diet_preference text not null default 'no_preference'
+    check (diet_preference in ('vegetarian', 'non_vegetarian', 'no_preference')),
+  add column if not exists drinking_preference text not null default 'no_preference'
+    check (drinking_preference in ('yes', 'no', 'occasionally', 'no_preference')),
+  add column if not exists smoking_preference text not null default 'no_preference'
+    check (smoking_preference in ('yes', 'no', 'no_preference')),
+  -- Cultural tier
+  add column if not exists native_district_preference text,
+  add column if not exists community_preference text not null default 'no_preference',
+  add column if not exists religious_practice_preference text not null default 'no_preference'
+    check (religious_practice_preference in ('important', 'no_preference'));
+
+-- ============================================================
+-- Phase 26 (V1) — Jathagam / horoscope details capture
+-- ============================================================
+--
+-- HONEST SCOPING DECISION, stated plainly: this is a details-capture-
+-- and-sharing feature ONLY. There is no Porutham/Dosham compatibility
+-- score anywhere in this schema, and none should be added without a
+-- real astrologer-reviewed rule set behind it. The PRD (§8) describes
+-- Jathagam compatibility as a weighted scoring input to a rule-based
+-- matching engine — building a fake or naively-hardcoded version of
+-- that (e.g. "same rasi = +1 point") would present invented pseudo-
+-- astrology as if it were a real, considered compatibility signal for
+-- a decision as consequential as marriage. That's the same ethical
+-- line already drawn for identity verification's mock provider (which
+-- is honestly labeled as a placeholder to the member) and for the
+-- weekly digest (which never overstates what it's summarizing) — the
+-- honest version here is: capture the details, let the member choose
+-- to share them once mutually matched, and say nothing about what
+-- they mean together. A real Porutham engine, if ever built, deserves
+-- its own reviewed phase, not a bolt-on to a photo/preferences round.
+create table if not exists public.jathagam_details (
+  profile_id uuid primary key references public.profiles (id) on delete cascade,
+  birth_date date,
+  -- Exact birth time is routinely unknown or approximate for a family
+  -- filling this in from memory — nullable, not required.
+  birth_time time,
+  birth_place text,
+  birth_star text, -- nakshatra
+  rasi text, -- moon sign
+  visibility text not null default 'private' check (visibility in ('private', 'mutual_match')),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.jathagam_details enable row level security;
+
+drop policy if exists "Members can view their own jathagam details" on public.jathagam_details;
+create policy "Members can view their own jathagam details"
+  on public.jathagam_details for select
+  using (profile_id = auth.uid());
+
+drop policy if exists "Members can upsert their own jathagam details" on public.jathagam_details;
+create policy "Members can upsert their own jathagam details"
+  on public.jathagam_details for insert
+  with check (profile_id = auth.uid());
+
+drop policy if exists "Members can update their own jathagam details" on public.jathagam_details;
+create policy "Members can update their own jathagam details"
+  on public.jathagam_details for update
+  using (profile_id = auth.uid());
+
+drop policy if exists "Members can delete their own jathagam details" on public.jathagam_details;
+create policy "Members can delete their own jathagam details"
+  on public.jathagam_details for delete
+  using (profile_id = auth.uid());
+
+-- Sharing is global-per-profile (one visibility toggle, not a
+-- per-match share list) — same simplification the PRD's own
+-- "share with family" toggle already makes for family sharing, and
+-- consistent with is_mutual_match_with() (Phase 22) already existing
+-- as the one place "are these two mutually matched" is answered from
+-- a policy, so this reuses it rather than re-deriving the same check.
+drop policy if exists "Mutual match participants can view shared jathagam details" on public.jathagam_details;
+create policy "Mutual match participants can view shared jathagam details"
+  on public.jathagam_details for select
+  using (
+    visibility = 'mutual_match'
+    and public.is_mutual_match_with(profile_id)
+  );

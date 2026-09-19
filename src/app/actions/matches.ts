@@ -58,9 +58,25 @@ export async function expressInterest(candidateId: string) {
       .from("matches")
       .update({ status: "mutual", updated_at: new Date().toISOString() })
       .eq("id", existing.id);
+  } else if (existing.status === "declined") {
+    // Re-surfaced after the 30-day cooldown (supabase/schema.sql,
+    // Phase 24 — get_match_candidates() only shows a declined pair
+    // again once it's old enough), so the only way this branch is
+    // reached is via a fresh Browse card, not a stale one. Restart the
+    // interest cycle on the SAME row rather than inserting a new one —
+    // a second row for the same pair would violate the
+    // matches_unique_pair constraint.
+    await supabase
+      .from("matches")
+      .update({
+        status: "interest_sent",
+        initiated_by: user.id,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", existing.id);
   }
-  // Otherwise (already sent by me, already mutual, or already
-  // declined) there's nothing to do — left as a no-op.
+  // Otherwise (already sent by me, or already mutual) there's nothing
+  // to do — left as a no-op.
 
   revalidateMatches();
 }

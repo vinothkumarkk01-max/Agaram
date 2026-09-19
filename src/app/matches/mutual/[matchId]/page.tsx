@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import { MessageThread } from "@/components/MessageThread";
 import { blockMember } from "@/app/actions/blocks";
 import { getDictionary } from "@/lib/i18n/server";
+import { getProfilePhotoUrl } from "@/lib/photo";
+import { ProfilePhotoAvatar } from "@/components/ProfilePhotoAvatar";
 
 type MatchThread = {
   match_id: string;
@@ -11,6 +13,7 @@ type MatchThread = {
   age: number;
   location: string | null;
   is_verified: boolean;
+  has_photo: boolean;
   is_unlocked: boolean;
 };
 
@@ -68,6 +71,17 @@ export default async function MatchThreadPage({
     );
   }
 
+  const photo = await getProfilePhotoUrl(supabase, thread.candidate_id, thread.has_photo);
+
+  // RLS (supabase/schema.sql, Phase 26) already does the deciding here:
+  // this only returns a row when the other member both filled theirs
+  // in AND set visibility to 'mutual_match' — no separate check needed.
+  const { data: jathagam } = await supabase
+    .from("jathagam_details")
+    .select("birth_star, rasi, birth_place")
+    .eq("profile_id", thread.candidate_id)
+    .maybeSingle();
+
   const { data: messages } = await supabase
     .from("messages")
     .select("id, sender_id, body, created_at, milestone")
@@ -88,16 +102,19 @@ export default async function MatchThreadPage({
         className="flex items-start justify-between gap-3 mb-3 pb-3"
         style={{ borderBottom: "1px solid var(--line)" }}
       >
-        <div>
-          <div
-            className="text-lg font-semibold"
-            style={{ fontFamily: "var(--font-display)" }}
-          >
-            {thread.full_name}
-          </div>
-          <div className="text-xs" style={{ color: "var(--text-soft)" }}>
-            {thread.age} {t.dashboard.years}{thread.location ? ` · ${thread.location}` : ""}
-            {thread.is_verified ? ` · ${t.dashboard.identityVerified}` : ""}
+        <div className="flex items-center gap-3">
+          <ProfilePhotoAvatar url={photo?.url} initial={thread.full_name?.[0] ?? ""} size={40} />
+          <div>
+            <div
+              className="text-lg font-semibold"
+              style={{ fontFamily: "var(--font-display)" }}
+            >
+              {thread.full_name}
+            </div>
+            <div className="text-xs" style={{ color: "var(--text-soft)" }}>
+              {thread.age} {t.dashboard.years}{thread.location ? ` · ${thread.location}` : ""}
+              {thread.is_verified ? ` · ${t.dashboard.identityVerified}` : ""}
+            </div>
           </div>
         </div>
         <div className="flex items-center gap-3 shrink-0">
@@ -119,6 +136,18 @@ export default async function MatchThreadPage({
           </form>
         </div>
       </div>
+
+      {jathagam && (jathagam.birth_star || jathagam.rasi || jathagam.birth_place) && (
+        <div
+          className="text-xs rounded-xl p-3 mb-3"
+          style={{ background: "var(--bg-sunken)", color: "var(--text-soft)" }}
+        >
+          <span className="font-semibold" style={{ color: "var(--text)" }}>
+            {t.account.jathagamSharedHeading}
+          </span>{" "}
+          {[jathagam.birth_star, jathagam.rasi, jathagam.birth_place].filter(Boolean).join(" · ")}
+        </div>
+      )}
 
       <MessageThread
         matchId={matchId}

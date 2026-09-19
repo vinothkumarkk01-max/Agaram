@@ -1,10 +1,12 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 
 export type ProfileFormState = {
   error?: string;
+  success?: string;
 } | undefined;
 
 function splitList(value: FormDataEntryValue | null): string[] {
@@ -135,4 +137,116 @@ export async function savePreferences(
   }
 
   redirect("/onboarding/verification");
+}
+
+const FAMILY_TYPE_VALUES = ["nuclear", "joint"];
+const DIET_VALUES = ["vegetarian", "non_vegetarian"];
+
+function optionalEnum(value: FormDataEntryValue | null, allowed: string[]): string | null {
+  const s = String(value ?? "").trim();
+  return allowed.includes(s) ? s : null;
+}
+
+/**
+ * Extended preferences, Phase 25 (supabase/schema.sql) — the PRD's
+ * "family / lifestyle / cultural" tiers, deliberately optional and
+ * editable any time from /account rather than gating onboarding.
+ * `saveBackgroundInfo` is the self-description half ("who I am");
+ * `saveExtendedPreferences` below is the "who I want" half. Kept as
+ * two separate actions/forms on purpose, mirroring the two separate
+ * database tables (profiles vs preferences) they write to.
+ */
+export async function saveBackgroundInfo(
+  _prevState: ProfileFormState,
+  formData: FormData
+): Promise<ProfileFormState> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const familyType = optionalEnum(formData.get("family_type"), FAMILY_TYPE_VALUES);
+  const diet = optionalEnum(formData.get("diet"), DIET_VALUES);
+  const nativeDistrict = String(formData.get("native_district") ?? "").trim();
+  const community = String(formData.get("community") ?? "").trim();
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({
+      family_type: familyType,
+      diet,
+      native_district: nativeDistrict || null,
+      community: community || null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", user.id);
+
+  if (error) {
+    return { error: error.message };
+  }
+
+  revalidatePath("/account");
+  return { success: "Saved." };
+}
+
+const NO_PREFERENCE = "no_preference";
+const FAMILY_TYPE_PREF_VALUES = [...FAMILY_TYPE_VALUES, NO_PREFERENCE];
+const FAMILY_INVOLVEMENT_VALUES = ["low", "medium", "high", NO_PREFERENCE];
+const DIET_PREF_VALUES = [...DIET_VALUES, NO_PREFERENCE];
+const DRINKING_VALUES = ["yes", "no", "occasionally", NO_PREFERENCE];
+const SMOKING_VALUES = ["yes", "no", NO_PREFERENCE];
+const RELIGIOUS_PRACTICE_VALUES = ["important", NO_PREFERENCE];
+
+function enumOrNoPreference(value: FormDataEntryValue | null, allowed: string[]): string {
+  const s = String(value ?? NO_PREFERENCE).trim();
+  return allowed.includes(s) ? s : NO_PREFERENCE;
+}
+
+export async function saveExtendedPreferences(
+  _prevState: ProfileFormState,
+  formData: FormData
+): Promise<ProfileFormState> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const nativeDistrictPreference = String(formData.get("native_district_preference") ?? "").trim();
+  // Deliberately not validated against a fixed list of communities —
+  // same reasoning as profiles.community: an open text field, never a
+  // dropdown that would imply Agaram maintains an official list.
+  const communityPreference = String(formData.get("community_preference") ?? "").trim() || NO_PREFERENCE;
+
+  const { error } = await supabase
+    .from("preferences")
+    .update({
+      family_type_preference: enumOrNoPreference(
+        formData.get("family_type_preference"),
+        FAMILY_TYPE_PREF_VALUES
+      ),
+      family_involvement_preference: enumOrNoPreference(
+        formData.get("family_involvement_preference"),
+        FAMILY_INVOLVEMENT_VALUES
+      ),
+      diet_preference: enumOrNoPreference(formData.get("diet_preference"), DIET_PREF_VALUES),
+      drinking_preference: enumOrNoPreference(formData.get("drinking_preference"), DRINKING_VALUES),
+      smoking_preference: enumOrNoPreference(formData.get("smoking_preference"), SMOKING_VALUES),
+      native_district_preference: nativeDistrictPreference || null,
+      community_preference: communityPreference,
+      religious_practice_preference: enumOrNoPreference(
+        formData.get("religious_practice_preference"),
+        RELIGIOUS_PRACTICE_VALUES
+      ),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("profile_id", user.id);
+
+  if (error) {
+    return { error: error.message };
+  }
+
+  revalidatePath("/account");
+  return { success: "Saved." };
 }

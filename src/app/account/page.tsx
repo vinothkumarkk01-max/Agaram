@@ -8,10 +8,14 @@ import { DeleteAccountForm } from "@/components/DeleteAccountForm";
 import { NotificationsToggle } from "@/components/NotificationsToggle";
 import { EmploymentVerification } from "@/components/EmploymentVerification";
 import { FamilyInviteLink } from "@/components/FamilyInviteLink";
+import { ProfilePhotoUpload } from "@/components/ProfilePhotoUpload";
+import { ExtendedPreferencesForm } from "@/components/ExtendedPreferencesForm";
+import { JathagamForm } from "@/components/JathagamForm";
 import { getDictionary } from "@/lib/i18n/server";
 import { intlLocale } from "@/lib/i18n/locale";
 import { LocaleToggle } from "@/components/LocaleToggle";
 import { getSiteOrigin } from "@/lib/site-url";
+import { getProfilePhotoUrl } from "@/lib/photo";
 
 type BlockedMember = {
   blocked_id: string;
@@ -63,9 +67,43 @@ export default async function AccountPage() {
     ? await supabase
         .from("profiles")
         .select(
-          "id, subscription_tier, subscription_expires_at, razorpay_subscription_id, subscription_status, created_by_relation, weekly_digest_opt_out"
+          "id, subscription_tier, subscription_expires_at, razorpay_subscription_id, subscription_status, created_by_relation, weekly_digest_opt_out, has_photo"
         )
         .eq("id", user.id)
+        .maybeSingle()
+    : { data: null };
+
+  const ownPhoto = ownProfile
+    ? await getProfilePhotoUrl(supabase, ownProfile.id, ownProfile.has_photo)
+    : null;
+
+  const { data: extendedBackground } = ownProfile
+    ? await supabase
+        .from("profiles")
+        .select("family_type, diet, native_district, community")
+        .eq("id", user!.id)
+        .maybeSingle()
+    : { data: null };
+
+  // Extended preferences (Phase 25) live on the SAME preferences row
+  // the must-have onboarding step creates — a candidate who hasn't
+  // finished that step yet has no row here, so the section below is
+  // skipped rather than trying to update zero rows.
+  const { data: extendedPreferences } = ownProfile
+    ? await supabase
+        .from("preferences")
+        .select(
+          "family_type_preference, family_involvement_preference, diet_preference, drinking_preference, smoking_preference, native_district_preference, community_preference, religious_practice_preference"
+        )
+        .eq("profile_id", user!.id)
+        .maybeSingle()
+    : { data: null };
+
+  const { data: jathagamData } = ownProfile
+    ? await supabase
+        .from("jathagam_details")
+        .select("birth_date, birth_time, birth_place, birth_star, rasi, visibility")
+        .eq("profile_id", user!.id)
         .maybeSingle()
     : { data: null };
 
@@ -158,6 +196,65 @@ export default async function AccountPage() {
             {t.account.downloadMyData}
           </a>
         </section>
+
+        {ownProfile && (
+        <section
+          className="rounded-2xl p-6"
+          style={{ background: "var(--bg-raised)", border: "1px solid var(--line)" }}
+        >
+          <h2 className="text-base font-bold mb-1.5">{t.account.photoHeading}</h2>
+          <p className="text-sm mb-4" style={{ color: "var(--text-soft)" }}>
+            {t.account.photoDesc}
+          </p>
+          <ProfilePhotoUpload
+            t={t}
+            hasPhoto={!!ownProfile.has_photo}
+            previewUrl={ownPhoto?.url ?? null}
+          />
+        </section>
+        )}
+
+        {ownProfile && extendedBackground && extendedPreferences && (
+        <section
+          className="rounded-2xl p-6"
+          style={{ background: "var(--bg-raised)", border: "1px solid var(--line)" }}
+        >
+          <h2 className="text-base font-bold mb-1.5">{t.account.extendedHeading}</h2>
+          <p className="text-sm mb-4" style={{ color: "var(--text-soft)" }}>
+            {t.account.extendedDesc}
+          </p>
+          <ExtendedPreferencesForm
+            t={t}
+            background={extendedBackground}
+            preferences={extendedPreferences}
+          />
+        </section>
+        )}
+
+        {ownProfile && (
+        <section
+          className="rounded-2xl p-6"
+          style={{ background: "var(--bg-raised)", border: "1px solid var(--line)" }}
+        >
+          <h2 className="text-base font-bold mb-1.5">{t.account.jathagamHeading}</h2>
+          <p className="text-sm mb-4" style={{ color: "var(--text-soft)" }}>
+            {t.account.jathagamDesc}
+          </p>
+          <JathagamForm
+            t={t}
+            details={
+              jathagamData as {
+                birth_date: string | null;
+                birth_time: string | null;
+                birth_place: string | null;
+                birth_star: string | null;
+                rasi: string | null;
+                visibility: "private" | "mutual_match";
+              } | null
+            }
+          />
+        </section>
+        )}
 
         {ownProfile && (
         <section

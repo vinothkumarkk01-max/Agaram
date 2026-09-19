@@ -1110,9 +1110,143 @@ automation that doesn't exist yet.
 - **Database:** `concierge_applications` (Phase 21) — member can
   insert/view their own applications, admin can view/update all.
 
+## Profile photos — blur until match (V1)
+
+A private photo per profile, enforced at the database level, not just
+hidden in the UI. `/account` → **Profile photo** lets a candidate
+upload one (JPEG/PNG/WEBP, up to 8 MB); the upload action
+(`actions/photo.ts`) generates two derivatives with `sharp` and stores
+both in a private Supabase Storage bucket:
+
+- `original.jpg` — resized to fit within 1600×1600, re-encoded as a
+  normal-quality JPEG. `sharp`'s `.rotate()` call bakes in the phone's
+  EXIF orientation before the file is re-encoded (otherwise a portrait
+  photo would come out sideways) — and `sharp` strips all other
+  metadata by default, including embedded GPS coordinates, unless you
+  explicitly call `.withMetadata()` (nothing here does). That's a
+  deliberate privacy property worth relying on, not an accident: no
+  uploaded photo ever carries location metadata into storage.
+- `blurred.jpg` — the same photo shrunk to 24px wide and re-enlarged
+  (which destroys almost all detail through the resampling itself),
+  plus a further gaussian blur on top. This is what every other member
+  sees until a mutual match exists.
+
+**The blur is enforced by Postgres, not by the app choosing which file
+to fetch.** `supabase/schema.sql` Phase 22 adds `storage.objects` RLS
+policies scoped to the `profile-photos` bucket: the owner can read/
+write their own folder; any signed-in member can read anyone's
+`blurred.jpg`; `original.jpg` is only readable by its owner, an admin,
+or a member with a `'mutual'` row in `matches` against that profile
+(`is_mutual_match_with()`, a `SECURITY DEFINER` function so the policy
+doesn't need to reason about RLS on `matches` itself). `src/lib/photo.ts`
+tries `original.jpg` first and falls back to `blurred.jpg` — it's a
+convenience wrapper, not the security boundary, since `createSignedUrl()`
+simply fails for a path the caller's RLS doesn't allow. There's no code
+path in the app that could accidentally leak the unblurred photo early,
+because the database refuses the request independent of what the UI
+asks for.
+
+- `profiles.has_photo` is a denormalized flag so list pages (Browse,
+  Sent, Received, Mutual) know whether it's worth requesting a signed
+  URL at all, without an extra query per card.
+- Photos show up everywhere a candidate's masked or unlocked info
+  already does: the dashboard summary, Browse/Sent/Received/Mutual
+  cards, and the chat thread header — falling back to the existing
+  initial-letter circle whenever there's no photo or no URL this
+  viewer is allowed to see yet.
+- **HEIC isn't accepted** (`actions/photo.ts` checks the MIME type) —
+  `sharp`'s prebuilt binary on Vercel isn't guaranteed to be built with
+  HEIF decode support, so this fails with a clear message at upload
+  time instead of a confusing 500. Most browsers already convert a
+  file picker's `image/*` selection to JPEG, and recent iPhones offer
+  a "Most Compatible" camera setting that saves JPEG directly — this
+  only affects a HEIC file picked from an existing photo library.
+- **Testing this needs the mutual-match pair** — `bride.a@agaram-test.dev`
+  / `groom.a@agaram-test.dev` from the dev seed utility below are
+  already mutually matched, so uploading a photo to one and viewing it
+  from the other is the fastest way to see the unblur happen.
+
+## Extended preferences — family, lifestyle & cultural tiers (V1)
+
+The PRD's §7.3 describes three "progressive" preference tiers,
+collected any time after a profile goes live, on top of the
+must-have tier (age/location/education/relocation/language) that's
+been there since Phase 2. `/account` → **Family, lifestyle & cultural
+background** adds them, split into two visibly separate forms exactly
+like the existing `profiles.community` / `preferences.community_preference`
+split — self-description ("who I am": family type, diet, native
+district, community — new columns on `profiles`) is never the same
+field as preference ("who I want": the matching `*_preference` columns
+on `preferences`, every one defaulting to `'no_preference'`).
+
+**These columns are not read by `get_match_candidates()` this round.**
+Wiring them into actual filtering/scoring is the PRD §8 rule-based
+weighting model — real design work that deserves its own reviewed
+pass, not a last-minute addition bolted onto a photos-and-preferences
+round. Storing them now is still worthwhile: it's real profile-
+completeness data for the moment matching does get smarter, and it's
+already useful as human-readable context once two members are
+messaging. See the Phase 25 comment in `supabase/schema.sql` for the
+full reasoning.
+
+## Jathagam / horoscope details — capture and sharing only (V1)
+
+`/account` → **Jathagam / horoscope details** captures birth date,
+approximate birth time (optional — it's routinely not known exactly),
+birth place, birth star (nakshatra), and rasi, plus a single toggle:
+share these once mutually matched, or keep them private.
+
+**There is no compatibility score anywhere in this feature — stated
+plainly, not just omitted by oversight.** The PRD (§8) describes
+Jathagam/Porutham compatibility as a weighted input to a rule-based
+matching engine. Building even a simplified version of that scoring
+(e.g. "same rasi = +1 point") would present invented pseudo-astrology
+as if it were a real, considered signal for a decision as
+consequential as marriage — the same line already drawn for identity
+verification's honestly-labeled mock provider, and for the weekly
+digest never overstating what it's summarizing. The honest version
+here: capture the details, let the member choose to share them, say
+nothing about what they mean together. A real Porutham engine, if
+ever built, deserves its own reviewed phase with an actual astrologer
+in the loop — not a bolt-on to this round.
+
+- **Database:** `jathagam_details` (Phase 26, `supabase/schema.sql`) —
+  owner-only RLS for read/write, plus one additional SELECT policy
+  that reuses `is_mutual_match_with()` (already built for photos
+  above) to let a mutual match view a shared row. Sharing is a single
+  global toggle per profile, not a per-match share list — the same
+  simplification the existing "share with family" toggle already
+  makes.
+- Shared details (whichever of birth star / rasi / birth place the
+  other person filled in) show up as a small line above the chat
+  input on `/matches/mutual/[matchId]` — nothing is shown until the
+  other member has both filled the row in and turned sharing on; RLS
+  is what actually decides that, the page just renders whatever comes
+  back.
+
+## Re-surfacing declined matches after a cooldown (V1)
+
+Before this, tapping "Pass" on a candidate (or being passed on)
+excluded that pair from Browse forever, on both sides, permanently —
+a single accidental tap, or a change of heart six months later, had no
+way back. `get_match_candidates()` (Phase 24, `supabase/schema.sql`)
+now re-admits a `'declined'` pair once it's sat untouched for 30 days.
+A `'mutual'` match is never re-surfaced, and a `'declined'` row that's
+still fresh stays excluded — this only undoes an old, inactive
+decision, never a recent one.
+
+The other half lives in `actions/matches.ts`'s `expressInterest()`:
+when the existing row for a re-surfaced pair is still `'declined'`
+(the only way that branch is reachable is if Browse just legitimately
+showed the card, i.e. the cooldown already passed), it now updates
+that same row back to `'interest_sent'` instead of silently doing
+nothing — inserting a second row for the same pair would violate the
+`matches_unique_pair` constraint, so this restarts the interest cycle
+on the original row rather than creating a new one.
+
 ## What's next
 
-All 8 V0 build-plan phases are live, plus sixteen V1 features now:
+All 8 V0 build-plan phases are live, plus twenty V1 features now:
 member blocking/data export/account deletion, the Tamil UI toggle,
 Family Collaborator accounts, message milestone tagging, subscription
 renewal & billing history, real auto-recurring billing with
@@ -1122,7 +1256,12 @@ log, the messaging upgrades (Realtime/typing/read receipts), the
 DPDP-Act grievance officer contact, DPDP consent capture at signup,
 employment/education verification, relation context at onboarding (a
 scoped-down slice of the Family Collaborator model), the weekly
-curated match digest, and Royal Concierge tier intake. Still open: the
+curated match digest, Royal Concierge tier intake, profile photos with
+a database-enforced blur-until-match, extended family/lifestyle/
+cultural preferences (captured but not yet wired into matching),
+Jathagam/horoscope details capture and sharing (honestly, with no
+fabricated compatibility score), and re-surfacing declined matches
+after a 30-day cooldown. Still open: the
 Family Collaborator model's full parent-creates-profile-first
 identity-transfer flow (deliberately deferred as too high-risk for a
 live app — see "Family Collaborator: relation context at onboarding"

@@ -5,6 +5,8 @@ import { logout } from "@/app/actions/auth";
 import { getDictionary } from "@/lib/i18n/server";
 import { intlLocale } from "@/lib/i18n/locale";
 import { LocaleToggle } from "@/components/LocaleToggle";
+import { getProfilePhotoUrl } from "@/lib/photo";
+import { ProfilePhotoAvatar } from "@/components/ProfilePhotoAvatar";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -16,10 +18,13 @@ export default async function DashboardPage() {
   const { data: profile } = user
     ? await supabase
         .from("profiles")
-        .select("full_name, profile_type, age, location, about_me, is_admin")
+        .select("full_name, profile_type, age, location, about_me, is_admin, has_photo")
         .eq("id", user.id)
         .maybeSingle()
     : { data: null };
+
+  const ownPhoto =
+    user && profile ? await getProfilePhotoUrl(supabase, user.id, profile.has_photo) : null;
 
   // A pure Family Collaborator (no candidate profile of their own)
   // never goes through onboarding -- send them straight to their own
@@ -146,12 +151,15 @@ export default async function DashboardPage() {
           </>
         ) : (
           <>
-            <h1
-              className="text-xl mb-1"
-              style={{ fontFamily: "var(--font-display)" }}
-            >
-              {profile.full_name}
-            </h1>
+            <div className="flex items-center gap-3 mb-1">
+              <ProfilePhotoAvatar url={ownPhoto?.url} initial={profile.full_name[0] ?? ""} size={48} />
+              <h1
+                className="text-xl"
+                style={{ fontFamily: "var(--font-display)" }}
+              >
+                {profile.full_name}
+              </h1>
+            </div>
             <p className="text-xs mb-5" style={{ color: "var(--text-soft)" }}>
               {profile.profile_type === "groom" ? t.dashboard.groom : t.dashboard.bride} ·{" "}
               {profile.age} {t.dashboard.years}

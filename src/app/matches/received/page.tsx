@@ -2,6 +2,8 @@ import { createClient } from "@/lib/supabase/server";
 import { respondToInterest } from "@/app/actions/matches";
 import { blockMember } from "@/app/actions/blocks";
 import { getDictionary } from "@/lib/i18n/server";
+import { getProfilePhotoUrls } from "@/lib/photo";
+import { ProfilePhotoAvatar } from "@/components/ProfilePhotoAvatar";
 
 type ReceivedInterest = {
   match_id: string;
@@ -10,6 +12,7 @@ type ReceivedInterest = {
   location: string | null;
   initial: string;
   is_verified: boolean;
+  has_photo: boolean;
   created_at: string;
 };
 
@@ -39,6 +42,11 @@ export default async function ReceivedInterestsPage() {
     );
   }
 
+  const photos = await getProfilePhotoUrls(
+    supabase,
+    received.map((m) => ({ id: m.candidate_id, hasPhoto: m.has_photo }))
+  );
+
   return (
     <div className="flex flex-col gap-3">
       {received.map((m) => (
@@ -48,12 +56,11 @@ export default async function ReceivedInterestsPage() {
           style={{ background: "var(--bg-raised)", border: "1px solid var(--line)" }}
         >
           <div className="flex items-center gap-4">
-            <div
-              className="w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold shrink-0"
-              style={{ background: "var(--bg-sunken)", color: "var(--text-soft)" }}
-            >
-              {m.initial}.
-            </div>
+            <ProfilePhotoAvatar
+              url={photos.get(m.candidate_id)?.url}
+              initial={`${m.initial}.`}
+              size={48}
+            />
             <div>
               <div className="text-sm font-semibold">
                 {m.age} {t.dashboard.years}{m.location ? ` · ${m.location}` : ""}

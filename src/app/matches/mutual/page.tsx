@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import { getDictionary } from "@/lib/i18n/server";
 import { setMatchFamilySharing } from "@/app/actions/family";
 import { milestoneLabel, type MessageMilestone } from "@/lib/milestones";
+import { getProfilePhotoUrls } from "@/lib/photo";
+import { ProfilePhotoAvatar } from "@/components/ProfilePhotoAvatar";
 
 type MutualMatch = {
   match_id: string;
@@ -12,6 +14,7 @@ type MutualMatch = {
   location: string | null;
   about_me: string | null;
   is_verified: boolean;
+  has_photo: boolean;
   matched_at: string;
   is_unlocked: boolean;
   current_milestone: MessageMilestone | null;
@@ -63,6 +66,11 @@ export default async function MutualMatchesPage() {
     (sharingRows ?? []).map((r) => [r.id, r.shared_with_family])
   );
 
+  const photos = await getProfilePhotoUrls(
+    supabase,
+    mutuals.map((m) => ({ id: m.candidate_id, hasPhoto: m.has_photo }))
+  );
+
   if (!mutuals.length) {
     return (
       <div
@@ -96,11 +104,18 @@ export default async function MutualMatchesPage() {
             className="rounded-2xl p-5"
             style={{ background: "var(--ok-soft)", border: "1px solid var(--line)" }}
           >
-            <div
-              className="text-lg font-semibold mb-1"
-              style={{ fontFamily: "var(--font-display)" }}
-            >
-              {m.full_name}
+            <div className="flex items-center gap-3 mb-1">
+              <ProfilePhotoAvatar
+                url={photos.get(m.candidate_id)?.url}
+                initial={m.full_name?.[0] ?? ""}
+                size={44}
+              />
+              <div
+                className="text-lg font-semibold"
+                style={{ fontFamily: "var(--font-display)" }}
+              >
+                {m.full_name}
+              </div>
             </div>
             <div className="text-xs mb-2" style={{ color: "var(--text-soft)" }}>
               {m.age} {t.dashboard.years}{m.location ? ` · ${m.location}` : ""}
@@ -137,11 +152,14 @@ export default async function MutualMatchesPage() {
             className="rounded-2xl p-5"
             style={{ background: "var(--bg-sunken)", border: "1px solid var(--line)" }}
           >
-            <div
-              className="text-lg font-semibold mb-1"
-              style={{ fontFamily: "var(--font-display)" }}
-            >
-              {t.matches.itsAMatch}
+            <div className="flex items-center gap-3 mb-1">
+              <ProfilePhotoAvatar url={photos.get(m.candidate_id)?.url} initial="" size={44} />
+              <div
+                className="text-lg font-semibold"
+                style={{ fontFamily: "var(--font-display)" }}
+              >
+                {t.matches.itsAMatch}
+              </div>
             </div>
             <div className="text-xs mb-3" style={{ color: "var(--text-soft)" }}>
               {m.age} {t.dashboard.years}{m.location ? ` · ${m.location}` : ""}

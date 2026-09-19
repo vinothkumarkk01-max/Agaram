@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { CandidateCard, type MaskedCandidate } from "@/components/CandidateCard";
 import { getDictionary } from "@/lib/i18n/server";
+import { getProfilePhotoUrls } from "@/lib/photo";
 
 export default async function BrowseMatchesPage() {
   const supabase = await createClient();
@@ -30,10 +31,20 @@ export default async function BrowseMatchesPage() {
     );
   }
 
+  const photos = await getProfilePhotoUrls(
+    supabase,
+    list.map((c) => ({ id: c.id, hasPhoto: c.has_photo }))
+  );
+
   return (
     <div className="flex flex-col gap-3">
       {list.map((candidate) => (
-        <CandidateCard key={candidate.id} candidate={candidate} t={t} />
+        <CandidateCard
+          key={candidate.id}
+          candidate={candidate}
+          photoUrl={photos.get(candidate.id)?.url}
+          t={t}
+        />
       ))}
     </div>
   );

@@ -1,4 +1,5 @@
 import { expressInterest, passOnCandidate } from "@/app/actions/matches";
+import { ProfilePhotoAvatar } from "@/components/ProfilePhotoAvatar";
 import type { Dictionary } from "@/lib/i18n/dictionary";
 
 export type MaskedCandidate = {
@@ -7,13 +8,16 @@ export type MaskedCandidate = {
   location: string | null;
   initial: string;
   is_verified: boolean;
+  has_photo: boolean;
 };
 
 export function CandidateCard({
   candidate,
+  photoUrl,
   t,
 }: {
   candidate: MaskedCandidate;
+  photoUrl?: string | null;
   t: Dictionary;
 }) {
   return (
@@ -22,12 +26,7 @@ export function CandidateCard({
       style={{ background: "var(--bg-raised)", border: "1px solid var(--line)" }}
     >
       <div className="flex items-center gap-4">
-        <div
-          className="w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold shrink-0"
-          style={{ background: "var(--bg-sunken)", color: "var(--text-soft)" }}
-        >
-          {candidate.initial}.
-        </div>
+        <ProfilePhotoAvatar url={photoUrl} initial={`${candidate.initial}.`} size={48} />
         <div>
           <div className="text-sm font-semibold">
             {candidate.age} {t.dashboard.years}
