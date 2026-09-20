@@ -68,6 +68,15 @@ function buildCsp(): string {
 }
 
 const nextConfig: NextConfig = {
+  experimental: {
+    // Default is 1 MB, well under actions/photo.ts's 8 MB photo-upload
+    // cap — multipart/form-data adds its own overhead on top of the
+    // file's raw bytes (boundaries, part headers), so this leaves
+    // meaningful headroom above 8 MB rather than matching it exactly.
+    serverActions: {
+      bodySizeLimit: "10mb",
+    },
+  },
   async headers() {
     return [
       {

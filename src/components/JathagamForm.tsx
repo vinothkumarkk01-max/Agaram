@@ -40,7 +40,15 @@ export function JathagamForm({
   const [state, formAction, pending] = useActionState(saveJathagamDetails, undefined);
 
   return (
-    <form action={formAction} className="flex flex-col gap-3">
+    // Keyed on the current server data for the same reason as
+    // ExtendedPreferencesForm's forms: React 19 resets an uncontrolled
+    // form's fields to their ORIGINAL mount-time defaultValue as soon
+    // as its action resolves, and this form stays visible after a
+    // successful save rather than redirecting — without a key change
+    // to force a remount once the freshly-saved data comes back, every
+    // field (including the share checkbox) would snap back to
+    // whatever it showed before Save was clicked.
+    <form key={JSON.stringify(details)} action={formAction} className="flex flex-col gap-3">
       <p className="text-xs mb-1" style={{ color: "var(--text-soft)" }}>
         {t.account.jathagamNoScoreNotice}
       </p>

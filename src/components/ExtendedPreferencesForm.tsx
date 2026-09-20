@@ -65,7 +65,17 @@ export function ExtendedPreferencesForm({
           profiles.community vs preferences.community_preference. */}
       <div>
         <h3 className="text-sm font-bold mb-3">{t.account.extendedBackgroundHeading}</h3>
-        <form action={bgAction} className="flex flex-col gap-3">
+        {/* React 19 resets an uncontrolled form's fields to their
+            ORIGINAL mount-time defaultValue as soon as its action
+            resolves — which, for a form that stays on screen after a
+            successful save (this one never redirects, unlike
+            saveBasicInfo), means every field would snap back to
+            whatever it showed before this save, not what was just
+            saved. Keying the form on the current server data forces a
+            fresh mount (with the freshly-saved values as its new
+            defaultValue) once revalidatePath's re-fetch lands, instead
+            of silently discarding what the member just entered. */}
+        <form key={JSON.stringify(background)} action={bgAction} className="flex flex-col gap-3">
           <Field label={t.account.extendedFamilyType}>
             <select name="family_type" defaultValue={background.family_type ?? ""} style={selectStyle}>
               <option value="">{t.account.extendedNotSet}</option>
@@ -127,7 +137,8 @@ export function ExtendedPreferencesForm({
         <p className="text-xs mb-3" style={{ color: "var(--text-soft)" }}>
           {t.account.extendedPreferencesNotUsedYet}
         </p>
-        <form action={prefAction} className="flex flex-col gap-3">
+        {/* Same reset issue and same fix as the background form above. */}
+        <form key={JSON.stringify(preferences)} action={prefAction} className="flex flex-col gap-3">
           <Field label={t.account.extendedFamilyTypePref}>
             <select
               name="family_type_preference"
