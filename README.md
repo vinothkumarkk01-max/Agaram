@@ -1244,9 +1244,124 @@ nothing — inserting a second row for the same pair would violate the
 `matches_unique_pair` constraint, so this restarts the interest cycle
 on the original row rather than creating a new one.
 
+## Match explanation card — honest "why this match", no fabricated score (V1)
+
+Browse cards (`/matches`) now show a short "Why this match" list under
+each candidate — a handful of plain, literally-true statements
+("within your 25–32 age range", "lives in Chennai", "identity
+verified", "has a profile photo"), never a score, ranking, or weighted
+combination.
+
+**Why not the PRD's real version:** PRD §8 describes this as a
+must-have, but its own version is backed by a weighted multi-factor
+matching ENGINE (Jathagam, education/professional tier, lifestyle
+answers, and so on) that doesn't exist in this app — Browse is a
+simple hard-filter query (`get_match_candidates()`). Building a fake
+weighted score on top of a hard-filter query would present invented
+precision the underlying system doesn't have — the same line already
+drawn for Jathagam compatibility. `src/lib/matchReasons.ts` states this
+reasoning inline, and only ever computes reasons from data the viewer
+already has (their own preferences, and the same masked fields Browse
+already shows).
+
+**Scope note:** this only shows on Browse, since that's the one place
+comparing several new candidates side-by-side benefits from a "why"
+line. Sent/Received/Mutual don't get it — those are already narrowed
+to specific people the member has acted on.
+
+## New-interest & new-match email alerts (V1)
+
+An instant email — via the existing Resend integration — the moment a
+member receives a new interest, or a pair becomes mutual, on top of
+the weekly digest above.
+
+- **Separate opt-out from the weekly digest.** `/account` →
+  **Instant alerts** turns these off independently
+  (`profiles.instant_alerts_opt_out`, Phase 27) — wanting one and not
+  the other is entirely reasonable, so they were never merged into one
+  flag. Every alert email also carries a one-click, no-login
+  unsubscribe link (`/api/alerts/unsubscribe`), same shape as the
+  digest's.
+- **Reuses the digest's unsubscribe secret.** Both links are verified
+  with the same HMAC helper and `DIGEST_UNSUB_SECRET` — see the Phase
+  27 schema comment for why minting a second secret for the identical
+  proof ("this request really is for this profile") would be pure
+  duplication.
+- **Never leaks more than the in-app UI already would.** These emails
+  never include a name — only the same masked fields (age, location,
+  a verified badge) every masked candidate card already shows any
+  signed-in member, mirroring `get_received_interests()` /
+  `get_mutual_matches()`'s own masking exactly.
+- **Best-effort, never blocking.** `notifyNewInterest()` /
+  `notifyNewMutualMatch()` (`app/actions/matches.ts`) wrap every step
+  in a try/catch — a Resend outage or missing env var never turns
+  expressing interest or accepting a match into a failed action.
+- **No new environment variables** — this reuses `RESEND_API_KEY`,
+  `RESEND_FROM_ADDRESS`, and `DIGEST_UNSUB_SECRET`, all already set up
+  for the weekly digest above.
+
+## Founder analytics dashboard (V1)
+
+`/admin` → **Analytics** — a read-only glance at the numbers a
+solo founder actually checks: total members and signups over the last
+7/30 days (plus a 14-day trend strip), the identity verification
+funnel (not started / pending / verified / failed), the match funnel
+(interest sent / mutual / declined), the active Elite subscriber
+count, and total revenue collected.
+
+- **No new dependency.** No charting library — a handful of counts
+  plus one dependency-free CSS bar strip is the honest amount of
+  engineering for one founder's dashboard, not a BI product.
+- **Runs through the admin's own session**, same as every other
+  `/admin` page (`createClient()`, gated by the `/admin` layout's
+  `is_admin` check) — not the service-role client. `matches` and
+  `payments` didn't have an admin-wide SELECT policy until now; Phase
+  28 (`supabase/schema.sql`) adds both, the same additive,
+  `is_admin()`-gated shape every other admin policy already uses.
+- **Revenue** sums `payments.amount` (paise) where `status = 'paid'`,
+  summed in JS rather than a DB aggregate — the Supabase JS client has
+  no server-side `SUM`, and at a solo founder's current volume,
+  fetching the paid rows is cheap.
+
+## Phone number + OTP verification — mocked, honestly labeled (V1)
+
+`/account` → **Phone verification** — a second, independent identity
+signal alongside Aadhaar-based identity verification, shown as its own
+"✓ Phone verified" badge everywhere "✓ Identity verified" already
+shows (dashboard, Browse, Sent, Received, Mutual, the chat thread
+header).
+
+**Honestly mocked, the same way as Aadhaar — stated plainly, not
+just omitted:** sending a real SMS OTP needs a vendor (Twilio, MSG91,
+...) with an account and API credentials, neither of which exists for
+this project yet. Unlike work-email verification (which genuinely
+sends and checks a real code, since Resend can actually deliver that
+email), there's no delivery channel here to make a real code
+meaningful — showing a member a "type back the code we just displayed
+on this same screen" step would be pure security theater, worse than
+admitting there's no real check yet. So this follows
+`identity_verifications`' own honest pattern instead: submit a phone
+number, mark it "pending", and a mock resolver
+(`resolve_mock_phone_verification()`) flips it to "verified" after a
+couple of simulated seconds — the exact same UX shape as
+`VerificationPending`/`resolveMockVerification` for Aadhaar, just
+embedded inline on `/account` instead of a full onboarding step.
+
+- **Database:** `phone_verifications` (Phase 29, `supabase/schema.sql`)
+  — one row per profile, owner-only read/write (write always pinned
+  back to `status = 'pending'`, same WITH CHECK pattern as
+  `identity_verifications`), admin can view all. The full phone number
+  is stored (unlike Aadhaar's last-4-only) since a real SMS vendor
+  integration will actually need it to send to.
+- **TO GO LIVE:** replace `resolveMockPhoneVerification()`
+  (`app/actions/phone.ts`) with a real send-and-check flow — mirroring
+  `confirm_work_email_otp()`, which already does this for real over
+  email. Nothing else needs to change, since every reader only ever
+  looks at `phone_verifications.status`.
+
 ## What's next
 
-All 8 V0 build-plan phases are live, plus twenty V1 features now:
+All 8 V0 build-plan phases are live, plus twenty-four V1 features now:
 member blocking/data export/account deletion, the Tamil UI toggle,
 Family Collaborator accounts, message milestone tagging, subscription
 renewal & billing history, real auto-recurring billing with
@@ -1260,8 +1375,11 @@ curated match digest, Royal Concierge tier intake, profile photos with
 a database-enforced blur-until-match, extended family/lifestyle/
 cultural preferences (captured but not yet wired into matching),
 Jathagam/horoscope details capture and sharing (honestly, with no
-fabricated compatibility score), and re-surfacing declined matches
-after a 30-day cooldown. Still open: the
+fabricated compatibility score), re-surfacing declined matches
+after a 30-day cooldown, an honest "why this match" explanation card
+on Browse (no fabricated score), instant new-interest/new-match email
+alerts, a founder analytics dashboard, and phone number verification
+as a second, honestly-mocked identity signal. Still open: the
 Family Collaborator model's full parent-creates-profile-first
 identity-transfer flow (deliberately deferred as too high-risk for a
 live app — see "Family Collaborator: relation context at onboarding"

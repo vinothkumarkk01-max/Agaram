@@ -105,3 +105,25 @@ export async function toggleWeeklyDigest(currentlyOptedOut: boolean) {
 
   revalidatePath("/account");
 }
+
+/**
+ * Flips the instant-alerts opt-out flag (Phase 27, supabase/schema.sql)
+ * — the logged-in equivalent of the one-click unsubscribe link every
+ * new-interest/new-match email carries (see api/alerts/unsubscribe).
+ * Deliberately a separate flag from weekly_digest_opt_out above; see
+ * the Phase 27 schema comment for why the two aren't merged.
+ */
+export async function toggleInstantAlerts(currentlyOptedOut: boolean) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  await supabase
+    .from("profiles")
+    .update({ instant_alerts_opt_out: !currentlyOptedOut, updated_at: new Date().toISOString() })
+    .eq("id", user.id);
+
+  revalidatePath("/account");
+}

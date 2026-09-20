@@ -2,13 +2,25 @@ import { createClient } from "@/lib/supabase/server";
 import { CandidateCard, type MaskedCandidate } from "@/components/CandidateCard";
 import { getDictionary } from "@/lib/i18n/server";
 import { getProfilePhotoUrls } from "@/lib/photo";
+import { buildMatchReasons } from "@/lib/matchReasons";
 
 export default async function BrowseMatchesPage() {
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   const { data: candidates, error } = await supabase.rpc(
     "get_match_candidates"
   );
   const { t } = await getDictionary();
+
+  const { data: myPreferences } = user
+    ? await supabase
+        .from("preferences")
+        .select("age_min, age_max, preferred_locations")
+        .eq("profile_id", user.id)
+        .maybeSingle()
+    : { data: null };
 
   if (error) {
     return (
@@ -43,6 +55,9 @@ export default async function BrowseMatchesPage() {
           key={candidate.id}
           candidate={candidate}
           photoUrl={photos.get(candidate.id)?.url}
+          reasons={
+            myPreferences ? buildMatchReasons(t, candidate, myPreferences) : undefined
+          }
           t={t}
         />
       ))}

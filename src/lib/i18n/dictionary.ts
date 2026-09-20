@@ -86,6 +86,7 @@ const en = {
     identityVerified: "✓ Identity verified",
     identityPending: "Identity check pending",
     identityNotVerified: "Identity not verified yet",
+    phoneVerified: "✓ Phone verified",
     checkStatus: "Check status",
     verifyNow: "Verify now",
     browseMatches: "Browse matches",
@@ -231,6 +232,13 @@ const en = {
     milestoneCurrentPrefix: "Currently: ",
     typingIndicator: "Typing…",
     seen: "Seen",
+    whyThisMatch: "Why this match",
+    reasonAgeRangePrefix: "Within your preferred age range (",
+    reasonAgeRangeSuffix: ")",
+    reasonPreferredLocationPrefix: "Lives in one of your preferred locations — ",
+    reasonLocationPrefix: "Based in ",
+    reasonVerified: "Identity verified",
+    reasonHasPhoto: "Has a profile photo",
   },
   account: {
     yourAccount: "Your account",
@@ -313,6 +321,9 @@ const en = {
     digestOff: "Weekly digest emails are off.",
     digestTurnOn: "Turn on",
     digestTurnOff: "Turn off",
+    instantAlertsHeading: "Instant alerts",
+    instantAlertsDesc:
+      "An email the moment someone new is interested in you, or when you get a mutual match — separate from the weekly digest above.",
     photoHeading: "Profile photo",
     photoDesc:
       "Blurred for everyone until you're mutually matched — see the README for exactly how that's enforced.",
@@ -372,6 +383,17 @@ const en = {
     jathagamRasiPlaceholder: "e.g. Simha",
     jathagamShareLabel: "Share these details once we're mutually matched",
     jathagamSharedHeading: "Jathagam details shared:",
+    phoneHeading: "Phone verification",
+    phoneDesc:
+      "A second identity signal alongside Aadhaar verification — shown as a separate badge on your profile.",
+    phoneMockNote:
+      "This is a mock check for now — real SMS delivery needs an SMS vendor (Twilio/MSG91) this project doesn't have configured yet. See below for what changes once one is connected.",
+    phoneNumberPlaceholder: "e.g. +91 98765 43210",
+    phoneConsentLabel: "I consent to Agaram verifying this phone number.",
+    phoneVerifyButton: "Verify phone number",
+    phoneReverify: "Verify a different number",
+    phoneVerifying: "Verifying your phone number…",
+    phoneVerifiedPrefix: "✓ Phone verified: ",
   },
   family: {
     title: "Family access",
@@ -539,6 +561,7 @@ const ta: Dictionary = {
     identityVerified: "✓ அடையாளம் உறுதிசெய்யப்பட்டது",
     identityPending: "அடையாள சரிபார்ப்பு நடைபெறுகிறது",
     identityNotVerified: "அடையாளம் இன்னும் உறுதிசெய்யப்படவில்லை",
+    phoneVerified: "✓ தொலைபேசி எண் உறுதிசெய்யப்பட்டது",
     checkStatus: "நிலையைப் பார்க்கவும்",
     verifyNow: "இப்போது உறுதிசெய்யவும்",
     browseMatches: "இணைகளைப் பார்வையிடு",
@@ -681,6 +704,13 @@ const ta: Dictionary = {
     milestoneCurrentPrefix: "தற்போதைய கட்டம்: ",
     typingIndicator: "தட்டச்சு செய்கிறார்…",
     seen: "பார்க்கப்பட்டது",
+    whyThisMatch: "இந்த இணை ஏன்",
+    reasonAgeRangePrefix: "உங்கள் விருப்ப வயது வரம்பிற்குள் (",
+    reasonAgeRangeSuffix: ")",
+    reasonPreferredLocationPrefix: "உங்கள் விருப்ப இடங்களில் ஒன்றில் வசிக்கிறார் — ",
+    reasonLocationPrefix: "வசிக்கும் இடம்: ",
+    reasonVerified: "அடையாளம் உறுதிசெய்யப்பட்டது",
+    reasonHasPhoto: "சுயவிவரப் புகைப்படம் உள்ளது",
   },
   account: {
     yourAccount: "உங்கள் கணக்கு",
@@ -762,6 +792,9 @@ const ta: Dictionary = {
     digestOff: "வாராந்திர சுருக்க மின்னஞ்சல்கள் நிறுத்தப்பட்டுள்ளன.",
     digestTurnOn: "இயக்கு",
     digestTurnOff: "நிறுத்து",
+    instantAlertsHeading: "உடனடி அறிவிப்புகள்",
+    instantAlertsDesc:
+      "யாராவது புதிதாக உங்கள் மீது ஆர்வம் காட்டியவுடன், அல்லது பரஸ்பர இணை கிடைத்தவுடன் ஒரு மின்னஞ்சல் — மேலே உள்ள வாராந்திர சுருக்கத்திலிருந்து தனியானது.",
     photoHeading: "சுயவிவரப் புகைப்படம்",
     photoDesc:
       "நீங்கள் பரஸ்பரமாகப் பொருந்தும் வரை அனைவருக்கும் மங்கலாகக் காட்டப்படும் — இது எவ்வாறு உறுதிசெய்யப்படுகிறது என்பதற்கு README ஐப் பார்க்கவும்.",
@@ -821,6 +854,17 @@ const ta: Dictionary = {
     jathagamRasiPlaceholder: "எ.கா. சிம்மம்",
     jathagamShareLabel: "பரஸ்பரமாகப் பொருந்தியதும் இந்த விவரங்களைப் பகிரவும்",
     jathagamSharedHeading: "பகிரப்பட்ட ஜாதக விவரங்கள்:",
+    phoneHeading: "தொலைபேசி எண் உறுதிசெய்தல்",
+    phoneDesc:
+      "ஆதார் உறுதிசெய்தலுடன் இணைந்த இரண்டாவது அடையாள சான்று — உங்கள் சுயவிவரத்தில் தனி பேட்ஜாகக் காட்டப்படும்.",
+    phoneMockNote:
+      "இது தற்போதைக்கு ஒரு போலி சோதனை — உண்மையான SMS அனுப்ப SMS வழங்குநர் (Twilio/MSG91) தேவை, அது இன்னும் இந்த திட்டத்தில் அமைக்கப்படவில்லை. இணைக்கப்பட்டதும் என்ன மாறும் என்பதற்கு கீழே பார்க்கவும்.",
+    phoneNumberPlaceholder: "எ.கா. +91 98765 43210",
+    phoneConsentLabel: "இந்த தொலைபேசி எண்ணை Agaram உறுதிசெய்ய நான் ஒப்புக்கொள்கிறேன்.",
+    phoneVerifyButton: "தொலைபேசி எண்ணை உறுதிசெய்யவும்",
+    phoneReverify: "வேறு எண்ணை உறுதிசெய்யவும்",
+    phoneVerifying: "உங்கள் தொலைபேசி எண்ணை உறுதிசெய்கிறோம்…",
+    phoneVerifiedPrefix: "✓ தொலைபேசி எண் உறுதிசெய்யப்பட்டது: ",
   },
   family: {
     title: "குடும்ப அணுகல்",

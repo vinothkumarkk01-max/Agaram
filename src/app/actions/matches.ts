@@ -3,6 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { sendEmail } from "@/lib/email/resend";
+import { buildNewInterestEmail, buildNewMatchEmail } from "@/lib/email/alerts";
+import { getSiteOrigin } from "@/lib/site-url";
 
 /**
  * Matches are stored one row PER PAIR, never per direction —
@@ -19,6 +23,125 @@ function revalidateMatches() {
   revalidatePath("/matches/sent");
   revalidatePath("/matches/received");
   revalidatePath("/matches/mutual");
+}
+
+/**
+ * Masked view of one profile, exactly the fields get_received_interests()
+ * / get_mutual_matches() already expose regardless of the viewer's own
+ * subscription tier — used to build the "new interest" / "new match"
+ * instant-alert emails without going through the auth.uid()-scoped RPCs
+ * (there's no signed-in session for the OTHER participant to run them
+ * as), while never surfacing anything those RPCs wouldn't.
+ */
+type MaskedProfile = {
+  full_name: string;
+  age: number;
+  location: string | null;
+  is_verified: boolean;
+  instant_alerts_opt_out: boolean;
+  is_suspended: boolean;
+};
+
+async function loadMaskedProfile(
+  admin: ReturnType<typeof createAdminClient>,
+  profileId: string
+): Promise<MaskedProfile | null> {
+  const [{ data: profile }, { data: verification }] = await Promise.all([
+    admin
+      .from("profiles")
+      .select("full_name, age, location, instant_alerts_opt_out, is_suspended")
+      .eq("id", profileId)
+      .maybeSingle(),
+    admin
+      .from("identity_verifications")
+      .select("status")
+      .eq("profile_id", profileId)
+      .maybeSingle(),
+  ]);
+
+  if (!profile) return null;
+
+  return {
+    full_name: profile.full_name,
+    age: profile.age,
+    location: profile.location,
+    is_verified: verification?.status === "verified",
+    instant_alerts_opt_out: profile.instant_alerts_opt_out,
+    is_suspended: profile.is_suspended,
+  };
+}
+
+/**
+ * Every instant-alert send is best-effort and MUST NEVER throw back
+ * into the caller — a Resend outage, a missing env var, or an
+ * unexpected DB hiccup here should never turn expressing interest or
+ * accepting a match into a failed action for the member. Every path
+ * below is wrapped accordingly; failures are simply swallowed, same
+ * spirit as lib/push/send.ts's best-effort push notifications.
+ */
+async function notifyNewInterest(recipientId: string, senderId: string) {
+  try {
+    const admin = createAdminClient();
+    const recipient = await loadMaskedProfile(admin, recipientId);
+    if (!recipient || recipient.is_suspended || recipient.instant_alerts_opt_out) {
+      return;
+    }
+    const sender = await loadMaskedProfile(admin, senderId);
+    if (!sender) return;
+
+    const { data: userResult } = await admin.auth.admin.getUserById(recipientId);
+    const email = userResult?.user?.email;
+    if (!email) return;
+
+    const baseUrl = await getSiteOrigin();
+    const { subject, html, text } = buildNewInterestEmail({
+      fullName: recipient.full_name,
+      baseUrl,
+      profileId: recipientId,
+      sender: {
+        age: sender.age,
+        location: sender.location,
+        is_verified: sender.is_verified,
+      },
+    });
+    await sendEmail({ to: email, subject, html, text });
+  } catch {
+    // Best-effort — see the function comment above.
+  }
+}
+
+async function notifyNewMutualMatch(profileIdA: string, profileIdB: string) {
+  try {
+    const admin = createAdminClient();
+    const baseUrl = await getSiteOrigin();
+    const pairs: Array<[string, string]> = [
+      [profileIdA, profileIdB],
+      [profileIdB, profileIdA],
+    ];
+
+    for (const [recipientId, otherId] of pairs) {
+      const recipient = await loadMaskedProfile(admin, recipientId);
+      if (!recipient || recipient.is_suspended || recipient.instant_alerts_opt_out) {
+        continue;
+      }
+      const other = await loadMaskedProfile(admin, otherId);
+      if (!other) continue;
+
+      const { data: userResult } = await admin.auth.admin.getUserById(recipientId);
+      const email = userResult?.user?.email;
+      if (!email) continue;
+
+      const { subject, html, text } = buildNewMatchEmail({
+        fullName: recipient.full_name,
+        baseUrl,
+        profileId: recipientId,
+        other: { age: other.age, location: other.location },
+      });
+      await sendEmail({ to: email, subject, html, text });
+    }
+  } catch {
+    // Best-effort — see notifyNewInterest's comment above.
+  }
 }
 
 /**
@@ -49,6 +172,7 @@ export async function expressInterest(candidateId: string) {
       initiated_by: user.id,
       status: "interest_sent",
     });
+    await notifyNewInterest(candidateId, user.id);
   } else if (
     existing.status === "interest_sent" &&
     existing.initiated_by !== user.id
@@ -58,6 +182,7 @@ export async function expressInterest(candidateId: string) {
       .from("matches")
       .update({ status: "mutual", updated_at: new Date().toISOString() })
       .eq("id", existing.id);
+    await notifyNewMutualMatch(user.id, candidateId);
   } else if (existing.status === "declined") {
     // Re-surfaced after the 30-day cooldown (supabase/schema.sql,
     // Phase 24 — get_match_candidates() only shows a declined pair
@@ -74,6 +199,7 @@ export async function expressInterest(candidateId: string) {
         updated_at: new Date().toISOString(),
       })
       .eq("id", existing.id);
+    await notifyNewInterest(candidateId, user.id);
   }
   // Otherwise (already sent by me, or already mutual) there's nothing
   // to do — left as a no-op.
@@ -147,6 +273,10 @@ export async function respondToInterest(matchId: string, accept: boolean) {
       updated_at: new Date().toISOString(),
     })
     .eq("id", matchId);
+
+  if (accept) {
+    await notifyNewMutualMatch(match.candidate_a, match.candidate_b);
+  }
 
   revalidateMatches();
 }

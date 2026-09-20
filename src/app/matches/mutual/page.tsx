@@ -15,6 +15,7 @@ type MutualMatch = {
   about_me: string | null;
   is_verified: boolean;
   has_photo: boolean;
+  is_phone_verified: boolean;
   matched_at: string;
   is_unlocked: boolean;
   current_milestone: MessageMilestone | null;
@@ -120,6 +121,7 @@ export default async function MutualMatchesPage() {
             <div className="text-xs mb-2" style={{ color: "var(--text-soft)" }}>
               {m.age} {t.dashboard.years}{m.location ? ` · ${m.location}` : ""}
               {m.is_verified ? ` · ${t.dashboard.identityVerified}` : ""}
+              {m.is_phone_verified ? ` · ${t.dashboard.phoneVerified}` : ""}
             </div>
             {m.about_me && (
               <p className="text-sm italic mb-3" style={{ color: "var(--text)" }}>
@@ -164,6 +166,7 @@ export default async function MutualMatchesPage() {
             <div className="text-xs mb-3" style={{ color: "var(--text-soft)" }}>
               {m.age} {t.dashboard.years}{m.location ? ` · ${m.location}` : ""}
               {m.is_verified ? ` · ${t.dashboard.identityVerified}` : ""}
+              {m.is_phone_verified ? ` · ${t.dashboard.phoneVerified}` : ""}
             </div>
             <p className="text-sm mb-4" style={{ color: "var(--text-soft)" }}>
               {t.matches.upgradeToSeeMessage}

@@ -13,6 +13,7 @@ type ReceivedInterest = {
   initial: string;
   is_verified: boolean;
   has_photo: boolean;
+  is_phone_verified: boolean;
   created_at: string;
 };
 
@@ -71,6 +72,14 @@ export default async function ReceivedInterestsPage() {
                   style={{ color: "var(--ok)" }}
                 >
                   {t.dashboard.identityVerified}
+                </div>
+              )}
+              {m.is_phone_verified && (
+                <div
+                  className="text-xs font-semibold mt-1"
+                  style={{ color: "var(--ok)" }}
+                >
+                  {t.dashboard.phoneVerified}
                 </div>
               )}
             </div>

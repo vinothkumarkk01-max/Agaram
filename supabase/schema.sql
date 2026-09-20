@@ -296,7 +296,17 @@ grant execute on function public.get_blocked_members() to authenticated;
 -- Browse feed: opposite profile type, within my age (and, if I set
 -- one, location) preference, not already matched/declined with me.
 -- Masked down to first-initial — no full name, no about_me.
-create or replace function public.get_match_candidates()
+--
+-- DROP + CREATE, not CREATE OR REPLACE: later phases (23, 29) change
+-- this function's return column list, and re-running this whole file
+-- against a database that already has one of those later shapes
+-- applied would otherwise fail right here with "cannot change return
+-- type of existing function" — the exact bug already called out and
+-- fixed for get_mutual_matches()/get_match_thread() below; this
+-- definition just hadn't been brought in line with that fix yet.
+drop function if exists public.get_match_candidates();
+
+create function public.get_match_candidates()
 returns table (
   id uuid,
   age integer,
@@ -360,7 +370,13 @@ grant execute on function public.get_match_candidates() to authenticated;
 -- "Interest you've sent" — masked info only (not mutual yet). Shows
 -- both still-pending and already-mutual sends; declined ones drop
 -- off the list.
-create or replace function public.get_sent_interests()
+--
+-- DROP + CREATE, not CREATE OR REPLACE — same reason as
+-- get_match_candidates() just above: later phases change this
+-- function's return columns too.
+drop function if exists public.get_sent_interests();
+
+create function public.get_sent_interests()
 returns table (
   match_id uuid,
   candidate_id uuid,
@@ -399,7 +415,12 @@ grant execute on function public.get_sent_interests() to authenticated;
 
 -- "Interested in you" — pending ones only, still masked, mine to
 -- accept or decline.
-create or replace function public.get_received_interests()
+--
+-- DROP + CREATE, not CREATE OR REPLACE — same reason as
+-- get_match_candidates() above.
+drop function if exists public.get_received_interests();
+
+create function public.get_received_interests()
 returns table (
   match_id uuid,
   candidate_id uuid,
@@ -2625,3 +2646,435 @@ create policy "Mutual match participants can view shared jathagam details"
     visibility = 'mutual_match'
     and public.is_mutual_match_with(profile_id)
   );
+
+-- ============================================================
+-- Phase 27 (V1) — Instant email alerts (new interest / new mutual match)
+-- ============================================================
+--
+-- A SEPARATE opt-out from weekly_digest_opt_out (Phase 20), not a
+-- reuse of it: a member who wants the once-a-week roundup may not
+-- want an email the instant someone expresses interest, and the
+-- reverse (someone who reads instant pings but finds a weekly summary
+-- redundant) is just as plausible — same reasoning already applied to
+-- every other "own description" vs "preference" column pair in this
+-- schema (Phase 25's comment). Defaults to on, same as the digest,
+-- since this is core product engagement (knowing someone is
+-- interested in you) rather than marketing. The one-click unsubscribe
+-- link on these emails (see /api/alerts/unsubscribe) deliberately
+-- reuses signUnsubscribeToken/verifyUnsubscribeToken and
+-- DIGEST_UNSUB_SECRET from src/lib/email/digest.ts rather than
+-- introducing a second secret: that HMAC only ever proves "this
+-- request really is for this profile id" with no login, and nothing
+-- about its name ties it to the weekly digest specifically — minting
+-- a second server-only secret for the exact same proof would be pure
+-- duplication with no security benefit.
+alter table public.profiles
+  add column if not exists instant_alerts_opt_out boolean not null default false;
+
+-- ============================================================
+-- Phase 28 (V1) — Founder analytics dashboard (/admin/analytics)
+-- ============================================================
+--
+-- Read-only aggregate counts for the founder (signups, verification
+-- funnel, match funnel, Elite subscriber count, revenue) — same
+-- "additive, is_admin()-gated, OR'd with the existing owner-only
+-- policy" shape already used for reports/verifications/employment/
+-- concierge (Phase 7 and later). profiles and identity_verifications
+-- already have an admin-wide select policy from Phase 7; matches and
+-- payments didn't need one until now, so those two are added here.
+drop policy if exists "Admins can view all matches" on public.matches;
+create policy "Admins can view all matches"
+  on public.matches for select
+  using (
+    public.is_admin()
+  );
+
+drop policy if exists "Admins can view all payments" on public.payments;
+create policy "Admins can view all payments"
+  on public.payments for select
+  using (
+    public.is_admin()
+  );
+
+-- ============================================================
+-- Phase 29 (V1) — Phone number + OTP verification (mocked)
+-- ============================================================
+--
+-- A SECOND, independent identity signal alongside Aadhaar-based
+-- identity_verifications (Phase 3/8) — not a replacement, and not
+-- merged into that table, since a member's phone and their Aadhaar
+-- e-KYC result are two different claims that can each be true or
+-- false on their own.
+--
+-- HONEST SCOPING DECISION, stated as plainly as identity_verifications'
+-- own mock-vendor note (see actions/verification.ts): sending a real
+-- SMS OTP needs a vendor (Twilio, MSG91, ...) with an account and API
+-- credentials, neither of which exists for this project yet. Unlike
+-- work-email verification (Phase 18), which genuinely sends and checks
+-- a real code because Resend can actually deliver that email, there is
+-- no delivery channel here to make a real code meaningful — showing
+-- the member a "type back the code we just displayed on this same
+-- screen" step would be pure security theater, worse than admitting
+-- there's no real check yet. So this follows identity_verifications'
+-- own honest pattern instead: submit the phone number, mark the row
+-- "pending", and let a mock resolver (resolve_mock_phone_verification,
+-- standing in for the vendor's async callback) flip it to "verified" —
+-- clearly labeled to the member as a placeholder, exactly like the
+-- Aadhaar mock. Swapping in a real SMS vendor later only means
+-- replacing what resolve_mock_phone_verification()'s caller does
+-- (src/app/actions/phone.ts) — nothing downstream (the badge, this
+-- table's shape) needs to change, same promise identity_verifications
+-- already makes.
+--
+-- The full phone number IS stored (not just last 4, unlike
+-- aadhaar_last4) — a real SMS vendor integration will need the whole
+-- number to actually send to, whereas Aadhaar's full number was never
+-- needed again after the one-time verification call.
+create table if not exists public.phone_verifications (
+  profile_id uuid primary key references public.profiles (id) on delete cascade,
+  status text not null default 'pending' check (status in ('pending', 'verified', 'failed')),
+  provider text not null default 'mock',
+  phone_number text not null,
+  submitted_at timestamptz not null default now(),
+  verified_at timestamptz,
+  updated_at timestamptz not null default now()
+);
+
+alter table public.phone_verifications enable row level security;
+
+drop policy if exists "Users can view own phone verification" on public.phone_verifications;
+create policy "Users can view own phone verification"
+  on public.phone_verifications for select
+  using (auth.uid() = profile_id);
+
+-- Same WITH CHECK reasoning as identity_verifications (Phase 8): a
+-- member can freely (re)submit a phone number, always landing back on
+-- "pending", but only resolve_mock_phone_verification() below
+-- (SECURITY DEFINER) can ever mark a row verified.
+drop policy if exists "Users can insert own phone verification" on public.phone_verifications;
+create policy "Users can insert own phone verification"
+  on public.phone_verifications for insert
+  with check (auth.uid() = profile_id and status = 'pending');
+
+drop policy if exists "Users can update own phone verification" on public.phone_verifications;
+create policy "Users can update own phone verification"
+  on public.phone_verifications for update
+  using (auth.uid() = profile_id)
+  with check (auth.uid() = profile_id and status = 'pending');
+
+drop policy if exists "Admins can view all phone verifications" on public.phone_verifications;
+create policy "Admins can view all phone verifications"
+  on public.phone_verifications for select
+  using (
+    public.is_admin()
+  );
+
+create or replace function public.resolve_mock_phone_verification()
+returns void
+language sql
+security definer
+set search_path = public
+as $$
+  update public.phone_verifications
+  set status = 'verified',
+      verified_at = now(),
+      updated_at = now()
+  where profile_id = auth.uid();
+$$;
+
+grant execute on function public.resolve_mock_phone_verification() to authenticated;
+
+-- is_phone_verified needs to reach the same masked/unlocked surfaces
+-- is_verified already does, so a "Phone verified" badge can sit next
+-- to "Identity verified" wherever that one already shows. DROP +
+-- CREATE for the same reason as Phase 23's has_photo rollout — every
+-- one of these functions is gaining a column.
+drop function if exists public.get_match_candidates();
+
+create function public.get_match_candidates()
+returns table (
+  id uuid,
+  age integer,
+  location text,
+  initial text,
+  is_verified boolean,
+  has_photo boolean,
+  is_phone_verified boolean
+)
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  with me as (
+    select profile_type from public.profiles where id = auth.uid()
+  ),
+  my_prefs as (
+    select age_min, age_max, preferred_locations
+    from public.preferences
+    where profile_id = auth.uid()
+  )
+  select
+    p.id,
+    p.age,
+    p.location,
+    left(p.full_name, 1) as initial,
+    coalesce(iv.status = 'verified', false) as is_verified,
+    p.has_photo,
+    coalesce(pv.status = 'verified', false) as is_phone_verified
+  from public.profiles p
+  left join public.identity_verifications iv on iv.profile_id = p.id
+  left join public.phone_verifications pv on pv.profile_id = p.id
+  cross join me
+  left join my_prefs on true
+  where p.id <> auth.uid()
+    and p.profile_type <> me.profile_type
+    and not p.is_suspended
+    and not exists (
+      select 1 from public.blocks b
+      where (b.blocker_id = auth.uid() and b.blocked_id = p.id)
+         or (b.blocker_id = p.id and b.blocked_id = auth.uid())
+    )
+    and p.age between coalesce(my_prefs.age_min, 18) and coalesce(my_prefs.age_max, 100)
+    and (
+      my_prefs.preferred_locations is null
+      or array_length(my_prefs.preferred_locations, 1) is null
+      or p.location = any (my_prefs.preferred_locations)
+    )
+    and (
+      not exists (
+        select 1 from public.matches m
+        where (m.candidate_a = auth.uid() and m.candidate_b = p.id)
+           or (m.candidate_a = p.id and m.candidate_b = auth.uid())
+      )
+      or exists (
+        select 1 from public.matches m
+        where (
+          (m.candidate_a = auth.uid() and m.candidate_b = p.id)
+          or (m.candidate_a = p.id and m.candidate_b = auth.uid())
+        )
+        and m.status = 'declined'
+        and m.updated_at < now() - interval '30 days'
+      )
+    );
+$$;
+
+grant execute on function public.get_match_candidates() to authenticated;
+
+drop function if exists public.get_sent_interests();
+
+create function public.get_sent_interests()
+returns table (
+  match_id uuid,
+  candidate_id uuid,
+  age integer,
+  location text,
+  initial text,
+  is_verified boolean,
+  has_photo boolean,
+  is_phone_verified boolean,
+  status text,
+  created_at timestamptz
+)
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select
+    m.id as match_id,
+    p.id as candidate_id,
+    p.age,
+    p.location,
+    left(p.full_name, 1) as initial,
+    coalesce(iv.status = 'verified', false) as is_verified,
+    p.has_photo,
+    coalesce(pv.status = 'verified', false) as is_phone_verified,
+    m.status,
+    m.created_at
+  from public.matches m
+  join public.profiles p
+    on p.id = (case when m.candidate_a = auth.uid() then m.candidate_b else m.candidate_a end)
+  left join public.identity_verifications iv on iv.profile_id = p.id
+  left join public.phone_verifications pv on pv.profile_id = p.id
+  where m.initiated_by = auth.uid()
+    and (m.candidate_a = auth.uid() or m.candidate_b = auth.uid())
+    and m.status in ('interest_sent', 'mutual')
+  order by m.created_at desc;
+$$;
+
+grant execute on function public.get_sent_interests() to authenticated;
+
+drop function if exists public.get_received_interests();
+
+create function public.get_received_interests()
+returns table (
+  match_id uuid,
+  candidate_id uuid,
+  age integer,
+  location text,
+  initial text,
+  is_verified boolean,
+  has_photo boolean,
+  is_phone_verified boolean,
+  created_at timestamptz
+)
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select
+    m.id as match_id,
+    p.id as candidate_id,
+    p.age,
+    p.location,
+    left(p.full_name, 1) as initial,
+    coalesce(iv.status = 'verified', false) as is_verified,
+    p.has_photo,
+    coalesce(pv.status = 'verified', false) as is_phone_verified,
+    m.created_at
+  from public.matches m
+  join public.profiles p
+    on p.id = (case when m.candidate_a = auth.uid() then m.candidate_b else m.candidate_a end)
+  left join public.identity_verifications iv on iv.profile_id = p.id
+  left join public.phone_verifications pv on pv.profile_id = p.id
+  where m.initiated_by <> auth.uid()
+    and (m.candidate_a = auth.uid() or m.candidate_b = auth.uid())
+    and m.status = 'interest_sent'
+  order by m.created_at desc;
+$$;
+
+grant execute on function public.get_received_interests() to authenticated;
+
+drop function if exists public.get_mutual_matches();
+
+create function public.get_mutual_matches()
+returns table (
+  match_id uuid,
+  candidate_id uuid,
+  full_name text,
+  age integer,
+  location text,
+  about_me text,
+  is_verified boolean,
+  has_photo boolean,
+  is_phone_verified boolean,
+  matched_at timestamptz,
+  is_unlocked boolean,
+  current_milestone text
+)
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  with me as (
+    select
+      (
+        subscription_tier = 'elite'
+        and (subscription_expires_at is null or subscription_expires_at > now())
+      ) as unlocked
+    from public.profiles
+    where id = auth.uid()
+  )
+  select
+    m.id as match_id,
+    p.id as candidate_id,
+    case when me.unlocked then p.full_name else null end as full_name,
+    p.age,
+    p.location,
+    case when me.unlocked then p.about_me else null end as about_me,
+    coalesce(iv.status = 'verified', false) as is_verified,
+    p.has_photo,
+    coalesce(pv.status = 'verified', false) as is_phone_verified,
+    m.updated_at as matched_at,
+    coalesce(me.unlocked, false) as is_unlocked,
+    (
+      select msg.milestone
+      from public.messages msg
+      where msg.match_id = m.id and msg.milestone is not null
+      order by msg.created_at desc
+      limit 1
+    ) as current_milestone
+  from public.matches m
+  join public.profiles p
+    on p.id = (case when m.candidate_a = auth.uid() then m.candidate_b else m.candidate_a end)
+  left join public.identity_verifications iv on iv.profile_id = p.id
+  left join public.phone_verifications pv on pv.profile_id = p.id
+  cross join me
+  where (m.candidate_a = auth.uid() or m.candidate_b = auth.uid())
+    and m.status = 'mutual'
+    and not exists (
+      select 1 from public.blocks b
+      where (b.blocker_id = auth.uid() and b.blocked_id = p.id)
+         or (b.blocker_id = p.id and b.blocked_id = auth.uid())
+    )
+  order by m.updated_at desc;
+$$;
+
+grant execute on function public.get_mutual_matches() to authenticated;
+
+drop function if exists public.get_match_thread(uuid);
+
+create function public.get_match_thread(p_match_id uuid)
+returns table (
+  match_id uuid,
+  candidate_id uuid,
+  full_name text,
+  age integer,
+  location text,
+  is_verified boolean,
+  has_photo boolean,
+  is_phone_verified boolean,
+  is_unlocked boolean,
+  current_milestone text
+)
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  with me as (
+    select
+      (
+        subscription_tier = 'elite'
+        and (subscription_expires_at is null or subscription_expires_at > now())
+      ) as unlocked
+    from public.profiles
+    where id = auth.uid()
+  )
+  select
+    m.id as match_id,
+    p.id as candidate_id,
+    case when me.unlocked then p.full_name else null end as full_name,
+    p.age,
+    p.location,
+    coalesce(iv.status = 'verified', false) as is_verified,
+    p.has_photo,
+    coalesce(pv.status = 'verified', false) as is_phone_verified,
+    coalesce(me.unlocked, false) as is_unlocked,
+    (
+      select msg.milestone
+      from public.messages msg
+      where msg.match_id = m.id and msg.milestone is not null
+      order by msg.created_at desc
+      limit 1
+    ) as current_milestone
+  from public.matches m
+  join public.profiles p
+    on p.id = (case when m.candidate_a = auth.uid() then m.candidate_b else m.candidate_a end)
+  left join public.identity_verifications iv on iv.profile_id = p.id
+  left join public.phone_verifications pv on pv.profile_id = p.id
+  cross join me
+  where m.id = p_match_id
+    and (m.candidate_a = auth.uid() or m.candidate_b = auth.uid())
+    and m.status = 'mutual'
+    and not exists (
+      select 1 from public.blocks b
+      where (b.blocker_id = auth.uid() and b.blocked_id = p.id)
+         or (b.blocker_id = p.id and b.blocked_id = auth.uid())
+    );
+$$;
+
+grant execute on function public.get_match_thread(uuid) to authenticated;

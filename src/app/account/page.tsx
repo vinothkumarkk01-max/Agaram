@@ -2,11 +2,12 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { unblockMember } from "@/app/actions/blocks";
 import { createFamilyInvite, revokeFamilyLink } from "@/app/actions/family";
-import { toggleWeeklyDigest } from "@/app/actions/account";
+import { toggleWeeklyDigest, toggleInstantAlerts } from "@/app/actions/account";
 import { CancelSubscriptionButton } from "@/components/CancelSubscriptionButton";
 import { DeleteAccountForm } from "@/components/DeleteAccountForm";
 import { NotificationsToggle } from "@/components/NotificationsToggle";
 import { EmploymentVerification } from "@/components/EmploymentVerification";
+import { PhoneVerificationForm } from "@/components/PhoneVerificationForm";
 import { FamilyInviteLink } from "@/components/FamilyInviteLink";
 import { ProfilePhotoUpload } from "@/components/ProfilePhotoUpload";
 import { ExtendedPreferencesForm } from "@/components/ExtendedPreferencesForm";
@@ -67,7 +68,7 @@ export default async function AccountPage() {
     ? await supabase
         .from("profiles")
         .select(
-          "id, subscription_tier, subscription_expires_at, razorpay_subscription_id, subscription_status, created_by_relation, weekly_digest_opt_out, has_photo"
+          "id, subscription_tier, subscription_expires_at, razorpay_subscription_id, subscription_status, created_by_relation, weekly_digest_opt_out, instant_alerts_opt_out, has_photo"
         )
         .eq("id", user.id)
         .maybeSingle()
@@ -111,6 +112,14 @@ export default async function AccountPage() {
     ? await supabase
         .from("employment_verifications")
         .select("status, method, work_email")
+        .eq("profile_id", user!.id)
+        .maybeSingle()
+    : { data: null };
+
+  const { data: phoneVerificationData } = ownProfile
+    ? await supabase
+        .from("phone_verifications")
+        .select("status, phone_number")
         .eq("profile_id", user!.id)
         .maybeSingle()
     : { data: null };
@@ -398,6 +407,23 @@ export default async function AccountPage() {
           className="rounded-2xl p-6"
           style={{ background: "var(--bg-raised)", border: "1px solid var(--line)" }}
         >
+          <h2 className="text-base font-bold mb-1.5">{t.account.phoneHeading}</h2>
+          <p className="text-sm mb-4" style={{ color: "var(--text-soft)" }}>
+            {t.account.phoneDesc}
+          </p>
+          <PhoneVerificationForm
+            t={t}
+            status={(phoneVerificationData?.status as "pending" | "verified" | "failed" | undefined) ?? null}
+            phoneNumber={phoneVerificationData?.phone_number ?? null}
+          />
+        </section>
+        )}
+
+        {ownProfile && (
+        <section
+          className="rounded-2xl p-6"
+          style={{ background: "var(--bg-raised)", border: "1px solid var(--line)" }}
+        >
           <h2 className="text-base font-bold mb-1.5">{t.account.digestHeading}</h2>
           <p className="text-sm mb-4" style={{ color: "var(--text-soft)" }}>
             {t.account.digestDesc}
@@ -417,6 +443,36 @@ export default async function AccountPage() {
                 }}
               >
                 {ownProfile.weekly_digest_opt_out ? t.account.digestTurnOn : t.account.digestTurnOff}
+              </button>
+            </form>
+          </div>
+        </section>
+        )}
+
+        {ownProfile && (
+        <section
+          className="rounded-2xl p-6"
+          style={{ background: "var(--bg-raised)", border: "1px solid var(--line)" }}
+        >
+          <h2 className="text-base font-bold mb-1.5">{t.account.instantAlertsHeading}</h2>
+          <p className="text-sm mb-4" style={{ color: "var(--text-soft)" }}>
+            {t.account.instantAlertsDesc}
+          </p>
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-sm" style={{ color: "var(--text-soft)" }}>
+              {ownProfile.instant_alerts_opt_out ? t.account.digestOff : t.account.digestOn}
+            </p>
+            <form action={toggleInstantAlerts.bind(null, !!ownProfile.instant_alerts_opt_out)}>
+              <button
+                type="submit"
+                className="shrink-0 rounded-lg px-3 py-1.5 text-xs font-semibold"
+                style={{
+                  background: "var(--bg-sunken)",
+                  border: "1px solid var(--line)",
+                  color: "var(--text)",
+                }}
+              >
+                {ownProfile.instant_alerts_opt_out ? t.account.digestTurnOn : t.account.digestTurnOff}
               </button>
             </form>
           </div>

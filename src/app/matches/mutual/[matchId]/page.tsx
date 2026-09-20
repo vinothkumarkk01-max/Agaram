@@ -14,6 +14,7 @@ type MatchThread = {
   location: string | null;
   is_verified: boolean;
   has_photo: boolean;
+  is_phone_verified: boolean;
   is_unlocked: boolean;
 };
 
@@ -114,6 +115,7 @@ export default async function MatchThreadPage({
             <div className="text-xs" style={{ color: "var(--text-soft)" }}>
               {thread.age} {t.dashboard.years}{thread.location ? ` · ${thread.location}` : ""}
               {thread.is_verified ? ` · ${t.dashboard.identityVerified}` : ""}
+              {thread.is_phone_verified ? ` · ${t.dashboard.phoneVerified}` : ""}
             </div>
           </div>
         </div>
