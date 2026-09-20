@@ -13,6 +13,8 @@
   --line: #e8e2e3;
   --ok: #3f8552;
   --ok-soft: #dceee0;
+  --warn: #9a7b2f;
+  --warn-soft: #f1e9d3;
 }
 
 @theme inline {

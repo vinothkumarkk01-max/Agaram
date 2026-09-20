@@ -18,18 +18,27 @@ export default async function BasicInfoPage() {
         .maybeSingle()
     : { data: null };
 
+  // Reached two ways: first-time onboarding (no profile yet) and
+  // "Edit profile" from the dashboard, for someone who's already
+  // fully set up. The two deserve different chrome — per customer
+  // feedback (Sept 2026), showing an "Almost there / Day 1 Step 2 of
+  // 3" onboarding step (with its progress bar and step chip) to a
+  // returning member editing their name is both confusing and adds
+  // scroll height this screen doesn't need for that case.
+  const isEditing = Boolean(profile);
+
   return (
     <OnboardingShell
-      stepChip={t.onboarding.stepChipBasicInfo}
-      progress={["done", "active", "upcoming"]}
+      stepChip={isEditing ? undefined : t.onboarding.stepChipBasicInfo}
+      progress={isEditing ? undefined : ["done", "active", "upcoming"]}
       backHref="/dashboard"
-      backLabel={t.common.back}
+      backLabel={t.common.backDashboard}
       brand={t.common.brand}
-      eyebrow={t.onboarding.eyebrowAlmostThere}
-      title={t.onboarding.basicInfoTitle}
-      lede={t.onboarding.basicInfoLede}
+      eyebrow={isEditing ? t.onboarding.eyebrowEditProfile : t.onboarding.eyebrowAlmostThere}
+      title={isEditing ? t.onboarding.editProfileTitle : t.onboarding.basicInfoTitle}
+      lede={isEditing ? t.onboarding.editProfileLede : t.onboarding.basicInfoLede}
     >
-      <BasicInfoForm defaults={profile ?? undefined} t={t} />
+      <BasicInfoForm defaults={profile ?? undefined} isEditing={isEditing} t={t} />
     </OnboardingShell>
   );
 }

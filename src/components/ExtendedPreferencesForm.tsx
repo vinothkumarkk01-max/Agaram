@@ -130,8 +130,11 @@ export function ExtendedPreferencesForm({
       <div style={{ borderTop: "1px solid var(--line)" }} />
 
       {/* "Who I want" — preferences, defaulting to no_preference
-          everywhere. Not used for filtering yet — see the schema
-          comment (Phase 25) for why. */}
+          everywhere. Family type, diet, native district, and
+          community are now used as Browse filters (schema.sql
+          Phase 30) — the other four (family involvement, drinking,
+          smoking, religious practice) still aren't, since there's no
+          matching "about me" field yet to compare them against. */}
       <div>
         <h3 className="text-sm font-bold mb-1">{t.account.extendedPreferencesHeading}</h3>
         <p className="text-xs mb-3" style={{ color: "var(--text-soft)" }}>

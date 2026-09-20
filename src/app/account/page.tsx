@@ -12,6 +12,8 @@ import { FamilyInviteLink } from "@/components/FamilyInviteLink";
 import { ProfilePhotoUpload } from "@/components/ProfilePhotoUpload";
 import { ExtendedPreferencesForm } from "@/components/ExtendedPreferencesForm";
 import { JathagamForm } from "@/components/JathagamForm";
+import { JourneyStageTracker, type IntentStage, stageLabel } from "@/components/JourneyStageTracker";
+import { AccountSection } from "@/components/AccountSection";
 import { getDictionary } from "@/lib/i18n/server";
 import { intlLocale } from "@/lib/i18n/locale";
 import { LocaleToggle } from "@/components/LocaleToggle";
@@ -68,7 +70,7 @@ export default async function AccountPage() {
     ? await supabase
         .from("profiles")
         .select(
-          "id, subscription_tier, subscription_expires_at, razorpay_subscription_id, subscription_status, created_by_relation, weekly_digest_opt_out, instant_alerts_opt_out, has_photo"
+          "id, subscription_tier, subscription_expires_at, razorpay_subscription_id, subscription_status, created_by_relation, weekly_digest_opt_out, instant_alerts_opt_out, has_photo, intent_stage"
         )
         .eq("id", user.id)
         .maybeSingle()
@@ -157,6 +159,39 @@ export default async function AccountPage() {
     ? `${siteOrigin}/family/join?code=${familyLink!.invite_code}`
     : null;
 
+  // Every section below is now a collapsed-by-default <details> (see
+  // AccountSection) — customer feedback (Sept 2026) was that the old
+  // fully-expanded stack was too much scrolling. These short badges
+  // are what let a member see most of what matters at a glance
+  // WITHOUT opening anything.
+  const hasBackground = Boolean(
+    extendedBackground?.family_type ||
+      extendedBackground?.diet ||
+      extendedBackground?.native_district ||
+      extendedBackground?.community
+  );
+  const hasJathagam = Boolean(
+    jathagamData?.birth_date || jathagamData?.birth_star || jathagamData?.birth_place || jathagamData?.rasi
+  );
+  const employmentBadge =
+    employmentData?.status === "verified"
+      ? { text: t.account.badgeVerified, tone: "ok" as const }
+      : employmentData?.status === "pending"
+        ? { text: t.account.badgePending, tone: "warn" as const }
+        : { text: t.account.badgeNotVerified, tone: "neutral" as const };
+  const phoneBadge =
+    phoneVerificationData?.status === "verified"
+      ? { text: t.account.badgeVerified, tone: "ok" as const }
+      : phoneVerificationData?.status === "pending"
+        ? { text: t.account.badgePending, tone: "warn" as const }
+        : { text: t.account.badgeNotVerified, tone: "neutral" as const };
+  const familyBadge =
+    familyLink?.status === "active"
+      ? { text: t.account.badgeActive, tone: "ok" as const }
+      : familyLink?.status === "pending"
+        ? { text: t.account.badgePending, tone: "warn" as const }
+        : { text: t.account.badgeNone, tone: "neutral" as const };
+
   return (
     <div
       className="min-h-screen w-full flex justify-center px-4 py-12"
@@ -207,70 +242,85 @@ export default async function AccountPage() {
         </section>
 
         {ownProfile && (
-        <section
-          className="rounded-2xl p-6"
-          style={{ background: "var(--bg-raised)", border: "1px solid var(--line)" }}
-        >
-          <h2 className="text-base font-bold mb-1.5">{t.account.photoHeading}</h2>
-          <p className="text-sm mb-4" style={{ color: "var(--text-soft)" }}>
-            {t.account.photoDesc}
-          </p>
-          <ProfilePhotoUpload
-            t={t}
-            hasPhoto={!!ownProfile.has_photo}
-            previewUrl={ownPhoto?.url ?? null}
-          />
-        </section>
+          <AccountSection
+            title={t.account.photoHeading}
+            badge={ownProfile.has_photo ? t.account.badgeAdded : t.account.badgeNotAdded}
+            badgeTone={ownProfile.has_photo ? "ok" : "neutral"}
+          >
+            <p className="text-sm mb-4" style={{ color: "var(--text-soft)" }}>
+              {t.account.photoDesc}
+            </p>
+            <ProfilePhotoUpload
+              t={t}
+              hasPhoto={!!ownProfile.has_photo}
+              previewUrl={ownPhoto?.url ?? null}
+            />
+          </AccountSection>
+        )}
+
+        {ownProfile && (
+          <AccountSection
+            title={t.account.journeyHeading}
+            badge={stageLabel(t, (ownProfile.intent_stage as IntentStage) ?? "actively_looking")}
+          >
+            <p className="text-sm mb-4" style={{ color: "var(--text-soft)" }}>
+              {t.account.journeyDesc}
+            </p>
+            <JourneyStageTracker
+              t={t}
+              currentStage={(ownProfile.intent_stage as IntentStage) ?? "actively_looking"}
+            />
+          </AccountSection>
         )}
 
         {ownProfile && extendedBackground && extendedPreferences && (
-        <section
-          className="rounded-2xl p-6"
-          style={{ background: "var(--bg-raised)", border: "1px solid var(--line)" }}
-        >
-          <h2 className="text-base font-bold mb-1.5">{t.account.extendedHeading}</h2>
-          <p className="text-sm mb-4" style={{ color: "var(--text-soft)" }}>
-            {t.account.extendedDesc}
-          </p>
-          <ExtendedPreferencesForm
-            t={t}
-            background={extendedBackground}
-            preferences={extendedPreferences}
-          />
-        </section>
+          <AccountSection
+            title={t.account.extendedHeading}
+            badge={hasBackground ? t.account.badgeAdded : t.account.badgeNotAdded}
+            badgeTone={hasBackground ? "ok" : "neutral"}
+          >
+            <p className="text-sm mb-4" style={{ color: "var(--text-soft)" }}>
+              {t.account.extendedDesc}
+            </p>
+            <ExtendedPreferencesForm
+              t={t}
+              background={extendedBackground}
+              preferences={extendedPreferences}
+            />
+          </AccountSection>
         )}
 
         {ownProfile && (
-        <section
-          className="rounded-2xl p-6"
-          style={{ background: "var(--bg-raised)", border: "1px solid var(--line)" }}
-        >
-          <h2 className="text-base font-bold mb-1.5">{t.account.jathagamHeading}</h2>
-          <p className="text-sm mb-4" style={{ color: "var(--text-soft)" }}>
-            {t.account.jathagamDesc}
-          </p>
-          <JathagamForm
-            t={t}
-            details={
-              jathagamData as {
-                birth_date: string | null;
-                birth_time: string | null;
-                birth_place: string | null;
-                birth_star: string | null;
-                rasi: string | null;
-                visibility: "private" | "mutual_match";
-              } | null
-            }
-          />
-        </section>
+          <AccountSection
+            title={t.account.jathagamHeading}
+            badge={hasJathagam ? t.account.badgeAdded : t.account.badgeNotAdded}
+            badgeTone={hasJathagam ? "ok" : "neutral"}
+          >
+            <p className="text-sm mb-4" style={{ color: "var(--text-soft)" }}>
+              {t.account.jathagamDesc}
+            </p>
+            <JathagamForm
+              t={t}
+              details={
+                jathagamData as {
+                  birth_date: string | null;
+                  birth_time: string | null;
+                  birth_place: string | null;
+                  birth_star: string | null;
+                  rasi: string | null;
+                  visibility: "private" | "mutual_match";
+                } | null
+              }
+            />
+          </AccountSection>
         )}
 
         {ownProfile && (
-        <section
-          className="rounded-2xl p-6"
-          style={{ background: "var(--bg-raised)", border: "1px solid var(--line)" }}
-        >
-          <h2 className="text-base font-bold mb-1.5">{t.account.billingHeading}</h2>
+          <AccountSection
+            title={t.account.billingHeading}
+            badge={isBillingElite ? t.account.billingBadgeElite : t.account.billingBadgeFree}
+            badgeTone={isBillingElite ? "ok" : "neutral"}
+          >
           <p className="text-sm mb-4" style={{ color: "var(--text-soft)" }}>
             {isBillingElite ? (
               <>
@@ -370,120 +420,111 @@ export default async function AccountPage() {
               ))}
             </div>
           )}
-        </section>
+          </AccountSection>
         )}
 
-        <section
-          className="rounded-2xl p-6"
-          style={{ background: "var(--bg-raised)", border: "1px solid var(--line)" }}
-        >
-          <h2 className="text-base font-bold mb-1.5">{t.account.notificationsHeading}</h2>
+        <AccountSection title={t.account.notificationsHeading}>
           <p className="text-sm mb-4" style={{ color: "var(--text-soft)" }}>
             {t.account.notificationsDesc}
           </p>
           <NotificationsToggle t={t} />
-        </section>
+        </AccountSection>
 
         {ownProfile && (
-        <section
-          className="rounded-2xl p-6"
-          style={{ background: "var(--bg-raised)", border: "1px solid var(--line)" }}
-        >
-          <h2 className="text-base font-bold mb-1.5">{t.account.employmentHeading}</h2>
-          <p className="text-sm mb-4" style={{ color: "var(--text-soft)" }}>
-            {t.account.employmentDesc}
-          </p>
-          <EmploymentVerification
-            t={t}
-            status={(employmentData?.status as "pending" | "verified" | "unable_to_verify" | undefined) ?? null}
-            method={(employmentData?.method as "work_email" | "employer_attestation" | undefined) ?? null}
-            workEmail={employmentData?.work_email ?? null}
-          />
-        </section>
-        )}
-
-        {ownProfile && (
-        <section
-          className="rounded-2xl p-6"
-          style={{ background: "var(--bg-raised)", border: "1px solid var(--line)" }}
-        >
-          <h2 className="text-base font-bold mb-1.5">{t.account.phoneHeading}</h2>
-          <p className="text-sm mb-4" style={{ color: "var(--text-soft)" }}>
-            {t.account.phoneDesc}
-          </p>
-          <PhoneVerificationForm
-            t={t}
-            status={(phoneVerificationData?.status as "pending" | "verified" | "failed" | undefined) ?? null}
-            phoneNumber={phoneVerificationData?.phone_number ?? null}
-          />
-        </section>
-        )}
-
-        {ownProfile && (
-        <section
-          className="rounded-2xl p-6"
-          style={{ background: "var(--bg-raised)", border: "1px solid var(--line)" }}
-        >
-          <h2 className="text-base font-bold mb-1.5">{t.account.digestHeading}</h2>
-          <p className="text-sm mb-4" style={{ color: "var(--text-soft)" }}>
-            {t.account.digestDesc}
-          </p>
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-sm" style={{ color: "var(--text-soft)" }}>
-              {ownProfile.weekly_digest_opt_out ? t.account.digestOff : t.account.digestOn}
+          <AccountSection
+            title={t.account.employmentHeading}
+            badge={employmentBadge.text}
+            badgeTone={employmentBadge.tone}
+          >
+            <p className="text-sm mb-4" style={{ color: "var(--text-soft)" }}>
+              {t.account.employmentDesc}
             </p>
-            <form action={toggleWeeklyDigest.bind(null, !!ownProfile.weekly_digest_opt_out)}>
-              <button
-                type="submit"
-                className="shrink-0 rounded-lg px-3 py-1.5 text-xs font-semibold"
-                style={{
-                  background: "var(--bg-sunken)",
-                  border: "1px solid var(--line)",
-                  color: "var(--text)",
-                }}
-              >
-                {ownProfile.weekly_digest_opt_out ? t.account.digestTurnOn : t.account.digestTurnOff}
-              </button>
-            </form>
-          </div>
-        </section>
+            <EmploymentVerification
+              t={t}
+              status={(employmentData?.status as "pending" | "verified" | "unable_to_verify" | undefined) ?? null}
+              method={(employmentData?.method as "work_email" | "employer_attestation" | undefined) ?? null}
+              workEmail={employmentData?.work_email ?? null}
+            />
+          </AccountSection>
         )}
 
         {ownProfile && (
-        <section
-          className="rounded-2xl p-6"
-          style={{ background: "var(--bg-raised)", border: "1px solid var(--line)" }}
-        >
-          <h2 className="text-base font-bold mb-1.5">{t.account.instantAlertsHeading}</h2>
-          <p className="text-sm mb-4" style={{ color: "var(--text-soft)" }}>
-            {t.account.instantAlertsDesc}
-          </p>
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-sm" style={{ color: "var(--text-soft)" }}>
-              {ownProfile.instant_alerts_opt_out ? t.account.digestOff : t.account.digestOn}
+          <AccountSection title={t.account.phoneHeading} badge={phoneBadge.text} badgeTone={phoneBadge.tone}>
+            <p className="text-sm mb-4" style={{ color: "var(--text-soft)" }}>
+              {t.account.phoneDesc}
             </p>
-            <form action={toggleInstantAlerts.bind(null, !!ownProfile.instant_alerts_opt_out)}>
-              <button
-                type="submit"
-                className="shrink-0 rounded-lg px-3 py-1.5 text-xs font-semibold"
-                style={{
-                  background: "var(--bg-sunken)",
-                  border: "1px solid var(--line)",
-                  color: "var(--text)",
-                }}
-              >
-                {ownProfile.instant_alerts_opt_out ? t.account.digestTurnOn : t.account.digestTurnOff}
-              </button>
-            </form>
-          </div>
-        </section>
+            <PhoneVerificationForm
+              t={t}
+              status={(phoneVerificationData?.status as "pending" | "verified" | "failed" | undefined) ?? null}
+              phoneNumber={phoneVerificationData?.phone_number ?? null}
+            />
+          </AccountSection>
         )}
 
-        <section
-          className="rounded-2xl p-6"
-          style={{ background: "var(--bg-raised)", border: "1px solid var(--line)" }}
+        {ownProfile && (
+          <AccountSection
+            title={t.account.digestHeading}
+            badge={ownProfile.weekly_digest_opt_out ? t.account.badgeOff : t.account.badgeOn}
+            badgeTone={ownProfile.weekly_digest_opt_out ? "neutral" : "ok"}
+          >
+            <p className="text-sm mb-4" style={{ color: "var(--text-soft)" }}>
+              {t.account.digestDesc}
+            </p>
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-sm" style={{ color: "var(--text-soft)" }}>
+                {ownProfile.weekly_digest_opt_out ? t.account.digestOff : t.account.digestOn}
+              </p>
+              <form action={toggleWeeklyDigest.bind(null, !!ownProfile.weekly_digest_opt_out)}>
+                <button
+                  type="submit"
+                  className="shrink-0 rounded-lg px-3 py-1.5 text-xs font-semibold"
+                  style={{
+                    background: "var(--bg-sunken)",
+                    border: "1px solid var(--line)",
+                    color: "var(--text)",
+                  }}
+                >
+                  {ownProfile.weekly_digest_opt_out ? t.account.digestTurnOn : t.account.digestTurnOff}
+                </button>
+              </form>
+            </div>
+          </AccountSection>
+        )}
+
+        {ownProfile && (
+          <AccountSection
+            title={t.account.instantAlertsHeading}
+            badge={ownProfile.instant_alerts_opt_out ? t.account.badgeOff : t.account.badgeOn}
+            badgeTone={ownProfile.instant_alerts_opt_out ? "neutral" : "ok"}
+          >
+            <p className="text-sm mb-4" style={{ color: "var(--text-soft)" }}>
+              {t.account.instantAlertsDesc}
+            </p>
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-sm" style={{ color: "var(--text-soft)" }}>
+                {ownProfile.instant_alerts_opt_out ? t.account.digestOff : t.account.digestOn}
+              </p>
+              <form action={toggleInstantAlerts.bind(null, !!ownProfile.instant_alerts_opt_out)}>
+                <button
+                  type="submit"
+                  className="shrink-0 rounded-lg px-3 py-1.5 text-xs font-semibold"
+                  style={{
+                    background: "var(--bg-sunken)",
+                    border: "1px solid var(--line)",
+                    color: "var(--text)",
+                  }}
+                >
+                  {ownProfile.instant_alerts_opt_out ? t.account.digestTurnOn : t.account.digestTurnOff}
+                </button>
+              </form>
+            </div>
+          </AccountSection>
+        )}
+
+        <AccountSection
+          title={t.account.blockedMembers}
+          badge={blocked.length > 0 ? String(blocked.length) : t.account.badgeNone}
         >
-          <h2 className="text-base font-bold mb-1.5">{t.account.blockedMembers}</h2>
           {blocked.length === 0 ? (
             <p className="text-sm" style={{ color: "var(--text-soft)" }}>
               {t.account.noBlocked}
@@ -520,14 +561,10 @@ export default async function AccountPage() {
               ))}
             </div>
           )}
-        </section>
+        </AccountSection>
 
         {ownProfile && (
-        <section
-          className="rounded-2xl p-6"
-          style={{ background: "var(--bg-raised)", border: "1px solid var(--line)" }}
-        >
-          <h2 className="text-base font-bold mb-1.5">{t.family.sharingHeading}</h2>
+          <AccountSection title={t.family.sharingHeading} badge={familyBadge.text} badgeTone={familyBadge.tone}>
           <p className="text-sm mb-4" style={{ color: "var(--text-soft)" }}>
             {t.family.sharingDesc}
           </p>
@@ -621,21 +658,15 @@ export default async function AccountPage() {
               </form>
             </div>
           )}
-        </section>
+        </AccountSection>
         )}
 
-        <section
-          className="rounded-2xl p-6"
-          style={{ background: "var(--accent-soft)", border: "1px solid var(--line)" }}
-        >
-          <h2 className="text-base font-bold mb-1.5" style={{ color: "var(--accent-strong)" }}>
-            {t.account.deleteAccount}
-          </h2>
+        <AccountSection danger title={t.account.deleteAccount}>
           <p className="text-sm mb-4" style={{ color: "var(--text-soft)" }}>
             {t.account.deleteAccountDesc}
           </p>
           <DeleteAccountForm email={user?.email ?? ""} t={t} />
-        </section>
+        </AccountSection>
 
         <div className="flex items-center justify-between">
           <p className="text-xs" style={{ color: "var(--text-soft)" }}>

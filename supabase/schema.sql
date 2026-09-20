@@ -2535,7 +2535,8 @@ grant execute on function public.get_match_thread(uuid) to authenticated;
 -- onboarding, and why every one of them defaults to something inert
 -- ('no_preference' or null) instead of forcing a choice.
 --
--- IMPORTANT SCOPING NOTE: none of these columns are read by
+-- IMPORTANT SCOPING NOTE (as of this phase — see Phase 30 below for
+-- what changed): none of these columns are read by
 -- get_match_candidates() this round. Wiring them into actual
 -- filtering/scoring is real design work (the PRD's §8 rule-based
 -- weighting model) that deserves its own pass rather than a
@@ -3078,3 +3079,166 @@ as $$
 $$;
 
 grant execute on function public.get_match_thread(uuid) to authenticated;
+
+
+-- ============================================================
+-- Phase 30 (V1) — Extended preferences wired into Browse filtering
+-- ============================================================
+--
+-- Phase 25's comment left these columns deliberately unwired, calling
+-- it "real design work that deserves its own pass rather than a
+-- last-minute addition." This is that pass -- scoped to exactly the
+-- four preference/self-description pairs where BOTH sides actually
+-- exist: family_type <-> family_type_preference, diet <->
+-- diet_preference, native_district <-> native_district_preference,
+-- community <-> community_preference. The other four preference-only
+-- columns (family_involvement_preference, drinking_preference,
+-- smoking_preference, religious_practice_preference) still have no
+-- matching self-description column on profiles to compare against --
+-- wiring THOSE in now would mean inventing what "drinks" or "is
+-- religious" means for the other person, which is exactly the kind of
+-- half-designed filter Phase 25 already warned against. They stay
+-- stored and unused until a future round adds the corresponding
+-- self-description fields to profiles.
+--
+-- HARD FILTER, not a weighted score -- deliberately the same shape as
+-- the existing age_min/age_max/preferred_locations filter above: a
+-- member's own preference only ever excludes a candidate when (a) the
+-- member actually set a real preference (not 'no_preference' / null /
+-- empty) AND (b) the candidate has POSITIVELY STATED a conflicting
+-- value. A candidate who simply hasn't filled in that optional field
+-- yet is never excluded for it -- these are all Phase 25 fields, most
+-- profiles won't have them filled in for a while, and penalizing an
+-- honestly-incomplete profile for a field nobody was required to fill
+-- in would defeat the point of making it optional.
+--
+-- The candidate's own family_type/diet/native_district/community are
+-- also now returned, so the match explanation card (src/lib/
+-- matchReasons.ts) can show a compatibility breakdown computed from
+-- the same literal facts this filter uses -- never a fabricated
+-- score, per this app's standing honesty rule for match explanations.
+drop function if exists public.get_match_candidates();
+
+create function public.get_match_candidates()
+returns table (
+  id uuid,
+  age integer,
+  location text,
+  initial text,
+  is_verified boolean,
+  has_photo boolean,
+  is_phone_verified boolean,
+  family_type text,
+  diet text,
+  native_district text,
+  community text
+)
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  with me as (
+    select profile_type from public.profiles where id = auth.uid()
+  ),
+  my_prefs as (
+    select
+      age_min, age_max, preferred_locations,
+      family_type_preference, diet_preference,
+      native_district_preference, community_preference
+    from public.preferences
+    where profile_id = auth.uid()
+  )
+  select
+    p.id,
+    p.age,
+    p.location,
+    left(p.full_name, 1) as initial,
+    coalesce(iv.status = 'verified', false) as is_verified,
+    p.has_photo,
+    coalesce(pv.status = 'verified', false) as is_phone_verified,
+    p.family_type,
+    p.diet,
+    p.native_district,
+    p.community
+  from public.profiles p
+  left join public.identity_verifications iv on iv.profile_id = p.id
+  left join public.phone_verifications pv on pv.profile_id = p.id
+  cross join me
+  left join my_prefs on true
+  where p.id <> auth.uid()
+    and p.profile_type <> me.profile_type
+    and not p.is_suspended
+    and not exists (
+      select 1 from public.blocks b
+      where (b.blocker_id = auth.uid() and b.blocked_id = p.id)
+         or (b.blocker_id = p.id and b.blocked_id = auth.uid())
+    )
+    and p.age between coalesce(my_prefs.age_min, 18) and coalesce(my_prefs.age_max, 100)
+    and (
+      my_prefs.preferred_locations is null
+      or array_length(my_prefs.preferred_locations, 1) is null
+      or p.location = any (my_prefs.preferred_locations)
+    )
+    and (
+      my_prefs.family_type_preference is null
+      or my_prefs.family_type_preference = 'no_preference'
+      or p.family_type is null
+      or p.family_type = my_prefs.family_type_preference
+    )
+    and (
+      my_prefs.diet_preference is null
+      or my_prefs.diet_preference = 'no_preference'
+      or p.diet is null
+      or p.diet = my_prefs.diet_preference
+    )
+    and (
+      my_prefs.native_district_preference is null
+      or my_prefs.native_district_preference = ''
+      or p.native_district is null
+      or lower(p.native_district) = lower(my_prefs.native_district_preference)
+    )
+    and (
+      my_prefs.community_preference is null
+      or my_prefs.community_preference = 'no_preference'
+      or p.community is null
+      or p.community = my_prefs.community_preference
+    )
+    and (
+      not exists (
+        select 1 from public.matches m
+        where (m.candidate_a = auth.uid() and m.candidate_b = p.id)
+           or (m.candidate_a = p.id and m.candidate_b = auth.uid())
+      )
+      or exists (
+        select 1 from public.matches m
+        where (
+          (m.candidate_a = auth.uid() and m.candidate_b = p.id)
+          or (m.candidate_a = p.id and m.candidate_b = auth.uid())
+        )
+        and m.status = 'declined'
+        and m.updated_at < now() - interval '30 days'
+      )
+    );
+$$;
+
+grant execute on function public.get_match_candidates() to authenticated;
+
+-- ============================================================
+-- Phase 31 (V1) — Matchmaking journey stage (intent_stage)
+-- ============================================================
+--
+-- PRD §6's "intent / stage state" -- tracked independent of profile-
+-- live/paused status. Deliberately SELF-ONLY: never shown to the
+-- other side of a match, never read by get_match_candidates() or any
+-- matching/filtering logic, and not admin-analytics data this round —
+-- this is a personal reflection tool for the member ("where am I in
+-- this process"), not a signal Agaram acts on. Defaults to
+-- 'actively_looking' since a profile that's live is, by definition,
+-- actively looking until the member says otherwise.
+alter table public.profiles
+  add column if not exists intent_stage text not null default 'actively_looking'
+    check (intent_stage in (
+      'exploring', 'actively_looking', 'talking', 'family_discussions',
+      'meeting', 'paused', 'married'
+    ));

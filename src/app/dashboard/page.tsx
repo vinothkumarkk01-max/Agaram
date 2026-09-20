@@ -5,8 +5,13 @@ import { logout } from "@/app/actions/auth";
 import { getDictionary } from "@/lib/i18n/server";
 import { intlLocale } from "@/lib/i18n/locale";
 import { LocaleToggle } from "@/components/LocaleToggle";
-import { getProfilePhotoUrl } from "@/lib/photo";
+import { getProfilePhotoUrl, getProfilePhotoUrls } from "@/lib/photo";
 import { ProfilePhotoAvatar } from "@/components/ProfilePhotoAvatar";
+import { stageLabel, type IntentStage } from "@/components/JourneyStageTracker";
+import { TodaysIntroCard } from "@/components/TodaysIntroCard";
+import type { MaskedCandidate } from "@/components/CandidateCard";
+import { pickTodaysIntroduction } from "@/lib/dashboardIntro";
+import { nextWeeklyDigestRun } from "@/lib/schedule";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -18,7 +23,7 @@ export default async function DashboardPage() {
   const { data: profile } = user
     ? await supabase
         .from("profiles")
-        .select("full_name, profile_type, age, location, about_me, is_admin, has_photo")
+        .select("full_name, profile_type, age, location, about_me, is_admin, has_photo, intent_stage")
         .eq("id", user.id)
         .maybeSingle()
     : { data: null };
@@ -47,7 +52,9 @@ export default async function DashboardPage() {
   const { data: preferences } = user
     ? await supabase
         .from("preferences")
-        .select("age_min, age_max, preferred_locations, education_level")
+        .select(
+          "age_min, age_max, preferred_locations, education_level, family_type_preference, diet_preference, native_district_preference, community_preference"
+        )
         .eq("profile_id", user.id)
         .maybeSingle()
     : { data: null };
@@ -73,6 +80,45 @@ export default async function DashboardPage() {
     (!subscription.subscription_expires_at ||
       new Date(subscription.subscription_expires_at) > new Date());
 
+  // Activity strip + "Today's introduction" (Sept 2026) — real counts
+  // and a real candidate, not fabricated urgency. Only meaningful once
+  // a member can actually act on them, same gate as the Browse Matches
+  // link below.
+  const isVerified = verification?.status === "verified";
+  const [{ data: receivedInterests }, { data: mutualMatches }, { data: introCandidates }] =
+    isVerified
+      ? await Promise.all([
+          supabase.rpc("get_received_interests"),
+          supabase.rpc("get_mutual_matches"),
+          supabase.rpc("get_match_candidates"),
+        ])
+      : [{ data: null }, { data: null }, { data: null }];
+
+  const pendingReceivedCount = receivedInterests?.length ?? 0;
+  const mutualCount = mutualMatches?.length ?? 0;
+
+  const todaysIntro =
+    isVerified && preferences && introCandidates?.length
+      ? pickTodaysIntroduction(t, introCandidates as MaskedCandidate[], preferences)
+      : null;
+
+  const introPhoto = todaysIntro
+    ? (
+        await getProfilePhotoUrls(supabase, [
+          { id: todaysIntro.candidate.id, hasPhoto: todaysIntro.candidate.has_photo },
+        ])
+      ).get(todaysIntro.candidate.id)
+    : null;
+
+  const nextDigestLabel = isVerified
+    ? nextWeeklyDigestRun().toLocaleString(intlLocale(locale), {
+        weekday: "short",
+        hour: "numeric",
+        minute: "2-digit",
+        timeZone: "Asia/Kolkata",
+      })
+    : null;
+
   return (
     <div
       className="min-h-screen w-full flex items-center justify-center px-4 py-10"
@@ -85,21 +131,17 @@ export default async function DashboardPage() {
         className="w-full max-w-md rounded-2xl p-8 shadow-sm"
         style={{ background: "var(--bg-raised)", border: "1px solid var(--line)" }}
       >
-        <div className="flex items-center gap-3 mb-6">
-          <div
-            className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shadow-sm"
-            style={{
-              background:
-                "linear-gradient(135deg, var(--accent), var(--accent-strong))",
-            }}
-          >
-            அ
-          </div>
-          <div>
-            <div className="text-sm font-semibold">{user?.email}</div>
-            <div className="text-xs" style={{ color: "var(--text-soft)" }}>
-              {t.dashboard.signedIn}
-            </div>
+        {/* Just the email/"Signed in" line — no icon here. The generic
+            brand-mark circle that used to sit next to this (an "அ"
+            in a wine gradient) wasn't tied to the member's own
+            profile at all, and sitting directly above the REAL
+            profile-photo avatar below (same size, same shape, same
+            gradient-when-no-photo look) it just read as a duplicate
+            avatar — customer feedback, Sept 2026. */}
+        <div className="mb-6">
+          <div className="text-sm font-semibold">{user?.email}</div>
+          <div className="text-xs" style={{ color: "var(--text-soft)" }}>
+            {t.dashboard.signedIn}
           </div>
         </div>
 
@@ -189,6 +231,20 @@ export default async function DashboardPage() {
               </div>
             </div>
             <div
+              className="rounded-xl p-3.5 mb-4 text-sm flex items-center justify-between gap-3"
+              style={{ background: "var(--bg-sunken)" }}
+            >
+              <span style={{ color: "var(--text-soft)" }}>
+                {t.dashboard.journeyPrefix}
+                <span className="font-semibold" style={{ color: "var(--text)" }}>
+                  {stageLabel(t, (profile.intent_stage as IntentStage) ?? "actively_looking")}
+                </span>
+              </span>
+              <Link href="/account" className="underline font-semibold shrink-0" style={{ color: "var(--accent-strong)" }}>
+                {t.dashboard.journeyUpdate}
+              </Link>
+            </div>
+            <div
               className="rounded-xl p-4 mb-4 text-sm flex items-center justify-between gap-3"
               style={
                 verification?.status === "verified"
@@ -209,17 +265,74 @@ export default async function DashboardPage() {
                 </Link>
               )}
             </div>
-            {verification?.status === "verified" ? (
-              <Link
-                href="/matches"
-                className="block text-center rounded-xl py-3 font-bold text-white text-sm mb-3"
-                style={{
-                  background:
-                    "linear-gradient(135deg, var(--accent), var(--accent-strong))",
-                }}
-              >
-                {t.dashboard.browseMatches}
-              </Link>
+            {isVerified ? (
+              <>
+                {/* Activity strip — real, current counts (not a
+                    "since your last visit" delta, which would need
+                    new tracking this round doesn't add) linking
+                    straight to the two lists they summarize.
+                    Customer question (Sept 2026): "how will the
+                    customer get attracted, will it be interesting to
+                    him" — this and the two blocks below are the
+                    direct answer: outward-facing activity ahead of
+                    the member's own profile summary above. */}
+                <div className="grid grid-cols-2 gap-3 mb-4">
+                  <Link
+                    href="/matches/received"
+                    className="rounded-xl p-3.5 text-center"
+                    style={{ background: "var(--bg-sunken)" }}
+                  >
+                    <div className="text-2xl font-bold" style={{ fontFamily: "var(--font-display)" }}>
+                      {pendingReceivedCount}
+                    </div>
+                    <div className="text-xs mt-0.5" style={{ color: "var(--text-soft)" }}>
+                      {t.dashboard.waitingForResponse}
+                    </div>
+                  </Link>
+                  <Link
+                    href="/matches/mutual"
+                    className="rounded-xl p-3.5 text-center"
+                    style={{ background: "var(--bg-sunken)" }}
+                  >
+                    <div className="text-2xl font-bold" style={{ fontFamily: "var(--font-display)" }}>
+                      {mutualCount}
+                    </div>
+                    <div className="text-xs mt-0.5" style={{ color: "var(--text-soft)" }}>
+                      {t.dashboard.mutualMatchesLabel}
+                    </div>
+                  </Link>
+                </div>
+
+                {todaysIntro ? (
+                  <TodaysIntroCard
+                    candidate={todaysIntro.candidate}
+                    photoUrl={introPhoto?.url}
+                    reasons={todaysIntro.reasons}
+                    t={t}
+                  />
+                ) : (
+                  <p className="text-xs mb-4" style={{ color: "var(--text-soft)" }}>
+                    {t.dashboard.noIntroToday}
+                  </p>
+                )}
+
+                <Link
+                  href="/matches"
+                  className="block text-center rounded-xl py-3 font-bold text-white text-sm mb-1.5"
+                  style={{
+                    background:
+                      "linear-gradient(135deg, var(--accent), var(--accent-strong))",
+                  }}
+                >
+                  {t.dashboard.browseMatches}
+                </Link>
+                {nextDigestLabel && (
+                  <p className="text-xs text-center mb-6" style={{ color: "var(--text-soft)" }}>
+                    {t.dashboard.digestNextPrefix}
+                    {nextDigestLabel}
+                  </p>
+                )}
+              </>
             ) : (
               <p className="text-xs mb-6" style={{ color: "var(--text-soft)" }}>
                 {t.dashboard.verifyToUnlock}

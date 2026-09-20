@@ -59,7 +59,7 @@ export default async function SentInterestsPage() {
             <ProfilePhotoAvatar
               url={photos.get(m.candidate_id)?.url}
               initial={`${m.initial}.`}
-              size={48}
+              size={64}
             />
             <div>
               <div className="text-sm font-semibold">

@@ -1003,6 +1003,73 @@ live database at any time. When you're done testing for good, either
 remove the environment variable (the route goes back to always
 404ing) or delete `src/app/api/dev/seed-test-data/route.ts` outright.
 
+## Bulk test profiles for visualizing the customer journey (dev utility)
+
+The seven fixed accounts above are enough to test individual features,
+but they're not enough to see what the app actually *feels* like as a
+customer — a Browse feed with two or three cards in it doesn't tell
+you much. This second dev utility seeds up to **100 bride + 100 groom**
+test profiles, each with a unique generated placeholder photo, so you
+can log in and browse something closer to a real, populated app.
+
+**Reuses the same `DEV_SEED_SECRET`** — no second secret to manage.
+Off by default the same way, 404s on any missing/wrong secret.
+
+**The photos are deliberately NOT real or photorealistic.** Every one
+is a procedurally-generated illustrated avatar (`lib/testData/
+avatar.ts`) — a gradient card with a couple of soft decorative circles
+and the member's initial, unique per profile via a golden-angle hue
+spread so 200 of them don't cluster into a handful of similar colors.
+Two things were deliberately ruled out instead: scraping real
+strangers' photos into a fake matrimony database, and generating
+photorealistic AI faces to stand in for "test people" — the second one
+specifically is a kind of synthetic media this app avoids producing
+even privately, since a photorealistic synthetic "person" in a
+marriage-candidate context is the wrong thing to create even for your
+own testing. Each generated image still runs through the exact same
+`original.jpg` / `blurred.jpg` derivation a real upload gets, so
+blur-until-match behaves identically.
+
+**Batched, not one giant call.** 100+100 accounts is too much work for
+one serverless request, so this is called repeatedly with an
+increasing `offset` (`count` defaults to 20, capped at 50 per call).
+Visit, replacing `<secret>` with your value:
+
+```
+https://agaram-ten.vercel.app/api/dev/seed-bulk-profiles?secret=<secret>&offset=0&count=20
+```
+
+The JSON response includes `nextCallUrl` — the exact URL to visit
+next — and `remainingPerGender`, so you can just keep opening the link
+it gives you until that reaches 0. Five calls at the default `count=20`
+covers all 200.
+
+Every profile gets: a name from a deliberately non-caste-associated
+pool (see `lib/testData/pools.ts`'s own note on why), a Tamil Nadu
+city, an age in a realistic range per gender, varied family type/diet/
+native district, a mix of identity-verification states (verified/
+pending/none) and phone-verification (on/off) so badge variety is
+visible in Browse, and **broad preferences** (age 18–60, no location
+filter) so whichever seeded account you log into, the full opposite-
+gender batch actually shows up rather than being filtered down to
+almost nothing.
+
+Deterministic and idempotent, same spirit as `seed-test-data` — the
+same `offset` always regenerates the exact same 20 profiles, so
+re-running a batch (say, after a timeout) never creates duplicates.
+
+**Cleanup:** there's no delete route for these either. When you're
+done, remove them from the Supabase dashboard's SQL editor:
+
+```sql
+delete from auth.users where email like 'test.bride-%@agaram-test.dev'
+   or email like 'test.groom-%@agaram-test.dev';
+```
+
+(`on delete cascade` on `profiles`/`preferences`/verifications handles
+the rest; the storage objects are keyed by the now-deleted user id and
+can be cleared from the `profile-photos` bucket in the dashboard.)
+
 ## Employment & education verification (V1)
 
 A second, independent trust badge on `/account` alongside identity
@@ -1359,9 +1426,223 @@ embedded inline on `/account` instead of a full onboarding step.
   email. Nothing else needs to change, since every reader only ever
   looks at `phone_verifications.status`.
 
+## Extended preferences wired into Browse filtering (V1)
+
+The four preference/self-description pairs added by "Extended
+preferences — family, lifestyle & cultural tiers" above (family type,
+diet, native district, community) now actually affect who shows up in
+Browse, closing the gap that section explicitly flagged as deferred.
+
+**A hard filter, not a score — deliberately the same shape as the
+existing age/location filter:** your own stated preference only ever
+excludes a candidate when (a) you've actually set a real preference
+(not "No preference") **and** (b) the candidate has positively stated
+a conflicting value. A candidate who simply hasn't filled in that
+optional field yet is never excluded for it — these are all optional
+fields, most profiles won't have them filled in for a while, and
+penalizing an honestly-incomplete profile for an optional field would
+defeat the point of making it optional.
+
+The other four preference-only columns (family involvement, drinking,
+smoking, religious practice) still aren't wired in, and the README/UI
+say so plainly — there's no matching "about me" field on `profiles`
+yet for those to compare against, and inventing what "drinks" means
+for the other person without one would be exactly the kind of
+half-designed filter this project has avoided elsewhere.
+
+- **Database:** `get_match_candidates()` (`supabase/schema.sql`,
+  Phase 30) — DROP + CREATE, same reason as every prior column
+  addition to this function.
+- **A pre-existing `schema.sql` re-run bug, same shape as V1 features
+  7 and 11's, checked for and confirmed absent this time:** the
+  earlier fix (converting every function whose columns change across
+  phases to DROP + CREATE) already covers `get_match_candidates()`, so
+  this round's column addition didn't reintroduce it — verified with
+  the same drop/create-count script used for the earlier fixes.
+
+## Match explanation card: compatibility breakdown (V1)
+
+The "Why this match" card on Browse (see the earlier match
+explanation card entry) now also shows a **Compatibility** breakdown —
+Profile, Location, Lifestyle, and Family & cultural preferences, each
+labeled **Strong** or **Good**, styled after the PRD's own example
+format.
+
+**Still no fabricated score, same honesty line as everywhere else in
+this app:** because Browse now hard-filters on any preference you've
+actually set (see above), every candidate you see already satisfies
+those preferences — so "Strong" vs. "Good" isn't measuring whether
+you're compatible (you already are, or the filter would have excluded
+them). It's measuring how much the candidate has **positively
+confirmed** about themselves, as opposed to simply not having filled
+that optional field in yet. A category with nothing confirmed is left
+out of the card entirely, rather than shown as "Good" by default —
+omitting a category is more honest than implying a match on data that
+was never actually compared.
+
+- **Code:** `buildCompatibilityBreakdown()` in `src/lib/
+  matchReasons.ts`, alongside the existing `buildMatchReasons()`.
+- Two new design tokens, `--warn`/`--warn-soft`, were added to
+  `globals.css` to render "Good" (partial, not a failure) — the same
+  amber the PRD's Design System v1 reserves for "needs a look," never
+  for a destructive/danger action.
+
+## Mutual-match celebration moment (V1)
+
+Accepting a received interest, or expressing interest on someone who
+already liked you, now lands you on a proper celebration screen — a
+brief confetti animation over a "🎉 It's a match!" card — instead of
+the mutual list quietly gaining a new row. This was PRD §18's own
+recorded P1 backlog item ("a dedicated mutual-match celebration
+moment... a fuller celebratory treatment"), picked up this round.
+
+- **How it's wired:** `expressInterest()`'s mutual-completing branch
+  and `respondToInterest()`'s accept branch (`app/actions/matches.ts`)
+  now `redirect()` to `/matches/mutual?justMatched=<matchId>` instead
+  of silently revalidating in place. `/matches/mutual` reads that
+  query param, finds the matching row, and renders
+  `MutualMatchCelebration` — a client component — above the list.
+- **The confetti is pure CSS, no library** — small absolutely-
+  positioned bars animated with a CSS `@keyframes` fall, randomized
+  (position/color/timing) in a `useEffect` that runs only after the
+  first mount. That's deliberate: generating the randomness during
+  render would make the server-rendered HTML and the client's first
+  hydration pass disagree (`Math.random()` returns different values on
+  each), which React reports as a hydration mismatch. Rendering nothing
+  extra on the first pass and adding the confetti a tick later avoids
+  that entirely.
+- The card's call-to-action differs by whether the match is unlocked:
+  **Say hello** straight into the chat thread if you're Elite, or
+  **Upgrade to Elite** if not — reusing the same copy the mutual list
+  already shows for each case.
+
+## Matchmaking journey stage tracker (V1)
+
+`/account` → **Your matchmaking journey** — a row of clickable stage
+chips (Just exploring / Actively looking / Talking to someone / Family
+discussions / Meeting someone / Paused / Married), matching PRD §6's
+"intent / stage state" concept, plus a compact read-only line on
+`/dashboard` ("Where you are: ...") linking back to `/account` to
+change it. This is PRD §18's other recorded P1 backlog item —
+"a member-facing visualization of the `intent_stage` state... as a
+visible journey rather than a private settings field."
+
+**Deliberately self-only, stated plainly:** your stage is never shown
+to the other side of any match, and — unlike everything else added
+this round — it's never read by `get_match_candidates()` or any
+matching/filtering logic. This is a personal reflection tool ("where
+am I in this process"), not a signal Agaram acts on; PRD §6 describes
+it as something the *platform* could eventually use to avoid
+recommending someone who's already deep in a conversation, but that's
+real product-behavior design this round doesn't attempt.
+
+- **Database:** `profiles.intent_stage` (`supabase/schema.sql`,
+  Phase 31) — a plain checked text column, default `actively_looking`,
+  updatable through the same general "update your own profile row" RLS
+  policy every other self-description field already uses (no new
+  policy needed).
+- **Code:** `saveIntentStage()` (`app/actions/profile.ts`) and
+  `JourneyStageTracker` (`components/JourneyStageTracker.tsx`) — plain
+  server-rendered forms, one per stage, same pattern as the digest/
+  instant-alerts toggles on the same page; no client JS needed for a
+  row of buttons that each submit one value.
+
+## UX polish pass: account scroll, edit-profile, photo sizing & desktop width
+
+Five customer-reported usability fixes (Sept 2026), none touching the
+data model:
+
+- **`/account` was one long scroll.** Every section — photo, journey,
+  extended preferences, Jathagam, billing, notifications, employment,
+  phone, digest, instant alerts, blocked members, family sharing,
+  delete account — is now a collapsed-by-default accordion
+  (`AccountSection`, `components/AccountSection.tsx`, a plain
+  `<details>/<summary>` — no client JS) with a short status badge on
+  the closed header (Added/Not added, Verified/Pending, On/Off, a
+  count, etc.) so a member can see most of what matters without
+  opening anything.
+- **Editing your profile forced you through onboarding again.** The
+  "Edit profile" link from `/dashboard` reused the onboarding
+  basic-info screen, which always redirected to `/onboarding/
+  preferences` afterward — a real workflow bug, not just a cosmetic
+  one. `saveBasicInfo()` (`app/actions/profile.ts`) now branches on a
+  hidden `mode` field (`edit` vs `onboarding`): an edit skips the
+  one-time relation question and consent checkbox (already answered
+  once), doesn't re-stamp `terms_accepted_at`, and redirects back to
+  `/dashboard` instead of the preferences step. The same screen also
+  drops its "Day 1 · Step 2 of 3" onboarding chrome when editing
+  (`OnboardingShell`'s `stepChip`/`progress` props are now optional).
+- **Dashboard showed two avatars.** A generic brand-mark circle
+  ("அ") next to the account email duplicated the real profile-photo
+  avatar directly below it — removed; the email line now stands
+  alone.
+- **Candidate photos were too small to register.** The 48px avatar
+  used on Browse cards, and on the Sent/Received match lists, is now
+  64px (`CandidateCard`, `matches/received`, `matches/sent`); the
+  mutual-match list moved from 44px to 56px. This applies even to the
+  no-photo placeholder — the point is registering at a glance on a
+  browsing feed, not just showing more of an actual photo.
+- **Wide empty margins on desktop.** The app is deliberately
+  mobile-first (a narrow centered column throughout), which is
+  correct on a phone but reads as unused space in a full-width
+  desktop browser window. Rather than a blanket redesign, Browse/
+  Matches and Admin — the two densest, most-used screens — now widen
+  to `max-w-4xl` at the `lg` breakpoint (1024px+) and only there;
+  every other screen, and these two on mobile/tablet, are unchanged.
+
+## Dashboard: activity strip, "Today's introduction" & honest digest cadence (V1)
+
+Direct answer to a founder question this round — "how does a member
+who just logs in and looks at their own profile get pulled back in;
+is the dashboard actually interesting to them?" A competitor pass
+(Shaadi.com, BharatMatrimony, Jeevansathi, TamilMatrimony, plus
+Hinge/Bumble for engagement-design ideas — written up in the Agaram
+project as `Agaram_Dashboard_Competitor_Analysis.md`) found the same
+gap on every one of them: the old `/dashboard` was entirely
+self-facing (your own name, preferences, verification, subscription)
+with nothing about outside activity. Three honest, real-data additions
+close that gap — deliberately excluding the manipulative mechanics
+that analysis flagged (fabricated demand signals, a paywalled
+"someone liked you" blur, artificial scarcity):
+
+- **Activity strip.** Two real counts — interests waiting for your
+  response, and mutual matches — each linking straight to `/matches/
+  received` and `/matches/mutual`. Plain current totals, not a
+  "new since your last visit" delta (that would need a new
+  last-viewed timestamp this round doesn't add); still real, still
+  actionable.
+- **"Today's introduction"** (`components/TodaysIntroCard.tsx`,
+  picked by `lib/dashboardIntro.ts`) — the PRD's own "preview-
+  introduction moment... ahead of the Friday cadence" (§8), finally
+  built. Every candidate `get_match_candidates()` returns already
+  satisfies the viewer's hard preference filters equally — there's no
+  real weighted matching engine to rank them by (the same honesty
+  line `lib/matchReasons.ts` already draws) — so `pickTodaysIntroduction()`
+  only decides which one of several equally-valid candidates to
+  feature first; that internal tie-breaker is never shown to the
+  member. The card itself is a deliberately smaller version of
+  `CandidateCard` — at most two reasons, no compatibility breakdown —
+  so this doesn't quietly undo the same-round work that shortened the
+  rest of the dashboard. Its Pass/Interested buttons are the real
+  `expressInterest`/`passOnCandidate` actions, not a link out.
+- **Honest weekly-digest cadence line.** `lib/schedule.ts`'s
+  `nextWeeklyDigestRun()` computes the real next Friday 10:00 UTC run
+  of `api/cron/weekly-digest` (see "Weekly curated match digest"
+  above) and shows it plainly — e.g. "Your weekly match summary
+  email: Fri, 3:30 PM". This is NOT a "your next 3 introductions
+  unlock in..." countdown: Browse stays open and hard-filtered all
+  week, nothing about candidates is withheld until Friday, so framing
+  it as a content-gating countdown would have been misleading. It only
+  ever states the real, literal next time the summary email goes out.
+
+`expressInterest`/`passOnCandidate`'s `revalidateMatches()` now also
+revalidates `/dashboard`, so acting on a match from anywhere in the
+app keeps the dashboard's counts and "Today's introduction" pick
+current.
+
 ## What's next
 
-All 8 V0 build-plan phases are live, plus twenty-four V1 features now:
+All 8 V0 build-plan phases are live, plus twenty-eight V1 features now:
 member blocking/data export/account deletion, the Tamil UI toggle,
 Family Collaborator accounts, message milestone tagging, subscription
 renewal & billing history, real auto-recurring billing with
@@ -1373,13 +1654,25 @@ employment/education verification, relation context at onboarding (a
 scoped-down slice of the Family Collaborator model), the weekly
 curated match digest, Royal Concierge tier intake, profile photos with
 a database-enforced blur-until-match, extended family/lifestyle/
-cultural preferences (captured but not yet wired into matching),
-Jathagam/horoscope details capture and sharing (honestly, with no
-fabricated compatibility score), re-surfacing declined matches
-after a 30-day cooldown, an honest "why this match" explanation card
-on Browse (no fabricated score), instant new-interest/new-match email
-alerts, a founder analytics dashboard, and phone number verification
-as a second, honestly-mocked identity signal. Still open: the
+cultural preferences (four of the eight now wired into Browse
+filtering — see below), Jathagam/horoscope details capture and sharing
+(honestly, with no fabricated compatibility score), re-surfacing
+declined matches after a 30-day cooldown, an honest "why this match"
+explanation card on Browse (no fabricated score), instant
+new-interest/new-match email alerts, a founder analytics dashboard,
+phone number verification as a second, honestly-mocked identity
+signal, extended preferences wired into actual Browse filtering, a
+compatibility breakdown on the match explanation card, a mutual-match
+celebration moment, a self-only matchmaking journey stage tracker, a
+collapsible/one-page account screen, a fixed edit-profile flow that no
+longer forces a second onboarding trip, bigger candidate photos, wider
+Browse/Matches/Admin screens on desktop, and a dashboard activity
+strip with a real "Today's introduction" preview match and an honest
+weekly-digest cadence line.
+Still open: the other four extended-preference columns (family
+involvement, drinking, smoking, religious practice), which need a
+matching self-description field added to `profiles` before they can
+filter anything the same honest way the first four now do; the
 Family Collaborator model's full parent-creates-profile-first
 identity-transfer flow (deliberately deferred as too high-risk for a
 live app — see "Family Collaborator: relation context at onboarding"

@@ -5,6 +5,7 @@ import { setMatchFamilySharing } from "@/app/actions/family";
 import { milestoneLabel, type MessageMilestone } from "@/lib/milestones";
 import { getProfilePhotoUrls } from "@/lib/photo";
 import { ProfilePhotoAvatar } from "@/components/ProfilePhotoAvatar";
+import { MutualMatchCelebration } from "@/components/MutualMatchCelebration";
 
 type MutualMatch = {
   match_id: string;
@@ -21,7 +22,12 @@ type MutualMatch = {
   current_milestone: MessageMilestone | null;
 };
 
-export default async function MutualMatchesPage() {
+export default async function MutualMatchesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ justMatched?: string }>;
+}) {
+  const { justMatched } = await searchParams;
   const supabase = await createClient();
   const {
     data: { user },
@@ -72,6 +78,25 @@ export default async function MutualMatchesPage() {
     mutuals.map((m) => ({ id: m.candidate_id, hasPhoto: m.has_photo }))
   );
 
+  const justMatchedEntry = justMatched
+    ? mutuals.find((m) => m.match_id === justMatched)
+    : undefined;
+  const celebration = justMatchedEntry ? (
+    <MutualMatchCelebration
+      t={t}
+      headline={t.matches.itsAMatch}
+      body={
+        justMatchedEntry.is_unlocked
+          ? t.matches.justMatchedBodyUnlocked
+          : t.matches.justMatchedBodyLocked
+      }
+      ctaHref={
+        justMatchedEntry.is_unlocked ? `/matches/mutual/${justMatchedEntry.match_id}` : "/upgrade"
+      }
+      ctaLabel={justMatchedEntry.is_unlocked ? t.matches.message : t.matches.upgradeToEliteBtn}
+    />
+  ) : null;
+
   if (!mutuals.length) {
     return (
       <div
@@ -85,6 +110,7 @@ export default async function MutualMatchesPage() {
 
   return (
     <div className="flex flex-col gap-3">
+      {celebration}
       {mutuals.map((m) => {
         const shared = sharedById.get(m.match_id) ?? false;
         const shareToggle = hasFamilyLink && (
@@ -109,7 +135,7 @@ export default async function MutualMatchesPage() {
               <ProfilePhotoAvatar
                 url={photos.get(m.candidate_id)?.url}
                 initial={m.full_name?.[0] ?? ""}
-                size={44}
+                size={56}
               />
               <div
                 className="text-lg font-semibold"
@@ -155,7 +181,7 @@ export default async function MutualMatchesPage() {
             style={{ background: "var(--bg-sunken)", border: "1px solid var(--line)" }}
           >
             <div className="flex items-center gap-3 mb-1">
-              <ProfilePhotoAvatar url={photos.get(m.candidate_id)?.url} initial="" size={44} />
+              <ProfilePhotoAvatar url={photos.get(m.candidate_id)?.url} initial="" size={56} />
               <div
                 className="text-lg font-semibold"
                 style={{ fontFamily: "var(--font-display)" }}

@@ -29,6 +29,16 @@ export async function saveBasicInfo(
     redirect("/login");
   }
 
+  // "edit" = the dashboard's "Edit profile" link, for a member who
+  // already has a complete profile — everywhere else (first-time
+  // onboarding) this is "onboarding". Distinct handling below: no
+  // re-prompting for consent already captured once, no relation
+  // question, and no forced trip through the preferences step again
+  // just to change your name or age. See BasicInfoForm's matching
+  // conditionals and its comment for why.
+  const mode = String(formData.get("mode") ?? "onboarding");
+  const isEditing = mode === "edit";
+
   const fullName = String(formData.get("full_name") ?? "").trim();
   const profileType = String(formData.get("profile_type") ?? "");
   const ageRaw = String(formData.get("age") ?? "");
@@ -54,16 +64,19 @@ export async function saveBasicInfo(
   if (!location) {
     return { error: "Please enter your city — matches are filtered by location." };
   }
-  if (termsAccepted !== "on") {
+  if (!isEditing && termsAccepted !== "on") {
     return { error: "Please confirm you agree to the Privacy Policy to continue." };
   }
 
   // terms_accepted_at (Phase 17, supabase/schema.sql) — the DPDP-Act
-  // consent capture Section 7 of /privacy has always described. This
-  // form only runs once, as the very first onboarding step, so
-  // setting it unconditionally on every submit (rather than only if
-  // it isn't already set) is fine — there's no "re-editing basic info
-  // later" path that reuses saveBasicInfo.
+  // consent capture Section 7 of /privacy has always described. Set
+  // only on first-time onboarding, when the checkbox above was
+  // actually shown and checked — an edit doesn't re-show it (see
+  // BasicInfoForm), so re-stamping this timestamp here would record
+  // consent for something the member never re-confirmed. created_by_
+  // relation is also left untouched on an edit, for the same reason
+  // the field itself is hidden then: it isn't part of what this form
+  // asks the member to change.
   const { error } = await supabase.from("profiles").upsert({
     id: user.id,
     full_name: fullName,
@@ -71,8 +84,7 @@ export async function saveBasicInfo(
     age,
     location,
     about_me: aboutMe || null,
-    created_by_relation: createdByRelation,
-    terms_accepted_at: new Date().toISOString(),
+    ...(isEditing ? {} : { created_by_relation: createdByRelation, terms_accepted_at: new Date().toISOString() }),
     updated_at: new Date().toISOString(),
   });
 
@@ -80,7 +92,7 @@ export async function saveBasicInfo(
     return { error: error.message };
   }
 
-  redirect("/onboarding/preferences");
+  redirect(isEditing ? "/dashboard" : "/onboarding/preferences");
 }
 
 export async function savePreferences(
@@ -188,6 +200,41 @@ export async function saveBackgroundInfo(
 
   revalidatePath("/account");
   return { success: "Saved." };
+}
+
+/**
+ * PRD §6's "intent / stage state" (supabase/schema.sql Phase 31) —
+ * self-only, never read by matching logic. A plain, unbound action
+ * (not useActionState-driven like the forms above) since the tracker
+ * is a row of clickable stage chips, not a form with its own
+ * error/success text.
+ */
+const INTENT_STAGE_VALUES = [
+  "exploring",
+  "actively_looking",
+  "talking",
+  "family_discussions",
+  "meeting",
+  "paused",
+  "married",
+];
+
+export async function saveIntentStage(stage: string) {
+  if (!INTENT_STAGE_VALUES.includes(stage)) return;
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  await supabase
+    .from("profiles")
+    .update({ intent_stage: stage, updated_at: new Date().toISOString() })
+    .eq("id", user.id);
+
+  revalidatePath("/account");
+  revalidatePath("/dashboard");
 }
 
 const NO_PREFERENCE = "no_preference";

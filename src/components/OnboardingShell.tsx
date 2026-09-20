@@ -4,8 +4,14 @@ import type { ReactNode } from "react";
 type ProgressState = "done" | "active" | "upcoming";
 
 type Props = {
-  stepChip: string;
-  progress: ProgressState[];
+  // Omit stepChip/progress entirely for a screen that isn't part of
+  // the linear onboarding sequence (e.g. editing an already-complete
+  // profile from the dashboard) — showing "Day 1 · Step 2 of 3" and a
+  // progress bar to someone who finished onboarding weeks ago is both
+  // confusing copy and, per customer feedback (Sept 2026), extra
+  // vertical height this screen doesn't need.
+  stepChip?: string;
+  progress?: ProgressState[];
   backHref: string;
   backLabel: string;
   brand: string;
@@ -54,31 +60,35 @@ export function OnboardingShell({
             {brand}
           </span>
         </div>
-        <div
-          className="text-xs rounded-full px-3.5 py-1.5 shadow-sm"
-          style={{ background: "var(--bg-raised)", color: "var(--text-soft)" }}
-        >
-          {stepChip}
-        </div>
+        {stepChip && (
+          <div
+            className="text-xs rounded-full px-3.5 py-1.5 shadow-sm"
+            style={{ background: "var(--bg-raised)", color: "var(--text-soft)" }}
+          >
+            {stepChip}
+          </div>
+        )}
       </div>
 
-      <div className="px-6 sm:px-16 pt-5">
-        <div
-          className="flex gap-2 mx-auto"
-          style={{ maxWidth: colWidth }}
-        >
-          {progress.map((state, i) => (
-            <div
-              key={i}
-              className="flex-1 h-1 rounded-full"
-              style={{
-                background:
-                  state === "upcoming" ? "var(--line)" : "var(--accent-strong)",
-              }}
-            />
-          ))}
+      {progress && (
+        <div className="px-6 sm:px-16 pt-5">
+          <div
+            className="flex gap-2 mx-auto"
+            style={{ maxWidth: colWidth }}
+          >
+            {progress.map((state, i) => (
+              <div
+                key={i}
+                className="flex-1 h-1 rounded-full"
+                style={{
+                  background:
+                    state === "upcoming" ? "var(--line)" : "var(--accent-strong)",
+                }}
+              />
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="flex-1 flex justify-center px-6 sm:px-16 py-6">
         <div className="w-full" style={{ maxWidth: colWidth }}>
@@ -96,13 +106,13 @@ export function OnboardingShell({
             {eyebrow}
           </div>
           <h1
-            className="text-3xl mb-2.5"
+            className="text-2xl mb-2"
             style={{ fontFamily: "var(--font-display)", letterSpacing: "-0.01em" }}
           >
             {title}
           </h1>
           <p
-            className="text-sm leading-relaxed mb-7"
+            className="text-sm leading-relaxed mb-5"
             style={{ color: "var(--text-soft)" }}
           >
             {lede}

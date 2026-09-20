@@ -32,7 +32,10 @@ export default async function AdminLayout({
           "radial-gradient(120% 70% at 50% -10%, #FFFFFF 0%, var(--bg) 55%)",
       }}
     >
-      <div className="max-w-2xl mx-auto px-6 sm:px-8 pt-8 pb-16">
+      {/* lg:max-w-4xl — widened on desktop only (customer feedback,
+          Sept 2026, on unused side space); mobile/tablet keep the
+          original max-w-2xl column untouched. */}
+      <div className="max-w-2xl lg:max-w-4xl mx-auto px-6 sm:px-8 pt-8 pb-16">
         <div className="flex items-center justify-between mb-6">
           <Link
             href="/dashboard"

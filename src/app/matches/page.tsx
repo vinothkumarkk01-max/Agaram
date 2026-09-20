@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { CandidateCard, type MaskedCandidate } from "@/components/CandidateCard";
 import { getDictionary } from "@/lib/i18n/server";
 import { getProfilePhotoUrls } from "@/lib/photo";
-import { buildMatchReasons } from "@/lib/matchReasons";
+import { buildMatchReasons, buildCompatibilityBreakdown } from "@/lib/matchReasons";
 
 export default async function BrowseMatchesPage() {
   const supabase = await createClient();
@@ -17,7 +17,9 @@ export default async function BrowseMatchesPage() {
   const { data: myPreferences } = user
     ? await supabase
         .from("preferences")
-        .select("age_min, age_max, preferred_locations")
+        .select(
+          "age_min, age_max, preferred_locations, family_type_preference, diet_preference, native_district_preference, community_preference"
+        )
         .eq("profile_id", user.id)
         .maybeSingle()
     : { data: null };
@@ -57,6 +59,9 @@ export default async function BrowseMatchesPage() {
           photoUrl={photos.get(candidate.id)?.url}
           reasons={
             myPreferences ? buildMatchReasons(t, candidate, myPreferences) : undefined
+          }
+          compatibility={
+            myPreferences ? buildCompatibilityBreakdown(t, candidate, myPreferences) : undefined
           }
           t={t}
         />

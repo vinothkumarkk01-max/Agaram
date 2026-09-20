@@ -23,6 +23,11 @@ function revalidateMatches() {
   revalidatePath("/matches/sent");
   revalidatePath("/matches/received");
   revalidatePath("/matches/mutual");
+  // The dashboard's activity strip / "Today's introduction" (Sept
+  // 2026) reads the same matches rows — without this, acting on a
+  // match from Browse wouldn't be reflected on the dashboard until
+  // some unrelated navigation happened to revalidate it.
+  revalidatePath("/dashboard");
 }
 
 /**
@@ -183,6 +188,12 @@ export async function expressInterest(candidateId: string) {
       .update({ status: "mutual", updated_at: new Date().toISOString() })
       .eq("id", existing.id);
     await notifyNewMutualMatch(user.id, candidateId);
+    // The celebration moment (PRD §18's P1 backlog — a proper
+    // mutual-match beat instead of just a state change) lives on
+    // /matches/mutual; revalidate first, since redirect() below ends
+    // this action and nothing after it would run.
+    revalidateMatches();
+    redirect(`/matches/mutual?justMatched=${existing.id}`);
   } else if (existing.status === "declined") {
     // Re-surfaced after the 30-day cooldown (supabase/schema.sql,
     // Phase 24 — get_match_candidates() only shows a declined pair
@@ -276,6 +287,8 @@ export async function respondToInterest(matchId: string, accept: boolean) {
 
   if (accept) {
     await notifyNewMutualMatch(match.candidate_a, match.candidate_b);
+    revalidateMatches();
+    redirect(`/matches/mutual?justMatched=${matchId}`);
   }
 
   revalidateMatches();

@@ -27,6 +27,7 @@ const inputStyle: CSSProperties = {
 
 export function BasicInfoForm({
   defaults,
+  isEditing = false,
   t,
 }: {
   defaults?: {
@@ -37,12 +38,20 @@ export function BasicInfoForm({
     about_me?: string;
     created_by_relation?: string;
   };
+  isEditing?: boolean;
   t: Dictionary;
 }) {
   const [state, formAction, pending] = useActionState(saveBasicInfo, undefined);
 
   return (
     <form action={formAction} className="flex flex-col gap-5">
+      <input type="hidden" name="mode" value={isEditing ? "edit" : "onboarding"} />
+
+      {/* "Who's setting up this profile" is a one-time onboarding
+          question — skipped when editing an already-complete profile,
+          both because it rarely needs revisiting and to keep this
+          screen shorter (customer feedback, Sept 2026). */}
+      {!isEditing && (
       <div>
         <div style={fieldLabel}>{t.onboarding.relationQuestion}</div>
         <select
@@ -62,6 +71,7 @@ export function BasicInfoForm({
           {t.onboarding.relationHelp}
         </p>
       </div>
+      )}
 
       <div>
         <div style={fieldLabel}>{t.onboarding.fullName}</div>
@@ -127,6 +137,12 @@ export function BasicInfoForm({
         />
       </div>
 
+      {/* Consent was already captured once, at signup — re-showing (and
+          re-requiring) this checkbox on every later edit would just be
+          friction, and re-setting terms_accepted_at without the member
+          actually re-reading anything would overstate what they
+          consented to. See saveBasicInfo() for the matching change. */}
+      {!isEditing && (
       <label
         className="flex items-start gap-3 text-sm"
         style={{ color: "var(--text-soft)" }}
@@ -146,6 +162,7 @@ export function BasicInfoForm({
           {t.onboarding.termsLabelSuffix}
         </span>
       </label>
+      )}
 
       {state?.error && (
         <p className="text-sm" style={{ color: "var(--accent-strong)" }}>
@@ -162,14 +179,16 @@ export function BasicInfoForm({
             background: "linear-gradient(135deg, var(--accent), var(--accent-strong))",
           }}
         >
-          {pending ? t.onboarding.saving : t.onboarding.continueBtn}
+          {pending ? t.onboarding.saving : isEditing ? t.onboarding.saveChanges : t.onboarding.continueBtn}
         </button>
-        <p
-          className="text-center text-xs mt-4"
-          style={{ color: "var(--text-soft)" }}
-        >
-          {t.onboarding.basicInfoFooter}
-        </p>
+        {!isEditing && (
+          <p
+            className="text-center text-xs mt-4"
+            style={{ color: "var(--text-soft)" }}
+          >
+            {t.onboarding.basicInfoFooter}
+          </p>
+        )}
       </div>
     </form>
   );
