@@ -363,6 +363,7 @@ export default async function DashboardPage() {
                   <TodaysIntroCard
                     candidate={todaysIntro.candidate}
                     photoUrl={introPhoto?.url}
+                    photoIsOriginal={introPhoto?.isOriginal}
                     reasons={todaysIntro.reasons}
                     t={t}
                   />
@@ -643,6 +644,7 @@ export default async function DashboardPage() {
                       <TodaysIntroCard
                         candidate={todaysIntro.candidate}
                         photoUrl={introPhoto?.url}
+                        photoIsOriginal={introPhoto?.isOriginal}
                         reasons={todaysIntro.reasons}
                         t={t}
                       />

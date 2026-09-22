@@ -29,7 +29,7 @@ function Shell({
     >
       <div className="w-full max-w-sm">
         <div className="flex items-center gap-3 justify-center mb-8">
-          <BrandMark size={40} alt="Agaramiya" />
+          <BrandMark size={56} alt="Agaramiya" />
         </div>
         <div
           className="rounded-2xl p-8 shadow-sm text-center"

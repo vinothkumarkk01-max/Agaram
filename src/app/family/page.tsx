@@ -65,7 +65,7 @@ export default async function FamilyPage() {
       <div className="w-full max-w-lg flex flex-col gap-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <BrandMark size={36} />
+            <BrandMark size={40} />
             <span
               className="text-xs tracking-widest uppercase font-medium"
               style={{ color: "var(--text-soft)" }}

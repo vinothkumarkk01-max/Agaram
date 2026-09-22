@@ -45,7 +45,7 @@ export function OnboardingShell({
     >
       <div className="flex items-center justify-between px-6 sm:px-16 pt-8">
         <div className="flex items-center gap-3">
-          <BrandMark size={36} />
+          <BrandMark size={40} />
           <span
             className="text-xs tracking-widest uppercase font-medium"
             style={{ color: "var(--text-soft)" }}

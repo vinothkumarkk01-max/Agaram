@@ -3,7 +3,7 @@ import { respondToInterest } from "@/app/actions/matches";
 import { blockMember } from "@/app/actions/blocks";
 import { getDictionary } from "@/lib/i18n/server";
 import { getProfilePhotoUrls } from "@/lib/photo";
-import { ProfilePhotoAvatar } from "@/components/ProfilePhotoAvatar";
+import { CandidatePhoto } from "@/components/CandidatePhoto";
 
 type ReceivedInterest = {
   match_id: string;
@@ -49,47 +49,54 @@ export default async function ReceivedInterestsPage() {
   );
 
   return (
-    <div className="flex flex-col gap-3">
+    // Large photo cards, not a compact icon-and-text list — founder
+    // feedback (Sept 2026): every screen showing someone else's photo
+    // should show it "as big as possible," not just Browse. Same card
+    // shape as CandidateCard, adapted for accept/decline instead of
+    // pass/interested.
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
       {received.map((m) => (
         <div
           key={m.match_id}
-          className="rounded-2xl p-5 flex items-center justify-between gap-4"
+          className="rounded-2xl overflow-hidden"
           style={{ background: "var(--bg-raised)", border: "1px solid var(--line)" }}
         >
-          <div className="flex items-center gap-4">
-            <ProfilePhotoAvatar
-              url={photos.get(m.candidate_id)?.url}
-              initial={`${m.initial}.`}
-              size={64}
-            />
-            <div>
-              <div className="text-sm font-semibold">
-                {m.age} {t.dashboard.years}{m.location ? ` · ${m.location}` : ""}
-              </div>
-              {m.is_verified && (
-                <div
-                  className="text-xs font-semibold mt-1"
-                  style={{ color: "var(--ok)" }}
-                >
-                  {t.dashboard.identityVerified}
-                </div>
-              )}
-              {m.is_phone_verified && (
-                <div
-                  className="text-xs font-semibold mt-1"
-                  style={{ color: "var(--ok)" }}
-                >
-                  {t.dashboard.phoneVerified}
-                </div>
-              )}
+          <CandidatePhoto
+            url={photos.get(m.candidate_id)?.url}
+            isOriginal={photos.get(m.candidate_id)?.isOriginal}
+            initial={`${m.initial}.`}
+            privacyLabel={t.matches.privateUntilMutual}
+          />
+          <div className="p-5">
+            <div className="text-base font-semibold mb-2">
+              {m.age} {t.dashboard.years}
+              {m.location ? ` · ${m.location}` : ""}
             </div>
-          </div>
-          <div className="flex flex-col items-end gap-2 shrink-0">
-            <div className="flex gap-2">
-              <form action={respondToInterest.bind(null, m.match_id, false)}>
+            {(m.is_verified || m.is_phone_verified) && (
+              <div className="flex flex-wrap gap-2 mb-3">
+                {m.is_verified && (
+                  <span
+                    className="text-xs font-semibold rounded-full px-2.5 py-1"
+                    style={{ background: "var(--ok-soft)", color: "var(--ok)" }}
+                  >
+                    {t.dashboard.identityVerified}
+                  </span>
+                )}
+                {m.is_phone_verified && (
+                  <span
+                    className="text-xs font-semibold rounded-full px-2.5 py-1"
+                    style={{ background: "var(--ok-soft)", color: "var(--ok)" }}
+                  >
+                    {t.dashboard.phoneVerified}
+                  </span>
+                )}
+              </div>
+            )}
+            <div className="flex gap-2 mb-2">
+              <form action={respondToInterest.bind(null, m.match_id, false)} className="flex-1">
                 <button
                   type="submit"
-                  className="rounded-xl px-4 py-2 text-sm font-semibold"
+                  className="w-full rounded-xl px-4 py-2.5 text-sm font-semibold"
                   style={{
                     background: "var(--bg-raised)",
                     border: "1px solid var(--line)",
@@ -99,10 +106,10 @@ export default async function ReceivedInterestsPage() {
                   {t.matches.decline}
                 </button>
               </form>
-              <form action={respondToInterest.bind(null, m.match_id, true)}>
+              <form action={respondToInterest.bind(null, m.match_id, true)} className="flex-1">
                 <button
                   type="submit"
-                  className="rounded-xl px-4 py-2 text-sm font-bold text-white"
+                  className="w-full rounded-xl px-4 py-2.5 text-sm font-bold text-white"
                   style={{
                     background:
                       "linear-gradient(135deg, var(--accent), var(--accent-strong))",

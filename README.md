@@ -2031,6 +2031,62 @@ plain "signed in as" line and a 48px avatar.
 
 No database changes this round.
 
+## Brand mark sizing standardized (V1)
+
+Founder feedback: "I seeing inconsistency logo appearing from one
+screen to another." Sizes had drifted to one-off numbers (32/36/40/56)
+as the mark got added screen by screen the previous round. Fixed to
+three sizes by role — documented directly in `BrandMark`'s own comment
+this time, so it doesn't drift again:
+
+- **32** — a persistent, slim top app-bar next to other nav controls
+  (`DashboardTopBar`, the admin and matches section headers). Already
+  consistent, unchanged.
+- **40** — a page-level header lockup, mark beside the "Agaramiya"
+  wordmark, above a centered card (`AuthForm`, `SignupIntentStep`, and
+  now also `OnboardingShell` and the family dashboard header, both
+  previously 36).
+- **56** — a standalone mark with no wordmark text, centered on an
+  otherwise-empty screen (error, 404, and now also the family invite
+  screen, previously 40).
+
+No database changes this round.
+
+## Other members' photos now shown large, not as a small icon (V1)
+
+Direct founder feedback: "I am interested [to] see other profile
+picture big as much as possible, rather than just as icon, also if
+picture showing as big, candidate can provide more stylish photo to
+impress." Every screen that shows a candidate or match — Browse,
+Today's Introduction, Received, Sent, Mutual — used a 48–64px circular
+avatar next to a block of text. Fixed everywhere at once, not
+screen by screen.
+
+- **`src/components/CandidatePhoto.tsx`** (new) — a large 4:5 portrait
+  photo instead of a small circle, specifically for someone ELSE's
+  photo. Deliberately kept separate from `ProfilePhotoAvatar`, which
+  stays a small circular icon for identity chrome (a member's own
+  avatar in the dashboard top bar and profile menu) — a different job
+  this feedback wasn't about.
+  - A "Private until mutual interest" chip overlays the photo only
+    while it's still the blurred variant (`src/lib/photo.ts` already
+    decides that server-side; this just reflects it). This is
+    `Agaram_Visual_Design_System_v1.md`'s own "Profile card" spec —
+    privacy state on the photo itself, not a bare tag — applied to the
+    live app for the first time rather than only the design prototype.
+  - Verified/phone-verified moved off the photo into real pill-shaped
+    badges in the info block below, per that same spec (previously
+    plain green text lines).
+- **`CandidateCard`** (Browse), **`TodaysIntroCard`** (dashboard), and
+  the **Received / Sent / Mutual** list pages are all rebuilt around
+  it — photo leads, info and actions follow below. Browse, Received,
+  Sent, and Mutual moved from a single stacked column to a responsive
+  photo-card grid (1 column on phones, 2 on tablets, 3 on desktop) so
+  the larger cards don't turn every list into one long scroll.
+- New dictionary key `matches.privateUntilMutual` (en/ta).
+
+No database changes this round.
+
 ## What's next
 
 All 8 V0 build-plan phases are live, plus thirty V1 features now:

@@ -4,7 +4,7 @@ import { getDictionary } from "@/lib/i18n/server";
 import { setMatchFamilySharing } from "@/app/actions/family";
 import { milestoneLabel, type MessageMilestone } from "@/lib/milestones";
 import { getProfilePhotoUrls } from "@/lib/photo";
-import { ProfilePhotoAvatar } from "@/components/ProfilePhotoAvatar";
+import { CandidatePhoto } from "@/components/CandidatePhoto";
 import { MutualMatchCelebration } from "@/components/MutualMatchCelebration";
 
 type MutualMatch = {
@@ -109,8 +109,15 @@ export default async function MutualMatchesPage({
   }
 
   return (
+    // Large photo cards, matching Browse/Received/Sent — founder
+    // feedback (Sept 2026): every screen showing someone else's photo
+    // should show it "as big as possible." A mutual match's photo is
+    // never the blurred variant (both sides already said yes), so the
+    // privacy chip essentially never shows here — passed through
+    // anyway for correctness, not because it's expected to appear.
     <div className="flex flex-col gap-3">
       {celebration}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
       {mutuals.map((m) => {
         const shared = sharedById.get(m.match_id) ?? false;
         const shareToggle = hasFamilyLink && (
@@ -128,21 +135,21 @@ export default async function MutualMatchesPage({
         return m.is_unlocked ? (
           <div
             key={m.match_id}
-            className="rounded-2xl p-5"
+            className="rounded-2xl overflow-hidden"
             style={{ background: "var(--ok-soft)", border: "1px solid var(--line)" }}
           >
-            <div className="flex items-center gap-3 mb-1">
-              <ProfilePhotoAvatar
-                url={photos.get(m.candidate_id)?.url}
-                initial={m.full_name?.[0] ?? ""}
-                size={56}
-              />
-              <div
-                className="text-lg font-semibold"
-                style={{ fontFamily: "var(--font-display)" }}
-              >
-                {m.full_name}
-              </div>
+            <CandidatePhoto
+              url={photos.get(m.candidate_id)?.url}
+              isOriginal={photos.get(m.candidate_id)?.isOriginal}
+              initial={m.full_name?.[0] ?? ""}
+              privacyLabel={t.matches.privateUntilMutual}
+            />
+            <div className="p-5">
+            <div
+              className="text-lg font-semibold mb-1"
+              style={{ fontFamily: "var(--font-display)" }}
+            >
+              {m.full_name}
             </div>
             <div className="text-xs mb-2" style={{ color: "var(--text-soft)" }}>
               {m.age} {t.dashboard.years}{m.location ? ` · ${m.location}` : ""}
@@ -173,21 +180,26 @@ export default async function MutualMatchesPage({
               </Link>
               {shareToggle}
             </div>
+            </div>
           </div>
         ) : (
           <div
             key={m.match_id}
-            className="rounded-2xl p-5"
+            className="rounded-2xl overflow-hidden"
             style={{ background: "var(--bg-sunken)", border: "1px solid var(--line)" }}
           >
-            <div className="flex items-center gap-3 mb-1">
-              <ProfilePhotoAvatar url={photos.get(m.candidate_id)?.url} initial="" size={56} />
-              <div
-                className="text-lg font-semibold"
-                style={{ fontFamily: "var(--font-display)" }}
-              >
-                {t.matches.itsAMatch}
-              </div>
+            <CandidatePhoto
+              url={photos.get(m.candidate_id)?.url}
+              isOriginal={photos.get(m.candidate_id)?.isOriginal}
+              initial=""
+              privacyLabel={t.matches.privateUntilMutual}
+            />
+            <div className="p-5">
+            <div
+              className="text-lg font-semibold mb-1"
+              style={{ fontFamily: "var(--font-display)" }}
+            >
+              {t.matches.itsAMatch}
             </div>
             <div className="text-xs mb-3" style={{ color: "var(--text-soft)" }}>
               {m.age} {t.dashboard.years}{m.location ? ` · ${m.location}` : ""}
@@ -210,9 +222,11 @@ export default async function MutualMatchesPage({
               </Link>
               {shareToggle}
             </div>
+            </div>
           </div>
         );
       })}
+      </div>
     </div>
   );
 }

@@ -21,6 +21,20 @@ import Image from "next/image";
  * file rather than changing the master, since the master also feeds
  * scripts/generate-icons.mjs and shouldn't move out of sync with the
  * OS-icon safe-zone math baked in there.
+ *
+ * Sizing is one of three fixed values, by role — not a free choice
+ * per screen, which is what read as inconsistent across screens
+ * before (founder feedback, Sept 2026):
+ *   - 32 — a persistent, slim top app-bar next to other nav controls
+ *     (DashboardTopBar, the admin and matches section headers).
+ *   - 40 — a page-level header lockup, mark beside the "Agaramiya"
+ *     wordmark, above a centered card (AuthForm, OnboardingShell,
+ *     SignupIntentStep, the family dashboard header).
+ *   - 56 — a standalone mark with no wordmark text next to it,
+ *     centered on an otherwise-empty screen (error, 404, the family
+ *     invite screen).
+ * Pick whichever of the three matches the new screen's role, rather
+ * than a new one-off number.
  */
 export function BrandMark({
   size = 40,
