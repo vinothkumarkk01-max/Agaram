@@ -47,6 +47,80 @@ const en = {
     tagline: "Verified members, thoughtful introductions, no endless browsing.",
     createAccount: "Create account",
     signIn: "Sign in",
+
+    trustEyebrow: "Verified, not just vouched for",
+    trustHeading: "Every profile is checked against real signals.",
+    trustSubheading:
+      "Not one generic checkmark — each of these is its own independent check.",
+    trustIdentityTitle: "Identity",
+    trustIdentityDesc:
+      "Government ID and a liveness check — not just a name someone typed in.",
+    trustEmploymentTitle: "Employment",
+    trustEmploymentDesc:
+      "Confirmed with work records or a work email, not taken on trust.",
+    trustPhoneTitle: "Phone",
+    trustPhoneDesc: "A real, working number behind every account.",
+
+    howEyebrow: "How Agaramiya works",
+    howHeading: "3 curated introductions a week — not an endless scroll.",
+    howStep1Title: "Verify your identity",
+    howStep1Desc:
+      "A quick check adds a badge to your profile, so matches know you're real.",
+    howStep2Title: "Get introduced, every Friday",
+    howStep2Desc:
+      "Up to 3 matches picked for you from your preferences — quality over quantity.",
+    howStep3Title: "Say hello, once it's mutual",
+    howStep3Desc:
+      "Full profiles and messaging unlock only when you both say yes.",
+
+    pricingEyebrow: "Pricing",
+    pricingHeading: "Simple, honest pricing.",
+    pricingFreeTitle: "Free",
+    pricingFreePrice: "₹0",
+    pricingFreeDesc: "Verify, browse, and express interest.",
+    pricingFreeCta: "Get started",
+    pricingEliteTitle: "Elite",
+    pricingElitePrice: "₹15,000",
+    pricingElitePeriod: "/ 6 months",
+    pricingEliteDesc:
+      "Full profiles and messaging, once you're a mutual match.",
+    pricingEliteCta: "Get started",
+    pricingConciergeTitle: "Concierge",
+    pricingConciergePrice: "Custom",
+    pricingConciergeDesc: "A founder-led matchmaker, priced on a call.",
+    pricingConciergeCta: "Request a call",
+
+    faqEyebrow: "Questions",
+    faqHeading: "Before you sign up",
+    faqQ1: "Is my photo really private?",
+    faqA1:
+      "Yes — it stays blurred to everyone until you're a mutual match. Nobody sees a clear photo without both sides saying yes.",
+    faqQ2: "How much does it cost?",
+    faqA2:
+      "Free to join, verify, and browse. Elite is ₹15,000 for 6 months for full profiles and messaging. Prefer a person to help? Agaramiya Concierge is founder-led, priced on a call.",
+    faqQ3: "How is this different from other matrimony apps?",
+    faqA3:
+      "We verify identity, employment, and phone independently — not just take your word for it — and introduce a curated few each week instead of an endless scroll.",
+    faqQ4: "Can my family be part of the process?",
+    faqA4:
+      "Yes. Invite a parent or family member to help — they see your basic profile and progress, never your private messages.",
+    faqQ5: "Is my data safe?",
+    faqA5:
+      "Agaramiya is built around India's DPDP Act, 2023. You can download or permanently delete everything Agaramiya holds about you, any time, from your account.",
+
+    footerTagline: "A verified, Tamil-first matrimonial platform.",
+    footerSupport: "Support",
+    footerPrivacy: "Privacy Policy",
+    footerRights: "All rights reserved.",
+
+    // Sticky nav + hero scroll cue (Sept 2026) — founder feedback:
+    // with no menu on the page, there was nothing telling a visitor
+    // there was more to see below the hero. See LandingNav.tsx.
+    navTrust: "How we verify",
+    navHow: "How it works",
+    navPricing: "Pricing",
+    navFaq: "FAQ",
+    scrollHint: "See how it works",
   },
   auth: {
     createTitle: "Create your account",
@@ -593,6 +667,23 @@ const en = {
     pageNotFoundDesc: "That page doesn't exist, or has moved.",
     couldntLoad: "Agaramiya couldn't load.",
   },
+  support: {
+    eyebrow: "Support",
+    heading: "Talk to a person, not a bot.",
+    subheading:
+      "Agaramiya is run by a small, hands-on team — write to us and a real person reads it.",
+    generalHeading: "General support",
+    generalDesc:
+      "Account questions, a bug, or anything you're stuck on.",
+    privacyHeading: "Privacy & data requests",
+    privacyDesc:
+      "Questions about your data, or a grievance under the DPDP Act, 2023 — see our Privacy Policy for the full detail.",
+    conciergeHeading: "Want a hands-on matchmaker instead?",
+    conciergeDesc: "Agaramiya Concierge is a founder-led search — request a call.",
+    conciergeCta: "Request a call",
+    responseNote: "We aim to reply within 2 business days.",
+    backHome: "← Back to Agaramiya",
+  },
 };
 
 export type Dictionary = typeof en;
@@ -613,6 +704,78 @@ const ta: Dictionary = {
       "சரிபார்க்கப்பட்ட உறுப்பினர்கள், சிந்தனையுடன் கூடிய அறிமுகங்கள்.",
     createAccount: "கணக்கு உருவாக்கு",
     signIn: "உள்நுழை",
+
+    trustEyebrow: "வெறும் வாக்குறுதி அல்ல — சரிபார்க்கப்பட்டது",
+    trustHeading: "ஒவ்வொரு சுயவிவரமும் உண்மையான தடயங்களால் சரிபார்க்கப்படுகிறது.",
+    trustSubheading:
+      "ஒரே ஒரு பொதுவான குறியீடு அல்ல — ஒவ்வொன்றும் தனித்தனியாக சரிபார்க்கப்படுகிறது.",
+    trustIdentityTitle: "அடையாளம்",
+    trustIdentityDesc:
+      "அரசு அடையாள ஆவணம் மற்றும் நேரடி உறுதிப்படுத்தல் — யாரோ தட்டச்சு செய்த பெயர் மட்டுமல்ல.",
+    trustEmploymentTitle: "வேலை",
+    trustEmploymentDesc:
+      "பணி ஆவணங்கள் அல்லது பணி மின்னஞ்சல் மூலம் உறுதிசெய்யப்படுகிறது — நம்பிக்கையின் பேரில் மட்டும் அல்ல.",
+    trustPhoneTitle: "தொலைபேசி",
+    trustPhoneDesc: "ஒவ்வொரு கணக்கின் பின்னும் ஒரு உண்மையான, செயல்படும் எண்.",
+
+    howEyebrow: "அகரமியா எப்படி செயல்படுகிறது",
+    howHeading: "வாரம் 3 சிறப்பு அறிமுகங்கள் — முடிவற்ற ஸ்க்ரோலிங் அல்ல.",
+    howStep1Title: "உங்கள் அடையாளத்தை உறுதிசெய்யவும்",
+    howStep1Desc:
+      "ஒரு விரைவான சரிபார்ப்பு உங்கள் சுயவிவரத்தில் ஒரு குறியீட்டைச் சேர்க்கும் — நீங்கள் உண்மையானவர் என்று மற்றவர்கள் அறிவார்கள்.",
+    howStep2Title: "ஒவ்வொரு வெள்ளிக்கிழமையும் அறிமுகங்கள் பெறுங்கள்",
+    howStep2Desc:
+      "உங்கள் விருப்பங்களின் அடிப்படையில் தேர்ந்தெடுக்கப்பட்ட 3 இணைகள் வரை — எண்ணிக்கையை விட தரம் முக்கியம்.",
+    howStep3Title: "பரஸ்பரமானால், வணக்கம் சொல்லுங்கள்",
+    howStep3Desc:
+      "இருவரும் ஆம் என்று சொன்னால் மட்டுமே முழு சுயவிவரமும் செய்திகளும் திறக்கும்.",
+
+    pricingEyebrow: "கட்டணம்",
+    pricingHeading: "எளிய, நேர்மையான கட்டணம்.",
+    pricingFreeTitle: "இலவசம்",
+    pricingFreePrice: "₹0",
+    pricingFreeDesc: "சரிபார்க்கவும், பார்வையிடவும், ஆர்வம் தெரிவிக்கவும்.",
+    pricingFreeCta: "தொடங்குங்கள்",
+    pricingEliteTitle: "எலீட்",
+    pricingElitePrice: "₹15,000",
+    pricingElitePeriod: "/ 6 மாதங்கள்",
+    pricingEliteDesc:
+      "பரஸ்பர இணையான பிறகு, முழு சுயவிவரமும் செய்தி அனுப்பும் வசதியும்.",
+    pricingEliteCta: "தொடங்குங்கள்",
+    pricingConciergeTitle: "கான்சியர்ஜ்",
+    pricingConciergePrice: "தனிப்பயன்",
+    pricingConciergeDesc:
+      "ஸ்தாபகர் நேரடியாக வழிநடத்தும் திருமண தரகு சேவை — அழைப்பின் மூலம் விலை நிர்ணயம்.",
+    pricingConciergeCta: "அழைப்பு கோருங்கள்",
+
+    faqEyebrow: "கேள்விகள்",
+    faqHeading: "பதிவு செய்வதற்கு முன்",
+    faqQ1: "என் புகைப்படம் உண்மையிலேயே தனிப்பட்டதா?",
+    faqA1:
+      "ஆம் — பரஸ்பர இணை ஏற்படும் வரை அனைவருக்கும் மங்கலாகவே தெரியும். இருபக்கமும் ஒப்புக்கொண்டால் மட்டுமே தெளிவான புகைப்படம் தெரியும்.",
+    faqQ2: "இதற்கு எவ்வளவு செலவாகும்?",
+    faqA2:
+      "சேருவது, சரிபார்ப்பது, பார்வையிடுவது இலவசம். முழு சுயவிவரம் மற்றும் செய்திகளுக்கு எலீட் திட்டம் ₹15,000 / 6 மாதங்கள். ஒருவர் உதவ வேண்டுமா? அகரமியா கான்சியர்ஜ் ஸ்தாபகரால் நேரடியாக வழிநடத்தப்படும், அழைப்பின் மூலம் விலை நிர்ணயிக்கப்படும்.",
+    faqQ3: "மற்ற திருமண தளங்களிலிருந்து இது எப்படி வேறுபடுகிறது?",
+    faqA3:
+      "நாங்கள் அடையாளம், வேலை, தொலைபேசி ஆகியவற்றை தனித்தனியாக சரிபார்க்கிறோம் — வெறும் வாக்குமூலமாக அல்ல — மேலும் முடிவற்ற பட்டியலுக்கு பதிலாக வாரத்திற்கு ஒரு சிலரை மட்டும் அறிமுகப்படுத்துகிறோம்.",
+    faqQ4: "என் குடும்பத்தினர் இதில் பங்கேற்க முடியுமா?",
+    faqA4:
+      "ஆம். ஒரு பெற்றோர் அல்லது குடும்ப உறுப்பினரை உதவ அழைக்கலாம் — அவர்கள் உங்கள் அடிப்படை சுயவிவரத்தையும் முன்னேற்றத்தையும் மட்டுமே காண்பார்கள், உங்கள் தனிப்பட்ட செய்திகளை அல்ல.",
+    faqQ5: "என் தரவு பாதுகாப்பானதா?",
+    faqA5:
+      "அகரமியா இந்தியாவின் DPDP சட்டம், 2023-ஐ அடிப்படையாகக் கொண்டு கட்டமைக்கப்பட்டுள்ளது. உங்கள் கணக்கிலிருந்து எந்நேரமும் உங்கள் தரவை பதிவிறக்கம் செய்யலாம் அல்லது நிரந்தரமாக அழிக்கலாம்.",
+
+    footerTagline: "சரிபார்க்கப்பட்ட, தமிழ்-முதன்மையான திருமண தளம்.",
+    footerSupport: "ஆதரவு",
+    footerPrivacy: "தனியுரிமைக் கொள்கை",
+    footerRights: "அனைத்து உரிமைகளும் பாதுகாக்கப்பட்டவை.",
+
+    navTrust: "நாங்கள் எப்படி சரிபார்க்கிறோம்",
+    navHow: "எப்படி செயல்படுகிறது",
+    navPricing: "கட்டணம்",
+    navFaq: "கேள்விகள்",
+    scrollHint: "எப்படி செயல்படுகிறது எனப் பார்க்க",
   },
   auth: {
     createTitle: "உங்கள் கணக்கை உருவாக்கவும்",
@@ -1138,6 +1301,22 @@ const ta: Dictionary = {
     pageNotFound: "பக்கம் கிடைக்கவில்லை.",
     pageNotFoundDesc: "அந்தப் பக்கம் இல்லை, அல்லது நகர்த்தப்பட்டுள்ளது.",
     couldntLoad: "அகரமியா ஏற்ற முடியவில்லை.",
+  },
+  support: {
+    eyebrow: "ஆதரவு",
+    heading: "ஒரு போட் அல்ல, ஒரு நபருடன் பேசுங்கள்.",
+    subheading:
+      "அகரமியா ஒரு சிறிய, நேரடியாக செயல்படும் குழுவால் இயக்கப்படுகிறது — எங்களுக்கு எழுதுங்கள், ஒரு உண்மையான நபர் அதைப் படிப்பார்.",
+    generalHeading: "பொது ஆதரவு",
+    generalDesc: "கணக்கு தொடர்பான கேள்விகள், பிழைகள், அல்லது நீங்கள் சிக்கியிருக்கும் எதுவும்.",
+    privacyHeading: "தனியுரிமை & தரவு கோரிக்கைகள்",
+    privacyDesc:
+      "உங்கள் தரவு பற்றிய கேள்விகள், அல்லது DPDP சட்டம், 2023-ன் கீழ் ஒரு புகார் — முழு விவரங்களுக்கு எங்கள் தனியுரிமைக் கொள்கையைப் பார்க்கவும்.",
+    conciergeHeading: "ஒரு நேரடி திருமண தரகர் வேண்டுமா?",
+    conciergeDesc: "அகரமியா கான்சியர்ஜ் ஸ்தாபகரால் நேரடியாக வழிநடத்தப்படும் தேடல் — அழைப்பு கோருங்கள்.",
+    conciergeCta: "அழைப்பு கோருங்கள்",
+    responseNote: "2 வேலை நாட்களுக்குள் பதிலளிக்க முயற்சிக்கிறோம்.",
+    backHome: "← அகரமியாவுக்குத் திரும்பு",
   },
 } satisfies Dictionary;
 

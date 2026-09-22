@@ -6,30 +6,25 @@
  * "editorial + premium + warm + trustworthy" rather than
  * "swipe + dating + gamification".
  *
- * IMPORTANT — these are NOT real member photos. This sandbox has no
- * way to source licensed photography (no image-generation tool, and
- * outbound fetches to stock-photo CDNs are blocked by the
- * organization's network policy), so each card is an abstract
- * placeholder rather than a photograph. First pass at this (a flat
- * grey circle-and-shoulders icon on a pale card) read as a generic
- * empty-state icon, not "beautiful" anything — founder feedback,
- * caught by looking at the live page. This version instead renders a
- * soft, warm-lit "silhouette study": blurred radial-gradient glows in
- * the brand's maroon/gold/ivory palette suggesting a head-and-
- * shoulders form, like an out-of-focus editorial portrait rather than
- * a clip-art person icon — plus a thin gold rule at the foot of each
- * card, an editorial-print "caption line" detail with nothing written
- * on it. Each card is still framed exactly like a real photo would be
- * (rounded corners, soft shadow, thin border), so the moment real,
- * licensed portrait photography exists, dropping a file into the
- * `photoSrc` slot below replaces the glow study with the real image —
- * same frame, same layout, no other changes needed.
+ * IMPORTANT — these are NOT real member photos, and never claimed to
+ * be. The five images below (public/brand/portraits/portrait-1.jpg …
+ * portrait-5.jpg) are AI-generated headshot photography the founder
+ * supplied, cropped from a 10-photo reference sheet to fit each
+ * card's frame (face + shoulders, top-anchored so hair/eyes stay in
+ * frame). They're used purely as decorative atmosphere — the same
+ * role editorial stock photography plays on any marketing page — not
+ * as a stand-in for a "real testimonial" or "real member": no names,
+ * no quotes, no verified badges are attached to these cards, and none
+ * should be added, to stay consistent with the app's honesty-first
+ * positioning (no fabricated signals, matching the "no fabricated
+ * score" principle used everywhere else in the product).
  *
- * Never used as a stand-in for a "real testimonial" or "real member" —
- * no names, no quotes, no verified badges are attached to these cards,
- * to stay consistent with the app's honesty-first positioning (no
- * fabricated signals, matching the "no fabricated score" principle
- * used everywhere else in the product).
+ * Before real photography existed, each card rendered an abstract
+ * "silhouette study" (blurred radial-gradient glows in the brand
+ * palette) instead of a photo — that fallback is kept below and still
+ * renders automatically for any card whose `photoSrc` is unset, so a
+ * card can be swapped back to the placeholder (or given a different
+ * photo later) without touching the layout.
  */
 
 type Card = {
@@ -45,6 +40,7 @@ type Card = {
 
 const CARDS: Card[] = [
   {
+    photoSrc: "/brand/portraits/portrait-1.jpg",
     base: "linear-gradient(165deg, #F6EAD8 0%, #EAD9C4 55%, #DCC6A6 100%)",
     glowHead: "radial-gradient(circle, rgba(142,35,70,0.32) 0%, rgba(142,35,70,0) 70%)",
     glowBody: "radial-gradient(ellipse, rgba(177,138,87,0.30) 0%, rgba(177,138,87,0) 72%)",
@@ -53,6 +49,7 @@ const CARDS: Card[] = [
     size: "lg",
   },
   {
+    photoSrc: "/brand/portraits/portrait-2.jpg",
     base: "linear-gradient(165deg, #F4E6EA 0%, #E6C9D2 55%, #D3A9B8 100%)",
     glowHead: "radial-gradient(circle, rgba(100,24,47,0.30) 0%, rgba(100,24,47,0) 70%)",
     glowBody: "radial-gradient(ellipse, rgba(142,35,70,0.26) 0%, rgba(142,35,70,0) 72%)",
@@ -61,6 +58,7 @@ const CARDS: Card[] = [
     size: "md",
   },
   {
+    photoSrc: "/brand/portraits/portrait-3.jpg",
     base: "linear-gradient(165deg, #F2EFED 0%, #E3DCD3 55%, #CDBFAA 100%)",
     glowHead: "radial-gradient(circle, rgba(177,138,87,0.34) 0%, rgba(177,138,87,0) 70%)",
     glowBody: "radial-gradient(ellipse, rgba(142,35,70,0.20) 0%, rgba(142,35,70,0) 72%)",
@@ -69,6 +67,7 @@ const CARDS: Card[] = [
     size: "lg",
   },
   {
+    photoSrc: "/brand/portraits/portrait-4.jpg",
     base: "linear-gradient(165deg, #F6EAD8 0%, #E6C9D2 55%, #C99AA8 100%)",
     glowHead: "radial-gradient(circle, rgba(142,35,70,0.28) 0%, rgba(142,35,70,0) 70%)",
     glowBody: "radial-gradient(ellipse, rgba(100,24,47,0.24) 0%, rgba(100,24,47,0) 72%)",
@@ -77,6 +76,7 @@ const CARDS: Card[] = [
     size: "md",
   },
   {
+    photoSrc: "/brand/portraits/portrait-5.jpg",
     base: "linear-gradient(165deg, #F2EFED 0%, #EAD9C4 55%, #D3B98F 100%)",
     glowHead: "radial-gradient(circle, rgba(177,138,87,0.36) 0%, rgba(177,138,87,0) 70%)",
     glowBody: "radial-gradient(ellipse, rgba(177,138,87,0.22) 0%, rgba(177,138,87,0) 72%)",

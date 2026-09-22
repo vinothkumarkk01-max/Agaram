@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Newsreader, Catamaran } from "next/font/google";
 import "./globals.css";
 import { getLocale } from "@/lib/i18n/server";
+import { SITE_URL } from "@/lib/site";
 
 const newsreader = Newsreader({
   variable: "--font-newsreader",
@@ -15,9 +16,17 @@ const catamaran = Catamaran({
   weight: ["400", "500", "600", "700", "800"],
 });
 
+const DESCRIPTION = "A verified, Tamil-first matrimonial platform.";
+
 export const metadata: Metadata = {
+  // Required for the auto-generated opengraph-image / twitter-image
+  // <meta> tags to be absolute URLs rather than relative ones (social
+  // crawlers won't resolve a relative image URL). Update
+  // NEXT_PUBLIC_SITE_URL once agaramiya.com is registered — see
+  // src/lib/site.ts.
+  metadataBase: new URL(SITE_URL),
   title: "Agaramiya",
-  description: "A verified, Tamil-first matrimonial platform.",
+  description: DESCRIPTION,
   applicationName: "Agaramiya",
   // src/app/icon.png and src/app/apple-icon.png (Next's file-convention
   // icons) already add the favicon / apple-touch-icon <link> tags
@@ -27,6 +36,19 @@ export const metadata: Metadata = {
     capable: true,
     statusBarStyle: "black-translucent",
     title: "Agaramiya",
+  },
+  // src/app/opengraph-image.tsx generates the actual image referenced
+  // by these tags automatically — no `images` field needed here.
+  openGraph: {
+    title: "Agaramiya",
+    description: DESCRIPTION,
+    siteName: "Agaramiya",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Agaramiya",
+    description: DESCRIPTION,
   },
 };
 

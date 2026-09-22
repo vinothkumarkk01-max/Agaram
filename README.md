@@ -2087,6 +2087,26 @@ screen by screen.
 
 No database changes this round.
 
+### Landing page: premium first impression, footer, OG image, sitemap/robots, support page (V1)
+
+Founder direction, after a grounded go-live checklist review: "start working on landing page's first impression, and polish" while legal/trust work happens separately. Before this round, `src/app/page.tsx` was a single hero screen (logo, tagline, two buttons, a bare Privacy Policy link) — none of the PRD's own positioning work had made it to the actual public-facing page.
+
+- **New below-the-fold sections**, each its own component, all Server Components (no client JS needed):
+  - `LandingTrustSection` — "how we verify," surfacing exactly the three real signals (Identity, Employment, Phone — matching `TrustProfileSummary` on the dashboard), not the PRD's fuller five-signal aspiration.
+  - `LandingHowItWorks` — the PRD's signature mechanic ("3 curated introductions a week") as a numbered 3-step sequence, in front of a visitor for the first time.
+  - `LandingPricing` — Free / Elite (₹15,000 / 6 months) / Concierge, with real prices instead of requiring signup to see them. Concierge links straight to the existing `/concierge/apply` page.
+  - `LandingFaq` — five real pre-signup questions (privacy, cost, differentiation, family involvement, data safety), using native `<details>`/`<summary>` disclosures.
+  - `LandingFooter` — brand mark, tagline, Support and Privacy Policy links, copyright line. Deliberately does **not** link a Terms of Service page, since none exists yet (see the go-live checklist — the founder is handling this directly); linking one here would mean fabricating legal text.
+- **New `/support` page** — before this, there was no way to reach a human outside the grievance email buried in `/privacy`. A plain contact page (General support, Privacy & data requests, a Concierge link) — no contact form, since a form implying a ticketing system that doesn't exist would be less honest than a direct mailto.
+- **Social-share (Open Graph) image** — `src/app/opengraph-image.tsx`, generated via `next/og`'s `ImageResponse` from the real brand mark asset, so sharing the link (e.g. on WhatsApp) now shows a branded preview card instead of a bare title/description. No custom font loaded (Google Fonts isn't reachable from every build environment this project runs in) — falls back to `next/og`'s bundled default font.
+- **`sitemap.xml` / `robots.txt`** — `src/app/sitemap.ts` / `src/app/robots.ts`, covering only the public marketing surface (`/`, `/signup`, `/login`, `/concierge/apply`, `/support`, `/privacy`) and disallowing every account-gated area (`/dashboard`, `/matches`, `/account`, `/admin`, `/family`, `/onboarding`, `/api`).
+- **`src/lib/site.ts`** — a single `SITE_URL` constant (env-var driven, falling back to the current Vercel deployment URL) that the sitemap, robots, and `metadataBase` all read from — so the one thing that needs to change once `agaramiya.com` is registered is an env var, not code.
+- New dictionary keys: `landing.trust*` / `landing.how*` / `landing.pricing*` / `landing.faq*` / `landing.footer*`, and a new top-level `support` section (en/ta).
+
+Not done in this round, and worth knowing why: Sentry's DSN (needs a real account, not a code change), a distinct Royal Concierge dashboard state (a separate, larger feature), and the CSP `Content-Security-Policy` enforcement flag (already implemented as a documented env var — flipping it needs one real signup→verification→checkout→messaging run-through with the browser console open, not a code change). See the go-live checklist artifact for the full picture.
+
+No database changes this round.
+
 ## What's next
 
 All 8 V0 build-plan phases are live, plus thirty V1 features now:
