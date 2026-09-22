@@ -41,7 +41,7 @@ import { buildTestAvatar } from "@/lib/testData/avatar";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-const TEST_PASSWORD = "AgaramBulkTest#2026";
+const TEST_PASSWORD = "AgaramiyaBulkTest#2026";
 const TOTAL_PER_GENDER = 100;
 const DEFAULT_BATCH_COUNT = 20;
 const ONE_YEAR_FROM_NOW = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();

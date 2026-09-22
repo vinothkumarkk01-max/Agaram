@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Newsreader, Catamaran } from "next/font/google";
 import "./globals.css";
 import { getLocale } from "@/lib/i18n/server";
@@ -16,8 +16,24 @@ const catamaran = Catamaran({
 });
 
 export const metadata: Metadata = {
-  title: "Agaram Premium",
+  title: "Agaramiya",
   description: "A verified, Tamil-first matrimonial platform.",
+  applicationName: "Agaramiya",
+  // src/app/icon.png and src/app/apple-icon.png (Next's file-convention
+  // icons) already add the favicon / apple-touch-icon <link> tags
+  // automatically — appleWebApp below only adds the "launches like an
+  // installed app" meta tags that those file-convention icons don't cover.
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Agaramiya",
+  },
+};
+
+// themeColor lives on `viewport`, not `metadata` — Next.js warns (and
+// won't render the tag) if it's placed on the metadata object instead.
+export const viewport: Viewport = {
+  themeColor: "#8E2346", // Agaramiya Maroon — matches the app icon background
 };
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {

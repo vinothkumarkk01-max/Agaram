@@ -49,7 +49,7 @@ export default async function AdminConciergePage() {
         className="rounded-2xl p-8 text-center text-sm"
         style={{ background: "var(--bg-sunken)", color: "var(--text-soft)" }}
       >
-        No Royal Concierge applications yet.
+        No Agaramiya Concierge applications yet.
       </div>
     );
   }
@@ -75,7 +75,7 @@ export default async function AdminConciergePage() {
   return (
     <div className="flex flex-col gap-3">
       <p className="text-xs" style={{ color: "var(--text-soft)" }}>
-        Royal Concierge is a manual, founder-run service (PRD §11) — no
+        Agaramiya Concierge is a manual, founder-run service (PRD §11) — no
         automated matching or billing sits behind it. This is just your
         own record of where each conversation has gotten to; call the
         phone number below to move it forward.

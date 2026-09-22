@@ -25,7 +25,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
 
-const TEST_PASSWORD = "AgaramTest#2026";
+const TEST_PASSWORD = "AgaramiyaTest#2026";
 const ONE_YEAR_FROM_NOW = new Date(
   Date.now() + 365 * 24 * 60 * 60 * 1000
 ).toISOString();

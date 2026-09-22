@@ -72,8 +72,8 @@ export function UpgradeButton({
       amount: order.amount,
       currency: order.currency,
       order_id: order.orderId,
-      name: "Agaram Premium",
-      description: "Elite — 6 months",
+      name: "Agaramiya",
+      description: "Agaramiya Elite — 6 months",
       prefill: userEmail ? { email: userEmail } : undefined,
       theme: { color: "#8E2346" },
       handler: async (response: {
@@ -119,8 +119,8 @@ export function UpgradeButton({
     const razorpay = new window.Razorpay({
       key: subscription.keyId,
       subscription_id: subscription.subscriptionId,
-      name: "Agaram Premium",
-      description: "Elite — auto-renews every 6 months",
+      name: "Agaramiya",
+      description: "Agaramiya Elite — auto-renews every 6 months",
       prefill: userEmail ? { email: userEmail } : undefined,
       theme: { color: "#8E2346" },
       handler: async (response: {

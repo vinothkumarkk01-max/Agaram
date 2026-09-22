@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import * as Sentry from "@sentry/nextjs";
 import { getClientDictionary } from "@/lib/i18n/client";
+import { BrandMark } from "@/components/BrandMark";
 
 // Wraps every route segment below the root layout (so it keeps the
 // fonts/theme from layout.tsx — global-error.tsx, for the root
@@ -32,14 +33,8 @@ export default function Error({
       }}
     >
       <div className="text-center max-w-sm">
-        <div
-          className="w-14 h-14 rounded-full mx-auto mb-6 flex items-center justify-center text-white font-bold text-2xl shadow-sm"
-          style={{
-            background:
-              "linear-gradient(135deg, var(--accent), var(--accent-strong))",
-          }}
-        >
-          அ
+        <div className="mx-auto mb-6 w-fit">
+          <BrandMark size={56} alt={t.common.brand} />
         </div>
         <h1
           className="text-2xl mb-2"

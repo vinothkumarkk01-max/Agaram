@@ -1,5 +1,4 @@
-import { AuthForm } from "@/components/AuthForm";
-import { signup } from "@/app/actions/auth";
+import { SignupWizard } from "@/components/SignupWizard";
 import { getDictionary } from "@/lib/i18n/server";
 
 export default async function SignupPage({
@@ -8,9 +7,7 @@ export default async function SignupPage({
   const { locale, t } = await getDictionary();
   const { next } = await searchParams;
   return (
-    <AuthForm
-      mode="signup"
-      action={signup}
+    <SignupWizard
       locale={locale}
       t={t}
       next={typeof next === "string" ? next : undefined}

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getDictionary } from "@/lib/i18n/server";
+import { BrandMark } from "@/components/BrandMark";
 
 export default async function NotFound() {
   const { t } = await getDictionary();
@@ -12,14 +13,8 @@ export default async function NotFound() {
       }}
     >
       <div className="text-center max-w-sm">
-        <div
-          className="w-14 h-14 rounded-full mx-auto mb-6 flex items-center justify-center text-white font-bold text-2xl shadow-sm"
-          style={{
-            background:
-              "linear-gradient(135deg, var(--accent), var(--accent-strong))",
-          }}
-        >
-          அ
+        <div className="mx-auto mb-6 w-fit">
+          <BrandMark size={56} alt={t.common.brand} />
         </div>
         <h1
           className="text-2xl mb-2"

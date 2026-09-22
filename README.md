@@ -1,4 +1,4 @@
-# Agaram — Project Scaffold (V0, Phase 1)
+# Agaramiya — Project Scaffold (V0, Phase 1)
 
 This is the first phase of the build order from `Agaram_Solo_Founder_Build_Plan.md`:
 a working Next.js + Supabase scaffold with real signup/login/logout, nothing
@@ -77,7 +77,9 @@ personal access token instead of your password).
 1. Go to [vercel.com](https://vercel.com) and sign up with your GitHub
    account.
 2. Click **Add New… → Project**, then **Import** next to your `Agaram`
-   repo.
+   repo (the GitHub repo itself is still named `Agaram` — renaming the
+   app's brand doesn't rename the repo; do that separately on GitHub if
+   you want the repo name to match).
 3. Before clicking Deploy, expand **Environment Variables** and add the
    same two values from your `.env.local`:
    - `NEXT_PUBLIC_SUPABASE_URL`
@@ -95,7 +97,7 @@ After profile + preferences, members hit `/onboarding/verification`: a
 consent + Aadhaar-number form, a "verifying…" screen, then a
 Verified badge on the dashboard. The pending → verified transition is
 real — but the actual identity check is currently a **mock** (it
-always resolves to "verified" after ~2 seconds), because Agaram
+always resolves to "verified" after ~2 seconds), because Agaramiya
 doesn't have a real e-KYC vendor account yet:
 
 - **HyperVerge** (the vendor picked earlier) does offer a self-serve
@@ -258,7 +260,7 @@ button on `/matches/mutual` opens a real two-way chat thread at
 
 ## Admin basics (Phase 7) — reports and manual verification review
 
-A minimal `/admin` area for the one person running Agaram (you) to
+A minimal `/admin` area for the one person running Agaramiya (you) to
 review member reports and manually override a stuck identity
 verification.
 
@@ -788,7 +790,7 @@ section.
 
 Turn it on from `/account` → **Message notifications** — a browser
 push notification arrives when a mutual match sends you a message,
-even if Agaram isn't open in a tab.
+even if Agaramiya isn't open in a tab.
 
 - **One-time setup:** generate a VAPID keypair (`npx web-push
   generate-vapid-keys` — pure crypto, no account needed) and add
@@ -935,7 +937,7 @@ unrelated and still open, per the Phase 8 privacy-policy note above.
 **A related but separate DPDP gap, also closed this round: consent
 was never actually captured at account creation.** Section 7 of
 `/privacy` has always described "explicit consent (a checkbox naming
-the DPDP Act directly)" as how Agaram gets consent, and the Aadhaar
+the DPDP Act directly)" as how Agaramiya gets consent, and the Aadhaar
 identity check (Phase 3) always did capture it — but plain account
 creation itself never did. The very first onboarding step (Basic
 Info, right after signup) now has a required checkbox linking to
@@ -991,7 +993,7 @@ That creates:
   screen.
 
 The page that loads back shows every account's email and a shared
-password (`AgaramTest#2026` — change it in the route file if you'd
+password (`AgaramiyaTest#2026` — change it in the route file if you'd
 rather use your own). Log in at `/login` with any of them. Visiting
 the URL again is safe — it updates these same seven accounts in place
 rather than creating duplicates.
@@ -1082,7 +1084,7 @@ automatically or with human help.
   inside Postgres (`confirm_work_email_otp()`, `supabase/schema.sql`
   Phase 18), so the code itself is never trusted client-side.
 - **Employer attestation (human-reviewed).** For anyone without a
-  company email address, consent to Agaram contacting your employer's
+  company email address, consent to Agaramiya contacting your employer's
   HR/manager directly. This lands in a queue on `/admin` →
   **Employment** for you to review by hand — there's no vendor (like
   Attestr/IDfy) wired in for automated EPFO checks yet, so this is the
@@ -1531,7 +1533,7 @@ visible journey rather than a private settings field."
 to the other side of any match, and — unlike everything else added
 this round — it's never read by `get_match_candidates()` or any
 matching/filtering logic. This is a personal reflection tool ("where
-am I in this process"), not a signal Agaram acts on; PRD §6 describes
+am I in this process"), not a signal Agaramiya acts on; PRD §6 describes
 it as something the *platform* could eventually use to avoid
 recommending someone who's already deep in a conversation, but that's
 real product-behavior design this round doesn't attempt.
@@ -1597,7 +1599,9 @@ who just logs in and looks at their own profile get pulled back in;
 is the dashboard actually interesting to them?" A competitor pass
 (Shaadi.com, BharatMatrimony, Jeevansathi, TamilMatrimony, plus
 Hinge/Bumble for engagement-design ideas — written up in the Agaram
-project as `Agaram_Dashboard_Competitor_Analysis.md`) found the same
+project (the Claude Project this build lives in — still named "Agaram"
+regardless of the app's own brand name) as
+`Agaram_Dashboard_Competitor_Analysis.md`) found the same
 gap on every one of them: the old `/dashboard` was entirely
 self-facing (your own name, preferences, verification, subscription)
 with nothing about outside activity. Three honest, real-data additions
@@ -1640,9 +1644,396 @@ revalidates `/dashboard`, so acting on a match from anywhere in the
 app keeps the dashboard's counts and "Today's introduction" pick
 current.
 
+## Trust profile summary on the dashboard (V1)
+
+Direct follow-up to two independent reviews this round — the Claude
+Project's own `Agaram_Dashboard_Competitor_Analysis.md` ("surface the
+compatibility/verification story earlier... rather than requiring a
+trip into Browse to see it") and an external product review (asked
+for a "Trust profile"/"Verification status" indicator) both flagged
+the same gap from different directions: the dashboard only ever
+surfaced Identity verification, as a single pass/fail gate, and never
+told a member about their own Employment or Phone verification status
+even though both have existed on `/account` since earlier rounds.
+
+- **`components/TrustProfileSummary.tsx`** — a compact card near the
+  top of `/dashboard` showing all three real signals at once (Identity,
+  Employment, Phone), each with its actual status (✓ Verified / Pending
+  / Not verified) and a link to where a member can act on it. The
+  header shows a plain "X of 3 verified" count — a literal tally of
+  real database rows, never a weighted or fabricated score, consistent
+  with the same honesty rule the match-explanation card already
+  follows.
+- **Deliberately three signals, not the PRD's five.** The PRD's
+  verification architecture (§7.1) describes five eventual signals —
+  Identity, Employment, Professional, Education, Diaspora — but only
+  Identity, Employment, and Phone actually exist as real tables today
+  (`identity_verifications`, `employment_verifications`,
+  `phone_verifications`). This card only ever shows what's real; adding
+  Professional/Education/Diaspora rows here is future work once those
+  verification paths are actually built, not before.
+  See `Agaram_Premium_PRD_v2.md` §7.1 for the full target model.
+- **Anchor links into `/account`.** The Employment and Phone rows link
+  to `/account#employment` and `/account#phone` — `AccountSection` (the
+  collapsible `<details>` wrapper every `/account` section uses) now
+  takes an optional `id` prop, and modern browsers auto-expand a
+  `<details>` element when a URL fragment targets something inside it,
+  so tapping either row lands directly on the right section, already
+  open, instead of a collapsed page top.
+- **The old standalone Identity banner is gone** — its "✓ Identity
+  verified" state now lives inside the trust-profile card like the
+  other two signals; the not-yet-verified/pending banner (with its
+  "Verify now"/"Check status" call to action) still shows separately
+  above it, since that one still gates the rest of the dashboard
+  (Browse, activity strip, Today's introduction) and deserves its own
+  prominent action, not a quiet row.
+
+## PWA manifest & app icons — installable, but still not a native app
+
+Direct follow-up to a founder question this round — "when is the right
+time to build a native app?" The honest answer was: not yet, and
+before native there's a much cheaper step — a real web app manifest —
+that gets most of the "feels like an app" benefit for close to zero
+cost. This round builds that step, not a native app.
+
+- **Full icon set**, all generated by `scripts/generate-icons.mjs` from
+  the real brand mark (see "Real brand artwork" below): `public/icons/
+  icon-{192,512}.png` ("any" purpose) and `icon-maskable-{192,512}.png`
+  (safe-zone padded, for Android's adaptive-icon crop) for the
+  manifest; `public/apple-touch-icon.png` plus Next's own file-
+  convention icons (`src/app/icon.png`, `src/app/apple-icon.png`,
+  `src/app/favicon.ico` — a real multi-resolution 16/32/48 `.ico`, not
+  the default Next.js placeholder) so the browser tab, bookmarks, and
+  "Add to Home Screen" on both iOS and Android all show the real
+  Agaramiya mark instead of a generic bookmark icon. Re-run with
+  `npm run icons:generate` any time the brand artwork changes.
+- **`src/app/manifest.ts`** — Next's manifest file convention, served
+  at `/manifest.webmanifest` and linked automatically (no manual
+  `<link rel="manifest">` needed). Sets `display: "standalone"` (no
+  browser address bar once installed), `theme_color` (Agaramiya Maroon —
+  also the color Android tints the status bar/task switcher),
+  `background_color` (Warm Ivory — the splash-screen color shown
+  briefly before the app's own first paint), and the icon set above.
+- **`layout.tsx`**: added a `viewport` export with `themeColor` (Next
+  requires this on `viewport`, not `metadata` — it warns otherwise)
+  and `appleWebApp: { capable: true, statusBarStyle:
+  "black-translucent", title: "Agaramiya" }`, which is what makes an
+  iPhone launch the installed icon full-screen instead of opening
+  Safari with browser chrome.
+
+### Real brand artwork (Sept 2026) — replaces the earlier rendered-text mark
+
+The founder supplied the actual Agaramiya logo this round: a
+script-style monogram (a stylized "அ"/A hybrid with a small gold leaf
+accent) over the wordmark **AGARAMIYA** in small-caps serif, with the
+tagline "A good beginning matters." beneath it in gold, on the same
+warm-ivory background as the app's own `--bg` token. This replaces
+everything that was previously a *rendered* mark — an SVG-drawn Tamil
+letter **அ** on a maroon gradient circle, generated from code rather
+than real artwork.
+
+- **`public/brand/`** (new) holds three crops derived from the
+  founder's uploaded logo:
+  - `agaramiya-logo.png` — the full lockup (monogram + wordmark +
+    tagline), used on the landing-page hero (`src/app/page.tsx`).
+  - `agaramiya-lockup.png` — monogram + wordmark, no tagline (for a
+    compact header that shouldn't repeat the tagline — not yet used
+    anywhere in the app, available for future screens).
+  - `agaramiya-mark-source.png` — a square, pre-padded crop of just
+    the monogram, used as the source for every generated app
+    icon/favicon.
+- **`scripts/generate-icons.mjs`** was rewritten to derive every icon
+  from `agaramiya-mark-source.png` (via `sharp`, padding the canvas
+  around the mark to hit a target fill percentage) instead of
+  rendering SVG text — so the app icon, favicon, and the landing/
+  privacy-page marks are now all the same real artwork at different
+  sizes and crops, not a code-drawn approximation of it. This also
+  removes the earlier dependency on the `fonts-noto-core` system
+  package (it was only needed to render the Tamil glyph via
+  fontconfig; there's no glyph rendering left to do).
+- **`src/app/page.tsx`** (landing page) now renders
+  `public/brand/agaramiya-logo.png` directly via `next/image` in place
+  of the old gradient-circle-அ mark and separate `<h1>` brand text.
+- **`src/app/privacy/page.tsx`** now renders
+  `public/brand/agaramiya-mark-source.png` as the small header mark,
+  replacing the same old placeholder circle.
+
+See `Agaram_Visual_Design_System_v1.md`'s "Brand mark" section (in the
+Claude Project) for the full design rationale.
+
+**What this is not:** a native app. There's no App Store/Play Store
+listing, and this doesn't add one — it makes the existing
+mobile-responsive web app installable and full-screen, which closes
+most of the visual "feels like an app" gap for near-zero ongoing cost
+(no separate codebase, no app-store review, no per-platform
+maintenance). The real signals for when native is actually worth
+building: iOS web push reliability becoming a real drag on match/
+message notifications reaching members (Safari's web push, added in
+16.4, is still less reliable than a real APNs push — the gap a native
+app would close), a meaningful share of traffic on iOS specifically,
+and/or organic App Store search demand once there's enough of a user
+base to see it. None of those signals exist yet at this stage, so
+native stays a later, deliberate decision rather than a default next
+step.
+
+## Landing-page hero: a portrait collage instead of text-only (V1)
+
+Direct response to founder feedback this round: "your hero section
+should show people... the current page is almost entirely textual/
+functional... I would use 3–5 beautiful profile portraits with subtle
+cards around them, but don't make it look like a dating app — editorial
++ premium + warm + trustworthy rather than swipe + dating +
+gamification."
+
+- **`src/components/PortraitCollage.tsx`** (new) renders a scattered,
+  editorial-style arrangement of 5 portrait-aspect cards above the
+  brand lockup on the landing page — rounded corners, soft shadow, a
+  thin `--line` border, and a slight independent rotation/vertical
+  offset per card (`sm:` and up only, so mobile shows a clean flat
+  grid rather than an overlapping mess) for a loosely-scattered
+  editorial spread rather than a rigid photo grid. No hearts, no
+  swipe-deck framing, no fabricated stats or "X people liked you"
+  gamification anywhere near it.
+- **Not real member photos yet — and said so in the code.** This
+  sandbox has no image-generation tool and outbound fetches to
+  stock-photo CDNs are blocked by the organization's network policy,
+  so each card is currently an elegant placeholder: a soft warm
+  gradient (mixing `--accent-soft`, `--bg-sunken`, and a muted gold
+  tone from the token set) plus a simple silhouette bust drawn in
+  low-opacity `--text`, framed exactly like a real photo would be. No
+  names, quotes, or "verified" badges are attached to these cards —
+  staying consistent with the app's honesty-first positioning (the
+  same "no fabricated score" principle used everywhere else) rather
+  than implying these particular shapes are real members.
+- **Revised (same day)** — the first pass rendered each placeholder
+  as a flat grey circle-and-shoulders icon, which read as a generic
+  empty-state icon rather than anything "beautiful," caught by
+  actually opening the live page. Replaced with a soft, warm-lit
+  "silhouette study": blurred radial-gradient glows in the brand's
+  maroon/gold/ivory tones suggesting a head-and-shoulders form, like
+  an out-of-focus editorial portrait, plus a thin gold "caption rule"
+  at the foot of each card (an editorial-print detail, deliberately
+  left blank) — same card frame, same layout, just a more premium
+  placeholder treatment while real photography isn't available.
+- **Swapping in real photography is a one-line change per card** —
+  each entry in `PortraitCollage.tsx`'s `CARDS` array takes an
+  optional `photoSrc`; once licensed portrait photography exists (the
+  founder's own photoshoot, or a stock library the founder has usage
+  rights to), dropping a file path into that slot replaces the
+  gradient placeholder with the real image, same card frame, same
+  layout, no other changes needed.
+- **`src/app/page.tsx`** — the hero's outer container widened
+  (`max-w-md` → `max-w-xl`) to give the 5-card collage room, and the
+  collage now renders first, ahead of the wordmark lockup — the page
+  leads with people, then confirms the brand, rather than the other
+  way around.
+
+## Brand naming architecture: "Agaramiya [X]" (V1)
+
+Direct response to founder feedback this round: "I'd strongly consider
+restructuring the brand as: AGARAMIYA / A good beginning matters. /
+Then: Agaramiya Verified / Agaramiya Introductions / Agaramiya Elite /
+Agaramiya Concierge / That is a much stronger architecture."
+
+Applied the "Agaramiya [X]" prefix consistently across the app's
+user-facing copy, in both the English and Tamil dictionaries
+(`src/lib/i18n/dictionary.ts`) and the few places that had a
+hardcoded string instead of going through it:
+
+- **Verified** — the dashboard's trust-profile card heading (already
+  built as `TrustProfileSummary.tsx`, no component changes needed)
+  renamed from "Trust profile" / "நம்பகத் தன்மை சுயவிவரம்" to
+  "Agaramiya Verified" / "அகரமியா உறுதிசெய்யப்பட்டது" — this already
+  matched the design system doc's "Verified badge: unified into one
+  'Agaramiya Verified' hero mark" note almost exactly.
+- **Introductions** — a new `dashboard.introductionsHeading` key
+  ("Agaramiya Introductions" / "அகரமியா அறிமுகங்கள்") now renders as a
+  small uppercase kicker above the dashboard's activity strip (the
+  "waiting for response" / "mutual matches" count cards), in the same
+  style already used for the Concierge kicker on `/upgrade` and
+  `/concierge/apply`.
+- **Elite** — every member-facing mention of the paid tier now reads
+  "Agaramiya Elite" rather than bare "Elite": the account/billing
+  screen, the upgrade/renew flow (including the Razorpay checkout
+  modal's own `description` field, which members see inside Razorpay's
+  UI, not just this app's), the match-gating upsell copy, and the two
+  "couldn't send that" error messages on messaging actions that
+  mention an inactive Elite subscription. The "Browse matches" button
+  itself was deliberately left as an action verb, not renamed to a
+  brand term.
+- **Concierge** — "Royal Concierge" renamed to "Agaramiya Concierge"
+  everywhere a member or admin actually sees it: the concierge card
+  and apply flow (English + Tamil dictionary), the admin concierge
+  queue's empty state and explainer text, and the success message
+  after submitting a concierge request. Internal code comments citing
+  "Royal Concierge" against PRD §11 / the Phase 21 schema were left
+  as-is — they're developer-facing history, not member-facing copy.
+- Each string kept its own pre-existing Latin-vs-Tamil-transliteration
+  convention (e.g. "Elite" stays a Latin loanword in some Tamil
+  strings and becomes "எலீட்" in others, matching how that specific
+  string already read) rather than imposing one new rule across the
+  whole dictionary.
+
+Not done this round: the Claude Project docs (PRD, build plan) still
+say "Royal Concierge" throughout, matching how they read before this
+app's own earlier "Agaram" → "Agaramiya" rebrand pass was applied to
+them. Worth a follow-up pass if the founder wants those docs to track
+this same "Agaramiya [X]" architecture going forward.
+
+## Signup redesign: two warm questions before email/password (V1)
+
+Direct response to founder feedback this round: the old signup
+opener — "Start with your email — you can add everything else
+after" — was "technically simple, but not emotionally engaging," and
+should instead feel like matchmaking, not account creation.
+
+- **`src/components/SignupIntentStep.tsx`** (new) is now the first
+  thing `/signup` shows: "Let's begin well. / Tell us a little about
+  yourself." followed by two questions — "I am looking for:" (a
+  partner for myself / for my son or daughter / helping a family
+  member) and "What matters most to you?" (Values, Education, Career,
+  Family, Location, Lifestyle, Religion, Jathagam — pick as many as
+  you like). Only after answering does the familiar email/password
+  step appear.
+- **`src/components/SignupWizard.tsx`** (new) orchestrates the two
+  screens client-side, with no page navigation between them — step
+  two reuses the existing `AuthForm` exactly as it already worked,
+  through two new optional, additive-only props (`signupIntent`,
+  `onBack`). The login page renders `AuthForm` directly and was not
+  touched at all.
+- **"I am looking for" isn't a new question** — it's a friendlier,
+  coarser front door to the "Who's setting up this profile?" dropdown
+  `BasicInfoForm` already asks in more detail right after signup.
+  Rather than ask twice, the signup answer now just pre-selects a
+  sensible starting point there (self → Myself, son/daughter → My
+  son, family member → A relative), still fully editable on that next
+  screen.
+- **"What matters most to you" is new profile data** —
+  `profiles.priority_focus` (`supabase/schema.sql` Phase 32), a
+  short text array. Since no profile row exists yet at signup, the
+  answer rides in a short-lived, `httpOnly` cookie
+  (`agaramiya_signup_intent`, set by the `signup` action) until
+  `BasicInfoForm`'s save actually creates the profile — at which
+  point it's written for real and the cookie is cleared. Shown again
+  there too (pre-filled, editable), not asked silently.
+- **Honestly scoped, on purpose**: this is a lightweight, self-
+  reported signal captured once, not a rerun of the detailed family/
+  lifestyle/cultural preference tiers Phase 25 deliberately kept off
+  onboarding and on `/account` instead — see that phase's comment in
+  `schema.sql` for why. `priority_focus` isn't read by
+  `get_match_candidates()` or any matching/filtering logic this
+  round; storing it now is the same "capture first, wire in later"
+  pattern already used for Phases 25 and 30.
+- **`src/components/MultiPillGroup.tsx`** (new) is a small multi-
+  select chip control, alongside the existing single-select
+  `PillGroup` — used for the priorities question on both the signup
+  screen and `BasicInfoForm`.
+
+**Needs a database update**: re-run the whole `supabase/schema.sql`
+in the Supabase SQL Editor to add Phase 32's `priority_focus` column
+before this can save — same as every other schema change in this
+project.
+
+## Dashboard: a real desktop layout, built separately from mobile (V1)
+
+Direct response to founder feedback this round, comparing a
+competitor's app screens: the dashboard needed a large profile photo,
+a visible brand name, a notification icon and a menu presented like
+real top-bar chrome — not a mobile-width card simply stretched across
+a wide screen. "We should build App view and desktop view
+differently." Scoped to the dashboard only this round (not
+Matches/Browse or any other screen), and the competitor's launch-offer
+promo was noted but is not reflected in any pricing/promo change here.
+
+- **`src/components/DashboardTopBar.tsx`** (new) is a desktop-only top
+  bar — `hidden md:flex`, so it renders nothing below the `md`
+  breakpoint, where the existing mobile dashboard is untouched. Left
+  side: the "அ" brand mark plus the "Agaramiya" wordmark. Right side:
+  the language toggle, a notification bell, and a profile menu.
+  - The bell opens a small dropdown. It's deliberately honest about
+    having nothing behind it yet — no unread badge, no invented count,
+    just "You're all caught up — no new notifications yet." — the same
+    "never show what isn't real" rule `TrustProfileSummary` already
+    follows for verification signals.
+  - The profile menu (photo + name + chevron) replaces the mobile
+    page's stacked bottom links with a dropdown: edit profile, account
+    & privacy, family (if a family link exists), admin (if the viewer
+    is an admin), privacy policy, and sign out.
+- **`src/app/dashboard/page.tsx`** now renders three siblings instead
+  of one: `DashboardTopBar` (always, desktop only), the entire
+  original mobile layout unchanged except for one added class
+  (`md:hidden`, so it disappears at desktop width instead of stretching
+  into it), and a brand-new desktop block (`hidden md:block`) built
+  from the exact same server-fetched data. The desktop block gives the
+  profile photo real room (88px, versus the mobile card's smaller one)
+  and lays the page out as a two-column grid — main content
+  (introduction, activity, Browse Matches) on the left, a trust/status
+  sidebar on the right — rather than one long stacked column.
+- **One data-fetch, two layouts, not two apps**: there's no device
+  detection, no separate route, and no duplicated Supabase queries —
+  just two different arrangements of JSX toggled by a Tailwind
+  breakpoint, both reading the same variables. Existing components
+  (`ProfilePhotoAvatar`, `TrustProfileSummary`, `TodaysIntroCard`) are
+  reused as-is in the new desktop layout.
+- **No new dependency**: the bell and chevron icons are small hand-
+  written inline SVGs, matching the fact that no icon library or
+  `<svg>` existed anywhere else in the codebase before this.
+
+No database changes this round.
+
+## Real brand mark everywhere, replacing the placeholder circle (V1)
+
+Direct response to founder feedback: "why still using old logo." The
+founder supplied real brand artwork back in the Sept 2026 branding
+round (`Agaram_Visual_Design_System_v1.md`'s "Brand mark" section),
+and it was already wired into the landing page hero and every
+generated app icon/favicon — but every other in-app header (login,
+signup, onboarding, the dashboard, admin, matches, family, and the
+404/error pages) had kept drawing its own maroon-gradient circle with
+a plain "அ" character, the placeholder that artwork was supposed to
+replace. This closes that gap.
+
+- **`src/components/BrandMark.tsx`** (new) renders the actual
+  monogram — `public/brand/agaramiya-mark-source.png`, the same
+  source every PWA icon and favicon is already generated from —
+  clipped to a circle at whatever size a header needs, in place of
+  the old div-plus-letter.
+- Swapped into every header that still had the placeholder:
+  `AuthForm`, `OnboardingShell`, `SignupIntentStep`, `DashboardTopBar`,
+  and the admin, matches, family, family/join, error, and 404 pages —
+  ten spots in total, one component.
+- **`src/app/global-error.tsx`** (the root-layout crash fallback) is
+  the one exception — it intentionally can't depend on anything
+  layout.tsx or the rest of the app provides, so it uses a plain
+  `<img>` pointed at the same source file instead of the shared
+  component.
+
+No database changes this round.
+
+## Dashboard top bar & bigger profile photo now on mobile too (V1)
+
+Founder feedback, referencing the same competitor's actual mobile app:
+the previous round's brand/notification/menu top bar and larger
+profile photo only shipped for desktop — mobile still had the old
+plain "signed in as" line and a 48px avatar.
+
+- **`DashboardTopBar`** now renders at every width instead of only
+  `md:` and up. To keep it from crowding a phone screen, two pieces
+  step out below `md`: the language toggle (still reachable from the
+  mobile card's own footer, so it isn't lost, just not shown twice)
+  and the name label next to the profile menu's avatar (the avatar and
+  chevron stay, so the menu button is still obviously tappable).
+- The mobile dashboard's own profile photo — shown once a member has
+  completed their profile — goes from 48px to 64px, closer to the
+  desktop hero's 88px given the narrower card it sits in.
+- No new data, no new routes — same component, same fetches as the
+  desktop round; this just stops gating it to `md:` and up.
+
+No database changes this round.
+
 ## What's next
 
-All 8 V0 build-plan phases are live, plus twenty-eight V1 features now:
+All 8 V0 build-plan phases are live, plus thirty V1 features now:
 member blocking/data export/account deletion, the Tamil UI toggle,
 Family Collaborator accounts, message milestone tagging, subscription
 renewal & billing history, real auto-recurring billing with
@@ -1666,9 +2057,16 @@ compatibility breakdown on the match explanation card, a mutual-match
 celebration moment, a self-only matchmaking journey stage tracker, a
 collapsible/one-page account screen, a fixed edit-profile flow that no
 longer forces a second onboarding trip, bigger candidate photos, wider
-Browse/Matches/Admin screens on desktop, and a dashboard activity
+Browse/Matches/Admin screens on desktop, a dashboard activity
 strip with a real "Today's introduction" preview match and an honest
-weekly-digest cadence line.
+weekly-digest cadence line, a PWA manifest with real brand artwork (the
+founder's own logo, replacing the earlier rendered-text mark) as the
+app icon set and full-screen launch on "Add to Home Screen" (short of
+an actual native app), and a compact trust-profile summary on the
+dashboard showing all three real verification signals (Identity,
+Employment, Phone) at a glance instead of only Identity, and a
+portrait-collage hero on the landing page (currently elegant
+placeholder cards, ready for real photography — see above).
 Still open: the other four extended-preference columns (family
 involvement, drinking, smoking, religious practice), which need a
 matching self-description field added to `profiles` before they can

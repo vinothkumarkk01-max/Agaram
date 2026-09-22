@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getDictionary } from "@/lib/i18n/server";
 import type { Locale } from "@/lib/i18n/locale";
+import { BrandMark } from "@/components/BrandMark";
 import { LocaleToggle } from "@/components/LocaleToggle";
 import { acceptFamilyInvite } from "@/app/actions/family";
 
@@ -28,15 +29,7 @@ function Shell({
     >
       <div className="w-full max-w-sm">
         <div className="flex items-center gap-3 justify-center mb-8">
-          <div
-            className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-sm"
-            style={{
-              background:
-                "linear-gradient(135deg, var(--accent), var(--accent-strong))",
-            }}
-          >
-            அ
-          </div>
+          <BrandMark size={40} alt="Agaramiya" />
         </div>
         <div
           className="rounded-2xl p-8 shadow-sm text-center"

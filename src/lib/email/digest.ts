@@ -81,8 +81,8 @@ export function buildDigestEmail(params: {
 
   const subject =
     lines.length > 0
-      ? `Your weekly Agaram update: ${lines[0]}`
-      : "Your weekly Agaram update";
+      ? `Your weekly Agaramiya update: ${lines[0]}`
+      : "Your weekly Agaramiya update";
 
   const bodyLines =
     lines.length > 0
@@ -96,11 +96,11 @@ export function buildDigestEmail(params: {
 
   const text = `Hi ${firstName},
 
-Here's what happened on Agaram this week:
+Here's what happened on Agaramiya this week:
 
 ${bodyLines}
 
-Open Agaram: ${base}/dashboard
+Open Agaramiya: ${base}/dashboard
 
 ---
 Don't want these weekly emails? Unsubscribe: ${unsubscribeUrl}`;
@@ -109,11 +109,11 @@ Don't want these weekly emails? Unsubscribe: ${unsubscribeUrl}`;
 <html>
   <body style="font-family: -apple-system, sans-serif; color: #1a1a1a; max-width: 480px; margin: 0 auto; padding: 24px;">
     <p>Hi ${firstName},</p>
-    <p>Here's what happened on Agaram this week:</p>
+    <p>Here's what happened on Agaramiya this week:</p>
     ${bodyHtml}
     <p>
       <a href="${base}/dashboard" style="display: inline-block; background: #b8272c; color: #fff; text-decoration: none; padding: 10px 20px; border-radius: 10px; font-weight: 600;">
-        Open Agaram
+        Open Agaramiya
       </a>
     </p>
     <hr style="border: none; border-top: 1px solid #e5e5e5; margin: 24px 0;" />

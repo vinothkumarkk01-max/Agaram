@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { AdminNav } from "@/components/AdminNav";
+import { BrandMark } from "@/components/BrandMark";
 
 export default async function AdminLayout({
   children,
@@ -44,15 +45,7 @@ export default async function AdminLayout({
           >
             &larr; Dashboard
           </Link>
-          <div
-            className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold shadow-sm"
-            style={{
-              background:
-                "linear-gradient(135deg, var(--accent), var(--accent-strong))",
-            }}
-          >
-            அ
-          </div>
+          <BrandMark size={32} alt="Agaramiya" />
         </div>
 
         <h1 className="text-3xl mb-1" style={{ fontFamily: "var(--font-display)" }}>

@@ -14,7 +14,7 @@ export type VerificationFormState = {
  * and then discarded.
  *
  * NOTE — MOCK VENDOR INTEGRATION: real Aadhaar e-KYC verification
- * requires a HyperVerge (or Signzy) sandbox account, which Agaram
+ * requires a HyperVerge (or Signzy) sandbox account, which Agaramiya
  * doesn't have yet. Until sandbox credentials arrive, this marks the
  * row "pending" and `resolveMockVerification` below stands in for the
  * vendor's async result. Swap that one function's body for the real

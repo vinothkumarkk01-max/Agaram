@@ -2,7 +2,22 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
+import { VALID_PRIORITY_FOCUS } from "@/lib/priorityFocus";
+import { SIGNUP_INTENT_COOKIE, VALID_LOOKING_FOR } from "@/lib/signupIntent";
+
+// SIGNUP_INTENT_COOKIE carries the answers from SignupIntentStep
+// ("who is this for" / "what matters most to you") across the gap
+// between account creation here and /onboarding/basic-info, where a
+// profiles row actually gets created — there's no profile to attach
+// them to yet at signup, so a cookie is the same mechanism the UI
+// language toggle already uses (see src/app/actions/locale.ts) for
+// state that needs to survive a page load before a place to store it
+// durably exists. Set httpOnly below, unlike the locale cookie, since
+// nothing client-side needs to read this one back — only basic-info's
+// Server Component and its Server Action do. Cleared once it's been
+// read into a real profile; see saveBasicInfo() in actions/profile.ts.
 
 export type AuthFormState = {
   error?: string;
@@ -50,6 +65,25 @@ export async function signup(
 
   if (error) {
     return { error: error.message };
+  }
+
+  // SignupIntentStep's answers, present only when this came from the
+  // signup wizard (AuthForm's `signupIntent` prop) — absent for a
+  // request this action can't otherwise get here from, so this is
+  // never assumed present. See the SIGNUP_INTENT_COOKIE comment above.
+  const lookingForRaw = String(formData.get("looking_for") ?? "");
+  const prioritiesRaw = String(formData.get("priorities") ?? "");
+  if (VALID_LOOKING_FOR.includes(lookingForRaw)) {
+    const priorities = prioritiesRaw
+      .split(",")
+      .map((p) => p.trim())
+      .filter((p) => VALID_PRIORITY_FOCUS.includes(p));
+    const store = await cookies();
+    store.set(
+      SIGNUP_INTENT_COOKIE,
+      JSON.stringify({ lookingFor: lookingForRaw, priorities }),
+      { path: "/", maxAge: 60 * 60 * 24 * 30, sameSite: "lax", httpOnly: true }
+    );
   }
 
   revalidatePath("/", "layout");

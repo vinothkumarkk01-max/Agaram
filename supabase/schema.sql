@@ -3242,3 +3242,33 @@ alter table public.profiles
       'exploring', 'actively_looking', 'talking', 'family_discussions',
       'meeting', 'paused', 'married'
     ));
+
+-- ============================================================
+-- Phase 32 (V1) — Signup "what matters most" priority signal
+-- ============================================================
+--
+-- Founder feedback (Sept 2026): the old signup opener ("Start with
+-- your email...") was "technically simple, but not emotionally
+-- engaging." SignupIntentStep now asks two warm questions before the
+-- email/password step — "who is this for" (which just pre-fills the
+-- existing created_by_relation dropdown on BasicInfoForm, Phase 19,
+-- with a sensible starting point — no new column needed for that
+-- half) and "what matters most to you", captured here.
+--
+-- HONEST SCOPING NOTE, same spirit as Phase 25's: this is a coarse,
+-- self-reported signal collected once at signup (carried through a
+-- short-lived cookie — see SIGNUP_INTENT_COOKIE, actions/auth.ts —
+-- until BasicInfoForm actually creates the profile row) and is NOT a
+-- substitute for the detailed, progressive family/lifestyle/cultural
+-- preference tiers that Phase 25 deliberately kept off onboarding and
+-- on /account instead. It is not read by get_match_candidates() or
+-- any matching/filtering/scoring logic this round — same "store now,
+-- wire in later, and say so" pattern Phase 25 and Phase 30 already
+-- established here, rather than quietly building a second, competing
+-- preferences surface.
+alter table public.profiles
+  add column if not exists priority_focus text[] not null default '{}'
+    check (priority_focus <@ array[
+      'values', 'education', 'career', 'family',
+      'location', 'lifestyle', 'religion', 'jathagam'
+    ]::text[]);

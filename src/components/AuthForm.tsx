@@ -6,6 +6,7 @@ import type { AuthFormState } from "@/app/actions/auth";
 import type { Dictionary } from "@/lib/i18n/dictionary";
 import type { Locale } from "@/lib/i18n/locale";
 import { LocaleToggle } from "@/components/LocaleToggle";
+import { BrandMark } from "@/components/BrandMark";
 
 type Props = {
   mode: "login" | "signup";
@@ -20,9 +21,20 @@ type Props = {
    *  preserved across the login/signup switch link. See auth.ts's
    *  `safeNextPath`. */
   next?: string;
+  /** Signup only — the answers from SignupIntentStep, the screen
+   *  shown before this one in SignupWizard.tsx. Carried through as
+   *  hidden fields so the `signup` action (actions/auth.ts) can save
+   *  them as a cookie for /onboarding/basic-info to read. Never set
+   *  by the login page, which renders this form directly. */
+  signupIntent?: { lookingFor: string; priorities: string[] };
+  /** Signup only — shows a small back link above the title that
+   *  returns to SignupIntentStep instead of submitting anything.
+   *  Omitted (as on the login page) renders nothing here. */
+  onBack?: () => void;
+  backLabel?: string;
 };
 
-export function AuthForm({ mode, action, locale, t, next }: Props) {
+export function AuthForm({ mode, action, locale, t, next, signupIntent, onBack, backLabel }: Props) {
   const [state, formAction, pending] = useActionState(action, undefined);
   const isSignup = mode === "signup";
   const switchHref = `${isSignup ? "/login" : "/signup"}${
@@ -39,15 +51,7 @@ export function AuthForm({ mode, action, locale, t, next }: Props) {
     >
       <div className="w-full max-w-sm">
         <div className="flex items-center gap-3 justify-center mb-8">
-          <div
-            className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-sm"
-            style={{
-              background:
-                "linear-gradient(135deg, var(--accent), var(--accent-strong))",
-            }}
-          >
-            அ
-          </div>
+          <BrandMark size={40} />
           <span
             className="text-xs tracking-widest uppercase font-medium"
             style={{ color: "var(--text-soft)" }}
@@ -60,6 +64,16 @@ export function AuthForm({ mode, action, locale, t, next }: Props) {
           className="rounded-2xl p-8 shadow-sm"
           style={{ background: "var(--bg-raised)", border: "1px solid var(--line)" }}
         >
+          {onBack && (
+            <button
+              type="button"
+              onClick={onBack}
+              className="text-xs font-semibold mb-3"
+              style={{ color: "var(--text-soft)" }}
+            >
+              {backLabel}
+            </button>
+          )}
           <h1
             className="text-2xl mb-1"
             style={{ fontFamily: "var(--font-display)", letterSpacing: "-0.01em" }}
@@ -72,6 +86,12 @@ export function AuthForm({ mode, action, locale, t, next }: Props) {
 
           <form action={formAction} className="flex flex-col gap-4">
             {next && <input type="hidden" name="next" value={next} />}
+            {signupIntent && (
+              <>
+                <input type="hidden" name="looking_for" value={signupIntent.lookingFor} />
+                <input type="hidden" name="priorities" value={signupIntent.priorities.join(",")} />
+              </>
+            )}
             <div>
               <label
                 htmlFor="email"

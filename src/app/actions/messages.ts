@@ -32,7 +32,7 @@ async function notifyOtherParticipant(
     subscriptions.map((sub: { endpoint: string; p256dh: string; auth: string }) =>
       sendPushNotification(sub, {
         title: `New message from ${senderName}`,
-        body: "Open Agaram to read it.",
+        body: "Open Agaramiya to read it.",
         url: `/matches/mutual/${matchId}`,
       })
     )
@@ -75,7 +75,7 @@ export async function sendMessage(
   if (error) {
     return {
       error:
-        "Couldn't send that — make sure this is a mutual match and your Elite subscription is active.",
+        "Couldn't send that — make sure this is a mutual match and your Agaramiya Elite subscription is active.",
     };
   }
 
@@ -126,7 +126,7 @@ export async function setMilestone(
   if (error) {
     return {
       error:
-        "Couldn't mark that stage — make sure this is a mutual match and your Elite subscription is active.",
+        "Couldn't mark that stage — make sure this is a mutual match and your Agaramiya Elite subscription is active.",
     };
   }
 

@@ -1,7 +1,8 @@
+import Image from "next/image";
 import Link from "next/link";
 
 export const metadata = {
-  title: "Privacy Policy — Agaram Premium",
+  title: "Privacy Policy — Agaramiya",
 };
 
 // A plain-language first draft, written to describe what this app's
@@ -21,20 +22,18 @@ export default function PrivacyPage() {
     >
       <div className="w-full max-w-2xl">
         <div className="flex items-center gap-3 mb-8">
-          <div
-            className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-sm"
-            style={{
-              background:
-                "linear-gradient(135deg, var(--accent), var(--accent-strong))",
-            }}
-          >
-            அ
-          </div>
+          <Image
+            src="/brand/agaramiya-mark-source.png"
+            alt=""
+            width={40}
+            height={40}
+            className="w-10 h-10 rounded-full"
+          />
           <span
             className="text-xs tracking-widest uppercase font-medium"
             style={{ color: "var(--text-soft)" }}
           >
-            Agaram Premium
+            Agaramiya
           </span>
         </div>
 
@@ -56,7 +55,7 @@ export default function PrivacyPage() {
             style={{ background: "var(--accent-soft)", color: "var(--accent-strong)" }}
           >
             This is a first draft, written to plainly describe what
-            Agaram&rsquo;s code actually collects and does today — it is{" "}
+            Agaramiya&rsquo;s code actually collects and does today — it is{" "}
             <strong>not</strong> a substitute for a proper legal review
             against India&rsquo;s Digital Personal Data Protection Act, 2023
             (DPDP Act), which should happen before this app handles real
@@ -68,7 +67,7 @@ export default function PrivacyPage() {
             <section>
               <h2 className="text-base font-bold mb-2">1. Who this covers</h2>
               <p>
-                This policy covers Agaram Premium (&ldquo;Agaram&rdquo;, &ldquo;we&rdquo;), a
+                This policy covers Agaramiya (&ldquo;we&rdquo;), a
                 matrimonial platform for the Tamil community, at{" "}
                 <span className="font-mono text-xs">agaram-ten.vercel.app</span>{" "}
                 (a placeholder domain — this changes once a permanent one is
@@ -148,7 +147,7 @@ export default function PrivacyPage() {
                 location, verification badge) while browsing, and your full
                 name and about-me only after a match becomes mutual — and
                 only if they&rsquo;ve subscribed to Elite. The one person
-                who runs Agaram can see member profiles, verification
+                who runs Agaramiya can see member profiles, verification
                 status, and filed reports for moderation purposes — never
                 private message content, and never gated behind the Elite
                 subscription (that gate exists between members, not between
@@ -240,7 +239,7 @@ export default function PrivacyPage() {
               <p className="mb-2">
                 For any question about this policy, to exercise a right
                 under Section 6, or to raise a grievance about how your
-                data has been handled, contact Agaram&rsquo;s Grievance
+                data has been handled, contact Agaramiya&rsquo;s Grievance
                 Officer, as required under Section 8 read with Section 13
                 of the DPDP Act:
               </p>
@@ -265,7 +264,7 @@ export default function PrivacyPage() {
               <h2 className="text-base font-bold mb-2">9. Changes</h2>
               <p>
                 If this policy changes in a way that matters, we&rsquo;ll
-                update the date at the top and, once Agaram has a way to
+                update the date at the top and, once Agaramiya has a way to
                 message all members at once, let you know directly.
               </p>
             </section>

@@ -75,11 +75,11 @@ export function buildNewInterestEmail(params: {
   if (sender.is_verified) facts.push("identity verified");
   const factLine = facts.join(" · ");
 
-  const subject = "New interest on Agaram";
+  const subject = "New interest on Agaramiya";
 
   const text = `Hi ${firstName},
 
-Someone new is interested in you on Agaram: ${factLine}.
+Someone new is interested in you on Agaramiya: ${factLine}.
 
 Review it: ${base}/matches/received
 
@@ -88,7 +88,7 @@ Don't want these instant alerts? Unsubscribe: ${unsubscribe}`;
 
   const html = wrapHtml(
     `<p>Hi ${firstName},</p>
-    <p>Someone new is interested in you on Agaram:</p>
+    <p>Someone new is interested in you on Agaramiya:</p>
     <p style="font-weight: 600;">${factLine}</p>
     ${button(`${base}/matches/received`, "Review interest")}`,
     unsubscribe
@@ -121,11 +121,11 @@ export function buildNewMatchEmail(params: {
   if (other.location) facts.push(other.location);
   const factLine = facts.join(" · ");
 
-  const subject = "It's a mutual match on Agaram";
+  const subject = "It's a mutual match on Agaramiya";
 
   const text = `Hi ${firstName},
 
-You have a new mutual match on Agaram: ${factLine}.
+You have a new mutual match on Agaramiya: ${factLine}.
 
 Open the conversation: ${base}/matches/mutual
 
@@ -134,7 +134,7 @@ Don't want these instant alerts? Unsubscribe: ${unsubscribe}`;
 
   const html = wrapHtml(
     `<p>Hi ${firstName},</p>
-    <p>You have a new mutual match on Agaram:</p>
+    <p>You have a new mutual match on Agaramiya:</p>
     <p style="font-weight: 600;">${factLine}</p>
     ${button(`${base}/matches/mutual`, "Open conversation")}`,
     unsubscribe

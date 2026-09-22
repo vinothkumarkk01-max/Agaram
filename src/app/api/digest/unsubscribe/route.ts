@@ -40,7 +40,7 @@ export async function GET(request: Request) {
 
 function unsubscribePage(success: boolean): string {
   const message = success
-    ? "You've been unsubscribed from the weekly Agaram digest. You can turn it back on any time from your account settings."
+    ? "You've been unsubscribed from the weekly Agaramiya digest. You can turn it back on any time from your account settings."
     : "This unsubscribe link is invalid or has expired. You can manage weekly digest emails from your account settings instead.";
   return `<!DOCTYPE html>
 <html>

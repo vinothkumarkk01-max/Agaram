@@ -38,7 +38,7 @@ export async function GET(request: Request) {
 
 function unsubscribePage(success: boolean): string {
   const message = success
-    ? "You've been unsubscribed from instant Agaram alerts (new interest / new match emails). You can turn them back on any time from your account settings."
+    ? "You've been unsubscribed from instant Agaramiya alerts (new interest / new match emails). You can turn them back on any time from your account settings."
     : "This unsubscribe link is invalid or has expired. You can manage instant alerts from your account settings instead.";
   return `<!DOCTYPE html>
 <html>

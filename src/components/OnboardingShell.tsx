@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { BrandMark } from "@/components/BrandMark";
 
 type ProgressState = "done" | "active" | "upcoming";
 
@@ -44,15 +45,7 @@ export function OnboardingShell({
     >
       <div className="flex items-center justify-between px-6 sm:px-16 pt-8">
         <div className="flex items-center gap-3">
-          <div
-            className="w-9 h-9 rounded-full flex items-center justify-center text-white font-bold shadow-sm"
-            style={{
-              background:
-                "linear-gradient(135deg, var(--accent), var(--accent-strong))",
-            }}
-          >
-            அ
-          </div>
+          <BrandMark size={36} />
           <span
             className="text-xs tracking-widest uppercase font-medium"
             style={{ color: "var(--text-soft)" }}

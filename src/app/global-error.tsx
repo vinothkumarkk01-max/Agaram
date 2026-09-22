@@ -41,23 +41,25 @@ export default function GlobalError({
         }}
       >
         <div style={{ textAlign: "center", maxWidth: "384px" }}>
-          <div
+          {/* Plain <img>, not next/image or the shared BrandMark
+              component — this file replaces the ROOT layout entirely
+              (see the file-level comment above) and must not depend on
+              anything layout.tsx or the rest of the app would normally
+              provide. */}
+          <img
+            src="/brand/agaramiya-mark-tight.png"
+            alt={t.common.brand}
+            width={56}
+            height={56}
             style={{
               width: 56,
               height: 56,
               borderRadius: "9999px",
               margin: "0 auto 24px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: "#fff",
-              fontWeight: 700,
-              fontSize: 24,
-              background: "linear-gradient(135deg, #8e2346, #64182f)",
+              display: "block",
+              objectFit: "cover",
             }}
-          >
-            அ
-          </div>
+          />
           <h1 style={{ fontSize: 22, marginBottom: 8 }}>
             {t.errors.couldntLoad}
           </h1>

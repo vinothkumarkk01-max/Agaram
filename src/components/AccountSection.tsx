@@ -36,12 +36,14 @@ function badgeColor(tone: BadgeTone): string {
  * implementations, so only our own chevron shows.
  */
 export function AccountSection({
+  id,
   title,
   badge,
   badgeTone = "neutral",
   danger = false,
   children,
 }: {
+  id?: string;
   title: string;
   badge?: string;
   badgeTone?: BadgeTone;
@@ -50,7 +52,8 @@ export function AccountSection({
 }) {
   return (
     <details
-      className="group rounded-2xl overflow-hidden"
+      id={id}
+      className="group rounded-2xl overflow-hidden scroll-mt-6"
       style={{
         background: danger ? "var(--accent-soft)" : "var(--bg-raised)",
         border: "1px solid var(--line)",

@@ -2,7 +2,10 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
+import { SIGNUP_INTENT_COOKIE } from "@/lib/signupIntent";
+import { VALID_PRIORITY_FOCUS } from "@/lib/priorityFocus";
 
 export type ProfileFormState = {
   error?: string;
@@ -50,6 +53,9 @@ export async function saveBasicInfo(
   const createdByRelation = validRelations.includes(createdByRelationRaw)
     ? createdByRelationRaw
     : "self";
+  const priorityFocus = splitList(formData.get("priority_focus")).filter((p) =>
+    VALID_PRIORITY_FOCUS.includes(p)
+  );
 
   if (!fullName) {
     return { error: "Please enter your full name." };
@@ -84,12 +90,27 @@ export async function saveBasicInfo(
     age,
     location,
     about_me: aboutMe || null,
-    ...(isEditing ? {} : { created_by_relation: createdByRelation, terms_accepted_at: new Date().toISOString() }),
+    ...(isEditing
+      ? {}
+      : {
+          created_by_relation: createdByRelation,
+          priority_focus: priorityFocus,
+          terms_accepted_at: new Date().toISOString(),
+        }),
     updated_at: new Date().toISOString(),
   });
 
   if (error) {
     return { error: error.message };
+  }
+
+  // The signup-intent cookie (actions/auth.ts) has now been read into
+  // a real profile row above — nothing left for it to carry, and an
+  // "edit profile" save never had it (this whole branch is onboarding-
+  // only) so there's nothing to clear there.
+  if (!isEditing) {
+    const store = await cookies();
+    store.delete(SIGNUP_INTENT_COOKIE);
   }
 
   redirect(isEditing ? "/dashboard" : "/onboarding/preferences");
@@ -263,7 +284,7 @@ export async function saveExtendedPreferences(
   const nativeDistrictPreference = String(formData.get("native_district_preference") ?? "").trim();
   // Deliberately not validated against a fixed list of communities —
   // same reasoning as profiles.community: an open text field, never a
-  // dropdown that would imply Agaram maintains an official list.
+  // dropdown that would imply Agaramiya maintains an official list.
   const communityPreference = String(formData.get("community_preference") ?? "").trim() || NO_PREFERENCE;
 
   const { error } = await supabase

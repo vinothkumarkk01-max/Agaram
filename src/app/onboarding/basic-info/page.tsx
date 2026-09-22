@@ -1,7 +1,23 @@
+import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { OnboardingShell } from "@/components/OnboardingShell";
 import { BasicInfoForm } from "@/components/BasicInfoForm";
 import { getDictionary } from "@/lib/i18n/server";
+import { SIGNUP_INTENT_COOKIE } from "@/lib/signupIntent";
+
+// "I am looking for" (SignupIntentStep, at signup) is a coarser,
+// friendlier version of the relation question BasicInfoForm asks in
+// more detail below — this just picks a sensible starting point for
+// that dropdown; the member sees and can change it immediately, it's
+// never submitted as a final answer on its own. "child" can't know
+// son vs. daughter yet, so it defaults to "son" rather than leaving
+// the dropdown on "self", which would misrepresent who this is for.
+function relationDefaultFromLookingFor(lookingFor: string | undefined) {
+  if (lookingFor === "self") return "self";
+  if (lookingFor === "child") return "son";
+  if (lookingFor === "family") return "relative";
+  return undefined;
+}
 
 export default async function BasicInfoPage() {
   const supabase = await createClient();
@@ -17,6 +33,28 @@ export default async function BasicInfoPage() {
         .eq("id", user.id)
         .maybeSingle()
     : { data: null };
+
+  // Only relevant for first-time onboarding — an already-complete
+  // profile has its own real created_by_relation/priority_focus, and
+  // BasicInfoForm hides both questions entirely once isEditing (see
+  // its own comment for why).
+  let signupIntent: { relationDefault?: string; priorities: string[] } | undefined;
+  if (!profile) {
+    const store = await cookies();
+    const raw = store.get(SIGNUP_INTENT_COOKIE)?.value;
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw) as { lookingFor?: string; priorities?: string[] };
+        signupIntent = {
+          relationDefault: relationDefaultFromLookingFor(parsed.lookingFor),
+          priorities: Array.isArray(parsed.priorities) ? parsed.priorities : [],
+        };
+      } catch {
+        // Malformed/tampered cookie — ignore it, same as if it were
+        // never set. Nothing here is required.
+      }
+    }
+  }
 
   // Reached two ways: first-time onboarding (no profile yet) and
   // "Edit profile" from the dashboard, for someone who's already
@@ -38,7 +76,12 @@ export default async function BasicInfoPage() {
       title={isEditing ? t.onboarding.editProfileTitle : t.onboarding.basicInfoTitle}
       lede={isEditing ? t.onboarding.editProfileLede : t.onboarding.basicInfoLede}
     >
-      <BasicInfoForm defaults={profile ?? undefined} isEditing={isEditing} t={t} />
+      <BasicInfoForm
+        defaults={profile ?? undefined}
+        isEditing={isEditing}
+        signupIntent={signupIntent}
+        t={t}
+      />
     </OnboardingShell>
   );
 }

@@ -67,7 +67,7 @@ export async function requestWorkEmailOtp(
 
   const result = await sendEmail({
     to: workEmail,
-    subject: "Your Agaram work email verification code",
+    subject: "Your Agaramiya work email verification code",
     text: `Your verification code is ${code}. It expires in ${OTP_TTL_MINUTES} minutes. If you didn't request this, you can ignore this email.`,
     html: `<p>Your verification code is <strong style="font-size:20px;letter-spacing:2px;">${code}</strong>.</p><p>It expires in ${OTP_TTL_MINUTES} minutes. If you didn't request this, you can ignore this email.</p>`,
   });

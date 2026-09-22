@@ -34,7 +34,7 @@ import type { Locale } from "./locale";
  */
 const en = {
   common: {
-    brand: "Agaram Premium",
+    brand: "Agaramiya",
     backDashboard: "← Dashboard",
     back: "← Back",
     privacyPolicy: "Privacy Policy",
@@ -44,8 +44,7 @@ const en = {
     no: "No",
   },
   landing: {
-    tagline:
-      "Project scaffold — auth pipes are live. Sign up to try it end to end.",
+    tagline: "Verified members, thoughtful introductions, no endless browsing.",
     createAccount: "Create account",
     signIn: "Sign in",
   },
@@ -62,10 +61,23 @@ const en = {
     signInBtn: "Sign in",
     alreadyHaveAccount: "Already have an account?",
     signInLink: "Sign in",
-    newToAgaram: "New to Agaram?",
+    newToAgaram: "New to Agaramiya?",
     createAnAccount: "Create an account",
     agreeToPolicyPrefix: "By creating an account, you agree to our ",
     agreeToPolicySuffix: ".",
+    // Signup intro screen (Sept 2026) — founder feedback: the old
+    // email-first opener was "technically simple, but not emotionally
+    // engaging." This screen comes before the email/password step
+    // above and asks two warm, human questions first, so onboarding
+    // starts to feel like matchmaking rather than account creation.
+    // See SignupIntentStep.tsx / SignupWizard.tsx.
+    signupIntroTitle: "Let's begin well.",
+    signupIntroSubtitle: "Tell us a little about yourself.",
+    lookingForQuestion: "I am looking for:",
+    lookingForSelf: "A partner for myself",
+    lookingForChild: "A partner for my son or daughter",
+    lookingForFamily: "Helping a family member",
+    backToIntro: "← Back",
   },
   dashboard: {
     signedIn: "Signed in",
@@ -87,16 +99,24 @@ const en = {
     identityPending: "Identity check pending",
     identityNotVerified: "Identity not verified yet",
     phoneVerified: "✓ Phone verified",
+    trustProfileHeading: "Agaramiya Verified",
+    trustProfileSummaryPrefix: "",
+    trustProfileSummaryOf: " of ",
+    trustProfileSummarySuffix: " verified",
+    trustIdentityLabel: "Identity",
+    trustEmploymentLabel: "Employment",
+    trustPhoneLabel: "Phone",
     journeyPrefix: "Where you are: ",
     journeyUpdate: "Update",
     checkStatus: "Check status",
     verifyNow: "Verify now",
+    introductionsHeading: "Agaramiya Introductions",
     browseMatches: "Browse matches",
     verifyToUnlock: "Verify your identity to unlock the matching feed.",
-    eliteUntilPrefix: "Elite · until ",
+    eliteUntilPrefix: "Agaramiya Elite · until ",
     eliteUntilSuffix: "",
     freePlan: "Free plan",
-    upgradeToElite: "Upgrade to Elite",
+    upgradeToElite: "Upgrade to Agaramiya Elite",
     editProfile: "Edit profile",
     accountPrivacy: "Account & privacy",
     adminDashboard: "Admin dashboard",
@@ -108,6 +128,15 @@ const en = {
     todaysIntroDesc: "One match worth a look, from your current Browse filters.",
     noIntroToday: "Nothing new to introduce right now — browse anytime, or wait for your weekly summary email.",
     digestNextPrefix: "Your weekly match summary email: ",
+    // Desktop top bar only (DashboardTopBar.tsx, Sept 2026 — founder
+    // feedback comparing a competitor's app: brand, a notification
+    // icon and a menu should all be visibly present). No unread badge
+    // or count anywhere here — there's no real notification system
+    // behind this yet, so the honest version is a plain empty state,
+    // not an invented number.
+    notificationsLabel: "Notifications",
+    noNotificationsYet: "You're all caught up — no new notifications yet.",
+    menuLabel: "Menu",
   },
   onboarding: {
     stepChipBasicInfo: "Day 1 · Step 2 of 3",
@@ -153,7 +182,7 @@ const en = {
     continueBtn: "Continue",
     basicInfoFooter:
       "Next: your must-have preferences — identity and other checks come after.",
-    termsLabelPrefix: "I agree to Agaram's ",
+    termsLabelPrefix: "I agree to Agaramiya's ",
     termsLabelLink: "Privacy Policy",
     termsLabelSuffix: ", including how my data is used and my rights under the DPDP Act, 2023.",
     any: "Any",
@@ -178,7 +207,7 @@ const en = {
     aadhaarHelp:
       "We only ever store the last 4 digits. Your full number is used once, for this check, and then discarded.",
     consentLabel:
-      "I consent to Agaram verifying my identity using the Aadhaar number above, in line with the DPDP Act, 2023.",
+      "I consent to Agaramiya verifying my identity using the Aadhaar number above, in line with the DPDP Act, 2023.",
     submitting: "Submitting…",
     verifyMyIdentity: "Verify my identity",
     mockNote:
@@ -193,6 +222,21 @@ const en = {
     relationRelative: "A relative",
     relationHelp:
       "If you're a parent or relative setting this up, you can invite the person you're helping to join in later — see Family sharing on their account page once the profile's created.",
+    // Also shown at signup (SignupIntentStep.tsx) — these live here,
+    // not under `auth`, because the same question and options are
+    // reused right here on this form too, pre-filled from what was
+    // answered at signup but always editable. See priority_focus on
+    // `profiles` (schema.sql Phase 32) for what this feeds.
+    priorityQuestion: "What matters most to you?",
+    priorityHelp: "Pick as many as matter to you — there's no need to choose just one.",
+    priorityValues: "Values",
+    priorityEducation: "Education",
+    priorityCareer: "Career",
+    priorityFamily: "Family",
+    priorityLocation: "Location",
+    priorityLifestyle: "Lifestyle",
+    priorityReligion: "Religion",
+    priorityJathagam: "Jathagam",
   },
   matches: {
     title: "Matches",
@@ -218,11 +262,11 @@ const en = {
       "No mutual matches yet — once you and someone else are both interested, they'll unlock here.",
     message: "Message",
     itsAMatch: "It's a match! 🎉",
-    upgradeToSeeMessage: "Upgrade to Elite to see their name and message them.",
-    upgradeToEliteBtn: "Upgrade to Elite",
+    upgradeToSeeMessage: "Upgrade to Agaramiya Elite to see their name and message them.",
+    upgradeToEliteBtn: "Upgrade to Agaramiya Elite",
     backMutual: "← Mutual",
     report: "Report",
-    upgradeToMessage: "Upgrade to Elite to message your mutual matches.",
+    upgradeToMessage: "Upgrade to Agaramiya Elite to message your mutual matches.",
     conversationUnavailable: "This conversation isn't available.",
     backToMutual: "Back to Mutual",
     sayHello: "Say hello — you're a mutual match!",
@@ -233,7 +277,7 @@ const en = {
     alreadyReportedSuffix: ". Our team will review it.",
     reportTitle: "Report this conversation",
     reportSubtitle:
-      "Tell us what happened. This goes straight to the team running Agaram, not to the other member.",
+      "Tell us what happened. This goes straight to the team running Agaramiya, not to the other member.",
     whatHappened: "What happened?",
     submitReport: "Submit report",
     milestoneMarkAs: "Mark this stage:",
@@ -261,14 +305,14 @@ const en = {
     justMatchedBodyUnlocked:
       "You're both interested — say hello and see where the conversation goes.",
     justMatchedBodyLocked:
-      "You're both interested. Upgrade to Elite to see their name and start messaging.",
+      "You're both interested. Upgrade to Agaramiya Elite to see their name and start messaging.",
     justMatchedDismiss: "Keep browsing",
   },
   account: {
     yourAccount: "Your account",
     downloadData: "Download your data",
     downloadDataDesc:
-      "Everything Agaram has stored about you — profile, preferences, identity verification status, payment history, matches, messages, and reports you've filed — as a single JSON file.",
+      "Everything Agaramiya has stored about you — profile, preferences, identity verification status, payment history, matches, messages, and reports you've filed — as a single JSON file.",
     downloadMyData: "Download my data",
     blockedMembers: "Blocked members",
     noBlocked: "You haven't blocked anyone.",
@@ -284,29 +328,29 @@ const en = {
     permanentlyDelete: "Permanently delete my account",
     billingHeading: "Billing",
     billingPlanFree: "You're on the Free plan.",
-    billingPlanElitePrefix: "Elite — active until ",
+    billingPlanElitePrefix: "Agaramiya Elite — active until ",
     billingPlanEliteSuffix: "",
-    billingPlanExpiredPrefix: "Elite — expired on ",
+    billingPlanExpiredPrefix: "Agaramiya Elite — expired on ",
     billingPlanExpiredSuffix: "",
     manageBilling: "Manage / renew",
     paymentHistoryHeading: "Payment history",
     noPayments: "No payments yet.",
-    paymentEliteSixMonths: "Elite — 6 months",
+    paymentEliteSixMonths: "Agaramiya Elite — 6 months",
     paymentStatusPaid: "Paid",
     paymentStatusFailed: "Failed",
     paymentStatusCreated: "Incomplete",
     autoRenewOn: "Auto-renew is on — you'll be charged automatically every 6 months.",
     autoRenewCancelRequested:
-      "Auto-renew is off — you'll keep Elite until it lapses, then it won't renew.",
+      "Auto-renew is off — you'll keep Agaramiya Elite until it lapses, then it won't renew.",
     autoRenewHalted:
       "We couldn't charge your card for auto-renewal. Renew manually, or subscribe again with a different payment method.",
     cancelAutoRenew: "Cancel auto-renew",
     cancelAutoRenewConfirm:
-      "This stops future charges. You'll keep Elite until your current period ends — nothing is refunded or revoked early.",
+      "This stops future charges. You'll keep Agaramiya Elite until your current period ends — nothing is refunded or revoked early.",
     cancelling: "Cancelling…",
     notificationsHeading: "Message notifications",
     notificationsDesc:
-      "Get notified in your browser when a mutual match sends you a message — even when Agaram isn't open.",
+      "Get notified in your browser when a mutual match sends you a message — even when Agaramiya isn't open.",
     notificationsOn: "Notifications are on for this browser.",
     notificationsOff: "Notifications are off for this browser.",
     notificationsDenied:
@@ -335,7 +379,7 @@ const en = {
     employmentEmployerNameLabel: "Employer name",
     employmentEmployerContactLabel: "Employer contact email (e.g. HR)",
     employmentConsentLabel:
-      "I consent to Agaram contacting my employer to confirm my employment.",
+      "I consent to Agaramiya contacting my employer to confirm my employment.",
     employmentSubmitting: "Submitting…",
     employmentSubmitRequest: "Submit request",
     digestHeading: "Weekly match digest",
@@ -405,7 +449,7 @@ const en = {
     jathagamDesc:
       "Capture your birth details and choose whether to share them once you're mutually matched.",
     jathagamNoScoreNotice:
-      "Agaram doesn't calculate a compatibility score from this — it's details-sharing only, so families can review it themselves however they choose.",
+      "Agaramiya doesn't calculate a compatibility score from this — it's details-sharing only, so families can review it themselves however they choose.",
     jathagamBirthDate: "Birth date",
     jathagamBirthTime: "Birth time",
     jathagamBirthTimeHelp: "Leave blank if it isn't known exactly.",
@@ -423,7 +467,7 @@ const en = {
     phoneMockNote:
       "This is a mock check for now — real SMS delivery needs an SMS vendor (Twilio/MSG91) this project doesn't have configured yet. See below for what changes once one is connected.",
     phoneNumberPlaceholder: "e.g. +91 98765 43210",
-    phoneConsentLabel: "I consent to Agaram verifying this phone number.",
+    phoneConsentLabel: "I consent to Agaramiya verifying this phone number.",
     phoneVerifyButton: "Verify phone number",
     phoneReverify: "Verify a different number",
     phoneVerifying: "Verifying your phone number…",
@@ -437,7 +481,7 @@ const en = {
     badgeNotVerified: "Not verified",
     badgeNone: "None",
     badgeActive: "Active",
-    billingBadgeElite: "Elite",
+    billingBadgeElite: "Agaramiya Elite",
     billingBadgeFree: "Free",
   },
   family: {
@@ -473,7 +517,7 @@ const en = {
     stopSharing: "Stop sharing",
     invitedTitle: "You've been invited",
     invitedDesc:
-      "Someone has invited you to help with their matrimonial search on Agaram.",
+      "Someone has invited you to help with their matrimonial search on Agaramiya.",
     signUpToAccept: "Create an account to accept",
     logInToAccept: "Sign in to accept",
     confirmTitlePrefix: "",
@@ -495,20 +539,20 @@ const en = {
       "Since you set this profile up on someone else's behalf, consider inviting them to help manage it directly — invite below.",
   },
   upgrade: {
-    youreOnElite: "You're on Elite.",
+    youreOnElite: "You're on Agaramiya Elite.",
     activeUntilPrefix: "Active until ",
     activeUntilSuffix: ". Your mutual matches stay unlocked and you can keep messaging.",
     renewalHint:
       "Renewing adds 6 more months from your current expiry — you never lose time you've already paid for. Turn on auto-renew below so this never happens by hand again.",
-    renewButtonLabel: "Renew Elite — ₹15,000 / 6 months",
-    expiringSoonTitle: "Your Elite membership is expiring soon.",
+    renewButtonLabel: "Renew Agaramiya Elite — ₹15,000 / 6 months",
+    expiringSoonTitle: "Your Agaramiya Elite membership is expiring soon.",
     expiringSoonPrefix: "It expires on ",
     expiringSoonSuffix:
       ". Renew now to keep your matches unlocked and keep messaging without a gap.",
-    expiredTitle: "Your Elite membership has expired.",
+    expiredTitle: "Your Agaramiya Elite membership has expired.",
     expiredPrefix: "It expired on ",
     expiredSuffix: ". Renew to unlock your matches and keep messaging.",
-    eliteLabel: "Elite",
+    eliteLabel: "Agaramiya Elite",
     eliteTitle: "A serious search, without the endless scrolling.",
     pricing: "₹15,000 for 6 months.",
     benefit1: "✓ Full profile — name and about-me — once you're a mutual match",
@@ -516,19 +560,19 @@ const en = {
     benefit3: "✓ Everything in Free: browsing, verification, expressing interest",
     oneTimeNote:
       "₹15,000 every 6 months either way. Auto-renew (above) means Razorpay charges you automatically each cycle — cancel anytime from your account. Uncheck it to pay manually each time instead.",
-    upgradeButtonLabel: "Upgrade to Elite — ₹15,000 / 6 months",
+    upgradeButtonLabel: "Upgrade to Agaramiya Elite — ₹15,000 / 6 months",
     autoRenewLabel: "Auto-renew every 6 months (recommended) — cancel anytime.",
     openingCheckout: "Opening checkout…",
     checkoutLoadError:
       "Couldn't load the checkout — check your connection and try again.",
   },
   concierge: {
-    label: "Royal Concierge",
+    label: "Agaramiya Concierge",
     cardTitle: "Want a more hands-on search?",
     cardDesc:
-      "Royal Concierge is a founder-run, hands-on matchmaking service — a real phone call to understand what you're looking for, with pricing agreed directly, not an automated checkout.",
+      "Agaramiya Concierge is a founder-run, hands-on matchmaking service — a real phone call to understand what you're looking for, with pricing agreed directly, not an automated checkout.",
     cardCta: "Request a call",
-    applyTitle: "Request Royal Concierge",
+    applyTitle: "Request Agaramiya Concierge",
     applyDesc:
       "Leave your number and anything you'd like us to know — we'll call you within a couple of days to talk through it.",
     phoneLabel: "Phone number",
@@ -546,7 +590,7 @@ const en = {
     tryAgain: "Try again",
     pageNotFound: "Page not found.",
     pageNotFoundDesc: "That page doesn't exist, or has moved.",
-    couldntLoad: "Agaram couldn't load.",
+    couldntLoad: "Agaramiya couldn't load.",
   },
 };
 
@@ -554,7 +598,7 @@ export type Dictionary = typeof en;
 
 const ta: Dictionary = {
   common: {
-    brand: "Agaram Premium",
+    brand: "Agaramiya",
     backDashboard: "← டாஷ்போர்டு",
     back: "← பின்",
     privacyPolicy: "தனியுரிமைக் கொள்கை",
@@ -565,7 +609,7 @@ const ta: Dictionary = {
   },
   landing: {
     tagline:
-      "திட்ட அடித்தளம் — உள்நுழைவு அமைப்பு இயங்குகிறது. முழுமையாக முயற்சிக்க பதிவு செய்யவும்.",
+      "சரிபார்க்கப்பட்ட உறுப்பினர்கள், சிந்தனையுடன் கூடிய அறிமுகங்கள்.",
     createAccount: "கணக்கு உருவாக்கு",
     signIn: "உள்நுழை",
   },
@@ -582,10 +626,17 @@ const ta: Dictionary = {
     signInBtn: "உள்நுழை",
     alreadyHaveAccount: "ஏற்கனவே கணக்கு உள்ளதா?",
     signInLink: "உள்நுழை",
-    newToAgaram: "அகரத்தில் புதியவரா?",
+    newToAgaram: "அகரமியாவில் புதியவரா?",
     createAnAccount: "கணக்கு உருவாக்கவும்",
     agreeToPolicyPrefix: "கணக்கை உருவாக்குவதன் மூலம், நீங்கள் எங்கள் ",
     agreeToPolicySuffix: "-ஐ ஏற்றுக்கொள்கிறீர்கள்.",
+    signupIntroTitle: "நன்றாகத் தொடங்குவோம்.",
+    signupIntroSubtitle: "உங்களைப் பற்றி கொஞ்சம் சொல்லுங்கள்.",
+    lookingForQuestion: "நான் தேடுவது:",
+    lookingForSelf: "எனக்கான ஒரு துணை",
+    lookingForChild: "என் மகன்/மகளுக்கான ஒரு துணை",
+    lookingForFamily: "ஒரு குடும்ப உறுப்பினருக்கு உதவுதல்",
+    backToIntro: "← பின்",
   },
   dashboard: {
     signedIn: "உள்நுழைந்துள்ளீர்கள்",
@@ -607,16 +658,24 @@ const ta: Dictionary = {
     identityPending: "அடையாள சரிபார்ப்பு நடைபெறுகிறது",
     identityNotVerified: "அடையாளம் இன்னும் உறுதிசெய்யப்படவில்லை",
     phoneVerified: "✓ தொலைபேசி எண் உறுதிசெய்யப்பட்டது",
+    trustProfileHeading: "அகரமியா உறுதிசெய்யப்பட்டது",
+    trustProfileSummaryPrefix: "",
+    trustProfileSummaryOf: " / ",
+    trustProfileSummarySuffix: " உறுதிசெய்யப்பட்டது",
+    trustIdentityLabel: "அடையாளம்",
+    trustEmploymentLabel: "வேலை",
+    trustPhoneLabel: "தொலைபேசி",
     journeyPrefix: "நீங்கள் இருக்கும் நிலை: ",
     journeyUpdate: "புதுப்பிக்க",
     checkStatus: "நிலையைப் பார்க்கவும்",
     verifyNow: "இப்போது உறுதிசெய்யவும்",
+    introductionsHeading: "அகரமியா அறிமுகங்கள்",
     browseMatches: "இணைகளைப் பார்வையிடு",
     verifyToUnlock: "இணைப் பட்டியலைத் திறக்க உங்கள் அடையாளத்தை உறுதிசெய்யவும்.",
-    eliteUntilPrefix: "எலீட் · ",
+    eliteUntilPrefix: "அகரமியா எலீட் · ",
     eliteUntilSuffix: " வரை",
     freePlan: "இலவச திட்டம்",
-    upgradeToElite: "எலீட் ஆக மேம்படுத்தவும்",
+    upgradeToElite: "அகரமியா எலீட் ஆக மேம்படுத்தவும்",
     editProfile: "சுயவிவரத்தைத் திருத்து",
     accountPrivacy: "கணக்கு & தனியுரிமை",
     adminDashboard: "நிர்வாக டாஷ்போர்டு",
@@ -628,6 +687,9 @@ const ta: Dictionary = {
     todaysIntroDesc: "உங்கள் தற்போதைய வடிகட்டிகளின்படி, பார்க்கத் தகுந்த ஒரு இணை.",
     noIntroToday: "இப்போது புதிதாக அறிமுகப்படுத்த எதுவும் இல்லை — எப்போது வேண்டுமானாலும் பார்வையிடலாம், அல்லது உங்கள் வாராந்திர சுருக்க மின்னஞ்சலுக்காகக் காத்திருக்கலாம்.",
     digestNextPrefix: "உங்கள் வாராந்திர இணை சுருக்க மின்னஞ்சல்: ",
+    notificationsLabel: "அறிவிப்புகள்",
+    noNotificationsYet: "நீங்கள் தற்போதைக்கு புதுப்பித்த நிலையில் உள்ளீர்கள் — புதிய அறிவிப்புகள் இல்லை.",
+    menuLabel: "மெனு",
   },
   onboarding: {
     stepChipBasicInfo: "நாள் 1 · படி 2 / 3",
@@ -671,7 +733,7 @@ const ta: Dictionary = {
     saving: "சேமிக்கிறது…",
     continueBtn: "தொடரவும்",
     basicInfoFooter: "அடுத்து: உங்கள் கட்டாய விருப்பங்கள் — அடையாளச் சரிபார்ப்பு பின்னர் வரும்.",
-    termsLabelPrefix: "நான் அகரத்தின் ",
+    termsLabelPrefix: "நான் அகரமியாவின் ",
     termsLabelLink: "தனியுரிமைக் கொள்கையை",
     termsLabelSuffix:
       " ஏற்கிறேன், எனது தரவு எவ்வாறு பயன்படுத்தப்படுகிறது மற்றும் DPDP சட்டம், 2023-ன் கீழ் எனது உரிமைகள் உட்பட.",
@@ -696,7 +758,7 @@ const ta: Dictionary = {
     aadhaarHelp:
       "நாங்கள் இறுதி 4 இலக்கங்களை மட்டுமே சேமிக்கிறோம். உங்கள் முழு எண் இந்தச் சரிபார்ப்புக்காக ஒரு முறை பயன்படுத்தப்பட்டு பின்னர் அழிக்கப்படும்.",
     consentLabel:
-      "மேலே உள்ள ஆதார் எண்ணைப் பயன்படுத்தி, DPDP சட்டம், 2023-க்கு இணங்க, அகரம் என் அடையாளத்தை சரிபார்க்க நான் ஒப்புதல் அளிக்கிறேன்.",
+      "மேலே உள்ள ஆதார் எண்ணைப் பயன்படுத்தி, DPDP சட்டம், 2023-க்கு இணங்க, அகரமியா என் அடையாளத்தை சரிபார்க்க நான் ஒப்புதல் அளிக்கிறேன்.",
     submitting: "சமர்ப்பிக்கிறது…",
     verifyMyIdentity: "என் அடையாளத்தை உறுதிசெய்",
     mockNote:
@@ -711,6 +773,16 @@ const ta: Dictionary = {
     relationRelative: "ஒரு உறவினர்",
     relationHelp:
       "நீங்கள் ஒரு பெற்றோர் அல்லது உறவினராக இதை அமைத்தால், நீங்கள் உதவும் நபரை பின்னர் இணைக்க அழைக்கலாம் — சுயவிவரம் உருவான பின் அவர்களின் கணக்குப் பக்கத்தில் 'குடும்பப் பகிர்வை' பார்க்கவும்.",
+    priorityQuestion: "உங்களுக்கு மிக முக்கியமானது என்ன?",
+    priorityHelp: "உங்களுக்கு முக்கியமானவற்றைத் தேர்ந்தெடுக்கவும் — ஒன்றை மட்டும் தேர்வு செய்ய வேண்டிய அவசியமில்லை.",
+    priorityValues: "விழுமியங்கள்",
+    priorityEducation: "கல்வி",
+    priorityCareer: "தொழில்",
+    priorityFamily: "குடும்பம்",
+    priorityLocation: "இடம்",
+    priorityLifestyle: "வாழ்க்கை முறை",
+    priorityReligion: "மதம்",
+    priorityJathagam: "ஜாதகம்",
   },
   matches: {
     title: "இணைகள்",
@@ -735,11 +807,11 @@ const ta: Dictionary = {
       "இன்னும் இருதரப்பு இணைகள் இல்லை — நீங்களும் மற்றவரும் ஆர்வம் காட்டியதும், அவை இங்கே திறக்கும்.",
     message: "செய்தி அனுப்பு",
     itsAMatch: "இது ஒரு இணை! 🎉",
-    upgradeToSeeMessage: "அவர்களின் பெயரைப் பார்க்கவும் செய்தி அனுப்பவும் எலீட் ஆக மேம்படுத்தவும்.",
-    upgradeToEliteBtn: "எலீட் ஆக மேம்படுத்தவும்",
+    upgradeToSeeMessage: "அவர்களின் பெயரைப் பார்க்கவும் செய்தி அனுப்பவும் அகரமியா எலீட் ஆக மேம்படுத்தவும்.",
+    upgradeToEliteBtn: "அகரமியா எலீட் ஆக மேம்படுத்தவும்",
     backMutual: "← இருதரப்பு",
     report: "புகார்",
-    upgradeToMessage: "உங்கள் இருதரப்பு இணைகளுக்கு செய்தி அனுப்ப எலீட் ஆக மேம்படுத்தவும்.",
+    upgradeToMessage: "உங்கள் இருதரப்பு இணைகளுக்கு செய்தி அனுப்ப அகரமியா எலீட் ஆக மேம்படுத்தவும்.",
     conversationUnavailable: "இந்த உரையாடல் கிடைக்கவில்லை.",
     backToMutual: "இருதரப்புக்குத் திரும்பு",
     sayHello: "வணக்கம் சொல்லுங்கள் — நீங்கள் ஒரு இருதரப்பு இணை!",
@@ -750,7 +822,7 @@ const ta: Dictionary = {
     alreadyReportedSuffix: " அன்று புகாரளித்துவிட்டீர்கள். எங்கள் குழு அதை மதிப்பாய்வு செய்யும்.",
     reportTitle: "இந்த உரையாடலைப் புகாரளி",
     reportSubtitle:
-      "என்ன நடந்தது என்று சொல்லுங்கள். இது அகரத்தை நடத்தும் குழுவிற்கு நேரடியாகச் செல்கிறது, மற்ற உறுப்பினருக்கு அல்ல.",
+      "என்ன நடந்தது என்று சொல்லுங்கள். இது அகரமியாவை நடத்தும் குழுவிற்கு நேரடியாகச் செல்கிறது, மற்ற உறுப்பினருக்கு அல்ல.",
     whatHappened: "என்ன நடந்தது?",
     submitReport: "புகாரை சமர்ப்பி",
     milestoneMarkAs: "இந்தக் கட்டத்தைக் குறிக்கவும்:",
@@ -778,14 +850,14 @@ const ta: Dictionary = {
     justMatchedBodyUnlocked:
       "இருவரும் ஆர்வமாக உள்ளீர்கள் — வணக்கம் சொல்லி உரையாடலைத் தொடங்குங்கள்.",
     justMatchedBodyLocked:
-      "இருவரும் ஆர்வமாக உள்ளீர்கள். அவர்களின் பெயரைப் பார்க்கவும் செய்திகள் அனுப்பவும் Elite-க்கு மேம்படுத்தவும்.",
+      "இருவரும் ஆர்வமாக உள்ளீர்கள். அவர்களின் பெயரைப் பார்க்கவும் செய்திகள் அனுப்பவும் Agaramiya Elite-க்கு மேம்படுத்தவும்.",
     justMatchedDismiss: "தேடுவதைத் தொடரவும்",
   },
   account: {
     yourAccount: "உங்கள் கணக்கு",
     downloadData: "உங்கள் தரவைப் பதிவிறக்கவும்",
     downloadDataDesc:
-      "அகரம் உங்களைப் பற்றி சேமித்திருக்கும் அனைத்தும் — சுயவிவரம், விருப்பங்கள், அடையாள சரிபார்ப்பு நிலை, பணம் செலுத்திய வரலாறு, இணைகள், செய்திகள், நீங்கள் தாக்கல் செய்த புகார்கள் — ஒரு JSON கோப்பாக.",
+      "அகரமியா உங்களைப் பற்றி சேமித்திருக்கும் அனைத்தும் — சுயவிவரம், விருப்பங்கள், அடையாள சரிபார்ப்பு நிலை, பணம் செலுத்திய வரலாறு, இணைகள், செய்திகள், நீங்கள் தாக்கல் செய்த புகார்கள் — ஒரு JSON கோப்பாக.",
     downloadMyData: "என் தரவைப் பதிவிறக்கு",
     blockedMembers: "தடுக்கப்பட்டவர்கள்",
     noBlocked: "நீங்கள் யாரையும் தடுக்கவில்லை.",
@@ -800,29 +872,29 @@ const ta: Dictionary = {
     permanentlyDelete: "என் கணக்கை நிரந்தரமாக நீக்கு",
     billingHeading: "பில்லிங்",
     billingPlanFree: "நீங்கள் இலவசத் திட்டத்தில் உள்ளீர்கள்.",
-    billingPlanElitePrefix: "எலீட் — ",
+    billingPlanElitePrefix: "அகரமியா எலீட் — ",
     billingPlanEliteSuffix: " வரை செயலில் உள்ளது",
-    billingPlanExpiredPrefix: "எலீட் — ",
+    billingPlanExpiredPrefix: "அகரமியா எலீட் — ",
     billingPlanExpiredSuffix: " அன்று காலாவதியானது",
     manageBilling: "நிர்வகி / புதுப்பி",
     paymentHistoryHeading: "பணம் செலுத்திய வரலாறு",
     noPayments: "இன்னும் பணம் செலுத்தல் எதுவும் இல்லை.",
-    paymentEliteSixMonths: "எலீட் — 6 மாதங்கள்",
+    paymentEliteSixMonths: "அகரமியா எலீட் — 6 மாதங்கள்",
     paymentStatusPaid: "செலுத்தப்பட்டது",
     paymentStatusFailed: "தோல்வியடைந்தது",
     paymentStatusCreated: "முடிக்கப்படவில்லை",
     autoRenewOn: "தானியங்கி புதுப்பித்தல் இயக்கத்தில் உள்ளது — ஒவ்வொரு 6 மாதங்களுக்கும் தானாகக் கட்டணம் வசூலிக்கப்படும்.",
     autoRenewCancelRequested:
-      "தானியங்கி புதுப்பித்தல் நிறுத்தப்பட்டது — காலாவதியாகும் வரை எலீட் தொடரும், பின் புதுப்பிக்கப்படாது.",
+      "தானியங்கி புதுப்பித்தல் நிறுத்தப்பட்டது — காலாவதியாகும் வரை அகரமியா எலீட் தொடரும், பின் புதுப்பிக்கப்படாது.",
     autoRenewHalted:
       "தானியங்கி புதுப்பித்தலுக்கு உங்கள் கார்டில் கட்டணம் வசூலிக்க முடியவில்லை. கைமுறையாகப் புதுப்பிக்கவும் அல்லது வேறு கட்டண முறையில் மீண்டும் சந்தா செய்யவும்.",
     cancelAutoRenew: "தானியங்கி புதுப்பித்தலை நிறுத்து",
     cancelAutoRenewConfirm:
-      "இது எதிர்கால கட்டணங்களை நிறுத்தும். உங்கள் தற்போதைய காலம் முடியும் வரை எலீட் தொடரும் — எதுவும் திரும்பப்பெறப்படாது அல்லது முன்கூட்டியே நீக்கப்படாது.",
+      "இது எதிர்கால கட்டணங்களை நிறுத்தும். உங்கள் தற்போதைய காலம் முடியும் வரை அகரமியா எலீட் தொடரும் — எதுவும் திரும்பப்பெறப்படாது அல்லது முன்கூட்டியே நீக்கப்படாது.",
     cancelling: "ரத்துசெய்கிறது…",
     notificationsHeading: "செய்தி அறிவிப்புகள்",
     notificationsDesc:
-      "இருதரப்பு இணை உங்களுக்கு செய்தி அனுப்பும்போது உங்கள் உலாவியில் அறிவிப்பு பெறுங்கள் — அகரம் திறந்திருக்காவிட்டாலும்.",
+      "இருதரப்பு இணை உங்களுக்கு செய்தி அனுப்பும்போது உங்கள் உலாவியில் அறிவிப்பு பெறுங்கள் — அகரமியா திறந்திருக்காவிட்டாலும்.",
     notificationsOn: "இந்த உலாவிக்கு அறிவிப்புகள் இயக்கத்தில் உள்ளன.",
     notificationsOff: "இந்த உலாவிக்கு அறிவிப்புகள் நிறுத்தப்பட்டுள்ளன.",
     notificationsDenied:
@@ -851,7 +923,7 @@ const ta: Dictionary = {
     employmentEmployerNameLabel: "முதலாளியின் பெயர்",
     employmentEmployerContactLabel: "முதலாளியின் தொடர்பு மின்னஞ்சல் (எ.கா. HR)",
     employmentConsentLabel:
-      "என் வேலையை உறுதிசெய்ய அகரம் என் முதலாளியைத் தொடர்பு கொள்ள நான் ஒப்புதல் அளிக்கிறேன்.",
+      "என் வேலையை உறுதிசெய்ய அகரமியா என் முதலாளியைத் தொடர்பு கொள்ள நான் ஒப்புதல் அளிக்கிறேன்.",
     employmentSubmitting: "சமர்ப்பிக்கிறது…",
     employmentSubmitRequest: "கோரிக்கையை சமர்ப்பி",
     digestHeading: "வாராந்திர இணை சுருக்கம்",
@@ -921,7 +993,7 @@ const ta: Dictionary = {
     jathagamDesc:
       "உங்கள் பிறப்பு விவரங்களை சேமித்து, பரஸ்பரமாகப் பொருந்தியதும் பகிர்ந்து கொள்ள விரும்புகிறீர்களா என்பதைத் தேர்வு செய்யவும்.",
     jathagamNoScoreNotice:
-      "இதிலிருந்து அகரம் பொருத்தத் தன்மை மதிப்பெண்ணைக் கணக்கிடுவதில்லை — இது விவரங்களைப் பகிர்வது மட்டுமே, குடும்பங்கள் தாங்களாகவே பரிசீலிக்கலாம்.",
+      "இதிலிருந்து அகரமியா பொருத்தத் தன்மை மதிப்பெண்ணைக் கணக்கிடுவதில்லை — இது விவரங்களைப் பகிர்வது மட்டுமே, குடும்பங்கள் தாங்களாகவே பரிசீலிக்கலாம்.",
     jathagamBirthDate: "பிறந்த தேதி",
     jathagamBirthTime: "பிறந்த நேரம்",
     jathagamBirthTimeHelp: "சரியாகத் தெரியவில்லை என்றால் காலியாக விடவும்.",
@@ -939,7 +1011,7 @@ const ta: Dictionary = {
     phoneMockNote:
       "இது தற்போதைக்கு ஒரு போலி சோதனை — உண்மையான SMS அனுப்ப SMS வழங்குநர் (Twilio/MSG91) தேவை, அது இன்னும் இந்த திட்டத்தில் அமைக்கப்படவில்லை. இணைக்கப்பட்டதும் என்ன மாறும் என்பதற்கு கீழே பார்க்கவும்.",
     phoneNumberPlaceholder: "எ.கா. +91 98765 43210",
-    phoneConsentLabel: "இந்த தொலைபேசி எண்ணை Agaram உறுதிசெய்ய நான் ஒப்புக்கொள்கிறேன்.",
+    phoneConsentLabel: "இந்த தொலைபேசி எண்ணை Agaramiya உறுதிசெய்ய நான் ஒப்புக்கொள்கிறேன்.",
     phoneVerifyButton: "தொலைபேசி எண்ணை உறுதிசெய்யவும்",
     phoneReverify: "வேறு எண்ணை உறுதிசெய்யவும்",
     phoneVerifying: "உங்கள் தொலைபேசி எண்ணை உறுதிசெய்கிறோம்…",
@@ -953,7 +1025,7 @@ const ta: Dictionary = {
     badgeNotVerified: "உறுதிசெய்யப்படவில்லை",
     badgeNone: "எதுவுமில்லை",
     badgeActive: "செயலில்",
-    billingBadgeElite: "Elite",
+    billingBadgeElite: "Agaramiya Elite",
     billingBadgeFree: "Free",
   },
   family: {
@@ -989,7 +1061,7 @@ const ta: Dictionary = {
     stopSharing: "பகிர்வதை நிறுத்து",
     invitedTitle: "உங்களுக்கு அழைப்பு வந்துள்ளது",
     invitedDesc:
-      "யாரோ ஒருவர் அகரத்தில் தங்கள் திருமணத் தேடலுக்கு உதவும்படி உங்களை அழைத்துள்ளனர்.",
+      "யாரோ ஒருவர் அகரமியாவில் தங்கள் திருமணத் தேடலுக்கு உதவும்படி உங்களை அழைத்துள்ளனர்.",
     signUpToAccept: "ஏற்க ஒரு கணக்கை உருவாக்கவும்",
     logInToAccept: "ஏற்க உள்நுழையவும்",
     confirmTitlePrefix: "",
@@ -1011,21 +1083,21 @@ const ta: Dictionary = {
       "நீங்கள் இந்த சுயவிவரத்தை மற்றொருவருக்காக அமைத்ததால், அதை நேரடியாக நிர்வகிக்க அவர்களை அழைப்பதைக் கருதுங்கள் — கீழே அழைக்கவும்.",
   },
   upgrade: {
-    youreOnElite: "நீங்கள் எலீட் திட்டத்தில் உள்ளீர்கள்.",
+    youreOnElite: "நீங்கள் அகரமியா எலீட் திட்டத்தில் உள்ளீர்கள்.",
     activeUntilPrefix: "",
     activeUntilSuffix:
       " வரை செயலில் உள்ளது. உங்கள் இருதரப்பு இணைகள் திறந்தே இருக்கும், நீங்கள் செய்தி அனுப்பிக்கொண்டே இருக்கலாம்.",
     renewalHint:
       "புதுப்பித்தல் உங்கள் தற்போதைய காலாவதியிலிருந்து மேலும் 6 மாதங்களைச் சேர்க்கும் — நீங்கள் ஏற்கனவே பணம் செலுத்திய நாட்களை இழக்க மாட்டீர்கள். இது கைமுறையாக நடக்காமல் இருக்க கீழே தானியங்கி புதுப்பித்தலை இயக்கவும்.",
-    renewButtonLabel: "எலீட்டைப் புதுப்பிக்கவும் — ₹15,000 / 6 மாதங்கள்",
-    expiringSoonTitle: "உங்கள் எலீட் உறுப்பினர் விரைவில் காலாவதியாகிறது.",
+    renewButtonLabel: "அகரமியா எலீட்டைப் புதுப்பிக்கவும் — ₹15,000 / 6 மாதங்கள்",
+    expiringSoonTitle: "உங்கள் அகரமியா எலீட் உறுப்பினர் விரைவில் காலாவதியாகிறது.",
     expiringSoonPrefix: "இது ",
     expiringSoonSuffix:
       " அன்று காலாவதியாகும். உங்கள் இணைகள் திறந்திருக்கவும், இடைவெளியின்றி செய்தி அனுப்பிக்கொண்டே இருக்கவும் இப்போதே புதுப்பிக்கவும்.",
-    expiredTitle: "உங்கள் எலீட் உறுப்பினர் காலாவதியாகிவிட்டது.",
+    expiredTitle: "உங்கள் அகரமியா எலீட் உறுப்பினர் காலாவதியாகிவிட்டது.",
     expiredPrefix: "இது ",
     expiredSuffix: " அன்று காலாவதியானது. உங்கள் இணைகளைத் திறக்கவும் செய்தி அனுப்பிக்கொண்டே இருக்கவும் புதுப்பிக்கவும்.",
-    eliteLabel: "எலீட்",
+    eliteLabel: "அகரமியா எலீட்",
     eliteTitle: "முடிவற்ற ஸ்க்ரோலிங் இல்லாமல், இலக்கு நோக்கிய தேடல்.",
     pricing: "6 மாதங்களுக்கு ₹15,000.",
     benefit1: "✓ முழு சுயவிவரம் — பெயரும் உங்களைப் பற்றியும் — இருதரப்பு இணையான உடனே",
@@ -1033,18 +1105,18 @@ const ta: Dictionary = {
     benefit3: "✓ இலவசத்தில் உள்ள அனைத்தும்: பார்வையிடுதல், சரிபார்ப்பு, ஆர்வம் தெரிவித்தல்",
     oneTimeNote:
       "இரு வகையிலும் ₹15,000, 6 மாதங்களுக்கு. தானியங்கி புதுப்பித்தல் (மேலே) என்றால் ஒவ்வொரு சுழற்சியிலும் Razorpay தானாகக் கட்டணம் வசூலிக்கும் — உங்கள் கணக்கிலிருந்து எப்போது வேண்டுமானாலும் ரத்துசெய்யலாம். அதற்குப் பதிலாக ஒவ்வொரு முறையும் கைமுறையாகச் செலுத்த அதைத் தேர்வுநீக்கவும்.",
-    upgradeButtonLabel: "எலீட் ஆக மேம்படுத்தவும் — ₹15,000 / 6 மாதங்கள்",
+    upgradeButtonLabel: "அகரமியா எலீட் ஆக மேம்படுத்தவும் — ₹15,000 / 6 மாதங்கள்",
     autoRenewLabel: "ஒவ்வொரு 6 மாதங்களும் தானியங்கி புதுப்பிப்பு (பரிந்துரைக்கப்படுகிறது) — எப்போது வேண்டுமானாலும் ரத்துசெய்யலாம்.",
     openingCheckout: "செக்அவுட் திறக்கிறது…",
     checkoutLoadError: "செக்அவுட்டை ஏற்ற முடியவில்லை — உங்கள் இணைப்பைச் சரிபார்த்து மீண்டும் முயற்சிக்கவும்.",
   },
   concierge: {
-    label: "ராயல் கான்சியர்ஜ்",
+    label: "அகரமியா கான்சியர்ஜ்",
     cardTitle: "மேலும் நேரடி உதவியுடன் தேட விரும்புகிறீர்களா?",
     cardDesc:
-      "ராயல் கான்சியர்ஜ் என்பது நிறுவனரே நேரடியாக நடத்தும் ஒரு தனிப்பட்ட பொருத்தச் சேவை — நீங்கள் என்ன தேடுகிறீர்கள் என்பதை புரிந்துகொள்ள ஒரு உண்மையான தொலைபேசி அழைப்பு, விலை நேரடியாக பேசி முடிவு செய்யப்படும், தானியங்கி செக்அவுட் இல்லை.",
+      "அகரமியா கான்சியர்ஜ் என்பது நிறுவனரே நேரடியாக நடத்தும் ஒரு தனிப்பட்ட பொருத்தச் சேவை — நீங்கள் என்ன தேடுகிறீர்கள் என்பதை புரிந்துகொள்ள ஒரு உண்மையான தொலைபேசி அழைப்பு, விலை நேரடியாக பேசி முடிவு செய்யப்படும், தானியங்கி செக்அவுட் இல்லை.",
     cardCta: "அழைப்பு கோரவும்",
-    applyTitle: "ராயல் கான்சியர்ஜ் கோரவும்",
+    applyTitle: "அகரமியா கான்சியர்ஜ் கோரவும்",
     applyDesc:
       "உங்கள் எண்ணையும் நாங்கள் அறிய வேண்டியதையும் விடுங்கள் — சில நாட்களில் உங்களை அழைத்து பேசுவோம்.",
     phoneLabel: "தொலைபேசி எண்",
@@ -1063,7 +1135,7 @@ const ta: Dictionary = {
     tryAgain: "மீண்டும் முயற்சி",
     pageNotFound: "பக்கம் கிடைக்கவில்லை.",
     pageNotFoundDesc: "அந்தப் பக்கம் இல்லை, அல்லது நகர்த்தப்பட்டுள்ளது.",
-    couldntLoad: "அகரம் ஏற்ற முடியவில்லை.",
+    couldntLoad: "அகரமியா ஏற்ற முடியவில்லை.",
   },
 } satisfies Dictionary;
 

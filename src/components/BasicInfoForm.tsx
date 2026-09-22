@@ -4,6 +4,8 @@ import { useActionState, type CSSProperties } from "react";
 import Link from "next/link";
 import { saveBasicInfo } from "@/app/actions/profile";
 import { PillGroup } from "@/components/PillGroup";
+import { MultiPillGroup } from "@/components/MultiPillGroup";
+import { priorityFocusOptions } from "@/lib/priorityFocus";
 import type { Dictionary } from "@/lib/i18n/dictionary";
 
 const fieldLabel: CSSProperties = {
@@ -28,6 +30,7 @@ const inputStyle: CSSProperties = {
 export function BasicInfoForm({
   defaults,
   isEditing = false,
+  signupIntent,
   t,
 }: {
   defaults?: {
@@ -39,6 +42,9 @@ export function BasicInfoForm({
     created_by_relation?: string;
   };
   isEditing?: boolean;
+  /** Pre-fill from SignupIntentStep's answers, at signup — only ever
+   *  passed on first-time onboarding. See basic-info/page.tsx. */
+  signupIntent?: { relationDefault?: string; priorities: string[] };
   t: Dictionary;
 }) {
   const [state, formAction, pending] = useActionState(saveBasicInfo, undefined);
@@ -56,7 +62,7 @@ export function BasicInfoForm({
         <div style={fieldLabel}>{t.onboarding.relationQuestion}</div>
         <select
           name="created_by_relation"
-          defaultValue={defaults?.created_by_relation ?? "self"}
+          defaultValue={defaults?.created_by_relation ?? signupIntent?.relationDefault ?? "self"}
           style={inputStyle}
         >
           <option value="self">{t.onboarding.relationSelf}</option>
@@ -136,6 +142,25 @@ export function BasicInfoForm({
           placeholder={t.onboarding.aboutPlaceholder}
         />
       </div>
+
+      {/* Captured once, from SignupIntentStep at signup (pre-filled
+          here, still editable) — like the relation question above,
+          this doesn't need re-asking once a profile already exists.
+          See src/lib/priorityFocus.ts and priority_focus on
+          `profiles` (schema.sql Phase 32). */}
+      {!isEditing && (
+      <div>
+        <div style={fieldLabel}>{t.onboarding.priorityQuestion}</div>
+        <p className="text-xs mb-2.5" style={{ color: "var(--text-soft)", textTransform: "none", letterSpacing: "normal" }}>
+          {t.onboarding.priorityHelp}
+        </p>
+        <MultiPillGroup
+          name="priority_focus"
+          defaultValue={signupIntent?.priorities ?? []}
+          options={priorityFocusOptions(t)}
+        />
+      </div>
+      )}
 
       {/* Consent was already captured once, at signup — re-showing (and
           re-requiring) this checkbox on every later edit would just be

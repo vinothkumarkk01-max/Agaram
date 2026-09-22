@@ -432,6 +432,7 @@ export default async function AccountPage() {
 
         {ownProfile && (
           <AccountSection
+            id="employment"
             title={t.account.employmentHeading}
             badge={employmentBadge.text}
             badgeTone={employmentBadge.tone}
@@ -449,7 +450,7 @@ export default async function AccountPage() {
         )}
 
         {ownProfile && (
-          <AccountSection title={t.account.phoneHeading} badge={phoneBadge.text} badgeTone={phoneBadge.tone}>
+          <AccountSection id="phone" title={t.account.phoneHeading} badge={phoneBadge.text} badgeTone={phoneBadge.tone}>
             <p className="text-sm mb-4" style={{ color: "var(--text-soft)" }}>
               {t.account.phoneDesc}
             </p>

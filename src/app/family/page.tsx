@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getDictionary } from "@/lib/i18n/server";
 import { intlLocale } from "@/lib/i18n/locale";
+import { BrandMark } from "@/components/BrandMark";
 import { LocaleToggle } from "@/components/LocaleToggle";
 import { logout } from "@/app/actions/auth";
 import { milestoneLabel, type MessageMilestone } from "@/lib/milestones";
@@ -64,15 +65,7 @@ export default async function FamilyPage() {
       <div className="w-full max-w-lg flex flex-col gap-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div
-              className="w-9 h-9 rounded-full flex items-center justify-center text-white font-bold shadow-sm"
-              style={{
-                background:
-                  "linear-gradient(135deg, var(--accent), var(--accent-strong))",
-              }}
-            >
-              அ
-            </div>
+            <BrandMark size={36} />
             <span
               className="text-xs tracking-widest uppercase font-medium"
               style={{ color: "var(--text-soft)" }}

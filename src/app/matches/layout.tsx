@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { MatchesNav } from "@/components/MatchesNav";
 import { getDictionary } from "@/lib/i18n/server";
+import { BrandMark } from "@/components/BrandMark";
 import { LocaleToggle } from "@/components/LocaleToggle";
 
 export default async function MatchesLayout({
@@ -60,15 +61,7 @@ export default async function MatchesLayout({
           </Link>
           <div className="flex items-center gap-3">
             <LocaleToggle locale={locale} />
-            <div
-              className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold shadow-sm"
-              style={{
-                background:
-                  "linear-gradient(135deg, var(--accent), var(--accent-strong))",
-              }}
-            >
-              அ
-            </div>
+            <BrandMark size={32} alt={t.common.brand} />
           </div>
         </div>
 

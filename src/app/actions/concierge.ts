@@ -46,6 +46,6 @@ export async function submitConciergeApplication(
   revalidatePath("/account");
   return {
     success:
-      "Request received — we'll call you within a couple of days to talk through Royal Concierge.",
+      "Request received — we'll call you within a couple of days to talk through Agaramiya Concierge.",
   };
 }
