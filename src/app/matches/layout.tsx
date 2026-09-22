@@ -3,8 +3,8 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { MatchesNav } from "@/components/MatchesNav";
 import { getDictionary } from "@/lib/i18n/server";
-import { BrandMark } from "@/components/BrandMark";
-import { LocaleToggle } from "@/components/LocaleToggle";
+import { DashboardTopBar } from "@/components/DashboardTopBar";
+import { getProfilePhotoUrl } from "@/lib/photo";
 
 export default async function MatchesLayout({
   children,
@@ -18,9 +18,17 @@ export default async function MatchesLayout({
   if (!user) redirect("/login");
   const { locale, t } = await getDictionary();
 
+  // Same top-bar chrome as /dashboard (Sept 2026) — this section used
+  // to draw its own ad hoc header (a bare back-link plus a locale
+  // toggle and the brand mark on the right), so the logo visibly
+  // jumped from the left edge on /dashboard to the right edge here.
+  // Founder feedback: "make it consistency across page." Pulling in
+  // the same full_name / has_photo / is_admin fields dashboard/page.tsx
+  // already fetches (plus the collaborator-direction family-link
+  // check) so DashboardTopBar renders identically everywhere.
   const { data: profile } = await supabase
     .from("profiles")
-    .select("id")
+    .select("id, full_name, has_photo, is_admin")
     .eq("id", user.id)
     .maybeSingle();
   if (!profile) redirect("/onboarding/basic-info");
@@ -39,6 +47,18 @@ export default async function MatchesLayout({
     .maybeSingle();
   if (verification?.status !== "verified") redirect("/onboarding/verification");
 
+  const ownPhoto = await getProfilePhotoUrl(supabase, user.id, profile.has_photo);
+
+  const { data: familyLink } = await supabase
+    .from("account_links")
+    .select("id")
+    .eq("collaborator_id", user.id)
+    .eq("status", "active")
+    .limit(1)
+    .maybeSingle();
+
+  const displayInitial = profile.full_name?.[0] ?? user.email?.[0]?.toUpperCase() ?? "?";
+
   return (
     <div
       className="min-h-screen w-full"
@@ -47,23 +67,27 @@ export default async function MatchesLayout({
           "radial-gradient(120% 70% at 50% -10%, #FFFFFF 0%, var(--bg) 55%)",
       }}
     >
+      <DashboardTopBar
+        t={t}
+        locale={locale}
+        name={profile.full_name ?? undefined}
+        initial={displayInitial}
+        photoUrl={ownPhoto?.url}
+        isAdmin={Boolean(profile.is_admin)}
+        hasFamilyLink={Boolean(familyLink)}
+      />
+
       {/* lg:max-w-4xl — widened on desktop only (customer feedback,
           Sept 2026, on unused side space); mobile/tablet keep the
           original max-w-2xl column untouched. */}
       <div className="max-w-2xl lg:max-w-4xl mx-auto px-6 sm:px-8 pt-8 pb-16">
-        <div className="flex items-center justify-between mb-6">
-          <Link
-            href="/dashboard"
-            className="text-xs font-semibold inline-flex items-center gap-1.5"
-            style={{ color: "var(--text-soft)" }}
-          >
-            {t.common.backDashboard}
-          </Link>
-          <div className="flex items-center gap-3">
-            <LocaleToggle locale={locale} />
-            <BrandMark size={32} alt={t.common.brand} />
-          </div>
-        </div>
+        <Link
+          href="/dashboard"
+          className="text-xs font-semibold inline-flex items-center gap-1.5 mb-6"
+          style={{ color: "var(--text-soft)" }}
+        >
+          {t.common.backDashboard}
+        </Link>
 
         <h1 className="text-3xl mb-1" style={{ fontFamily: "var(--font-display)" }}>
           {t.matches.title}

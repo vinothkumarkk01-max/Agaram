@@ -46,7 +46,7 @@ export function CandidateCard({
 }) {
   return (
     <div
-      className="rounded-2xl overflow-hidden"
+      className="h-full flex flex-col rounded-2xl overflow-hidden"
       style={{ background: "var(--bg-raised)", border: "1px solid var(--line)" }}
     >
       <CandidatePhoto
@@ -56,7 +56,14 @@ export function CandidateCard({
         privacyLabel={t.matches.privateUntilMutual}
       />
 
-      <div className="p-5">
+      {/* flex-1 + flex-col so the Pass/Interested row can sit at
+          mt-auto below — otherwise, in the grid this card sits in
+          (see /matches), cards with more badges/reasons/compatibility
+          lines push their buttons lower than shorter neighbors in the
+          same row, even though the grid stretches every card to the
+          row's tallest height. Founder feedback (Sept 2026): "buttons
+          are jumping here and there." */}
+      <div className="p-5 flex-1 flex flex-col">
         <div className="text-base font-semibold mb-2">
           {candidate.age} {t.dashboard.years}
           {candidate.location ? ` · ${candidate.location}` : ""}
@@ -135,7 +142,7 @@ export function CandidateCard({
           </div>
         )}
 
-        <div className="flex gap-2">
+        <div className="mt-auto flex gap-2">
           <form action={passOnCandidate.bind(null, candidate.id)} className="flex-1">
             <button
               type="submit"

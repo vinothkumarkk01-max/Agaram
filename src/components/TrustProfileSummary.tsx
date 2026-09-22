@@ -97,7 +97,7 @@ export function TrustProfileSummary({
   const verifiedCount = signals.filter((s) => s.status === "verified").length;
 
   return (
-    <div className="rounded-xl p-4 mb-4 text-sm" style={{ background: "var(--bg-sunken)" }}>
+    <div className="rounded-xl p-4 text-sm" style={{ background: "var(--bg-sunken)" }}>
       <div className="flex items-center justify-between mb-2">
         <span className="font-semibold">{t.dashboard.trustProfileHeading}</span>
         <span className="text-xs" style={{ color: "var(--text-soft)" }}>

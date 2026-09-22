@@ -74,14 +74,35 @@ export function DashboardTopBar({
       className="flex items-center justify-between px-4 md:px-6 py-3"
       style={{ background: "var(--bg-raised)", borderBottom: "1px solid var(--line)" }}
     >
-      <div className="flex items-center gap-2.5">
-        <BrandMark size={32} />
-        <span
-          className="text-base font-bold"
-          style={{ fontFamily: "var(--font-display)", letterSpacing: "-0.01em" }}
-        >
-          {t.common.brand}
-        </span>
+      <div className="flex items-center gap-2.5 md:gap-8">
+        <div className="flex items-center gap-2.5">
+          <BrandMark size={32} />
+          <span
+            className="text-base font-bold"
+            style={{ fontFamily: "var(--font-display)", letterSpacing: "-0.01em" }}
+          >
+            {t.common.brand}
+          </span>
+        </div>
+
+        {/* Curated-first navigation (Sept 2026 redesign) — Introductions
+            leads, Discover (Browse) follows: the product is a curated
+            introduction first, a self-serve directory second. Desktop
+            only, same breakpoint as the locale toggle below — a phone-
+            width bar has no room for a third nav row on top of the
+            brand mark and the icon cluster, and the dashboard's own
+            content already links to all three destinations. */}
+        <nav className="hidden md:flex items-center gap-6" aria-label={t.common.brand}>
+          <Link href="/matches/received" className="text-sm font-semibold" style={{ color: "var(--text)" }}>
+            {t.dashboard.navIntroductions}
+          </Link>
+          <Link href="/matches" className="text-sm font-semibold" style={{ color: "var(--text-soft)" }}>
+            {t.dashboard.navDiscover}
+          </Link>
+          <Link href="/matches/mutual" className="text-sm font-semibold" style={{ color: "var(--text-soft)" }}>
+            {t.dashboard.navMessages}
+          </Link>
+        </nav>
       </div>
 
       <div className="flex items-center gap-3">

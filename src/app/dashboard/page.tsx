@@ -7,13 +7,21 @@ import { intlLocale } from "@/lib/i18n/locale";
 import { LocaleToggle } from "@/components/LocaleToggle";
 import { DashboardTopBar } from "@/components/DashboardTopBar";
 import { getProfilePhotoUrl, getProfilePhotoUrls } from "@/lib/photo";
-import { ProfilePhotoAvatar } from "@/components/ProfilePhotoAvatar";
 import { stageLabel, type IntentStage } from "@/components/JourneyStageTracker";
-import { TodaysIntroCard } from "@/components/TodaysIntroCard";
 import { TrustProfileSummary } from "@/components/TrustProfileSummary";
 import type { MaskedCandidate } from "@/components/CandidateCard";
 import { pickTodaysIntroduction } from "@/lib/dashboardIntro";
+import { buildMatchReasons } from "@/lib/matchReasons";
 import { nextWeeklyDigestRun } from "@/lib/schedule";
+import { greetingKeyFor } from "@/lib/greeting";
+import { WelcomeHeader } from "@/components/dashboard/WelcomeHeader";
+import { FeaturedIntroduction } from "@/components/dashboard/FeaturedIntroduction";
+import { IntroductionEmptyState } from "@/components/dashboard/IntroductionEmptyState";
+import { SecondaryIntroductions, type SecondaryCandidate } from "@/components/dashboard/SecondaryIntroductions";
+import { ProfileProgress } from "@/components/dashboard/ProfileProgress";
+import { WeeklyActivity } from "@/components/dashboard/WeeklyActivity";
+import { MembershipPanel } from "@/components/dashboard/MembershipPanel";
+import { FamilyPanel } from "@/components/dashboard/FamilyPanel";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -99,6 +107,50 @@ export default async function DashboardPage() {
         .maybeSingle()
     : { data: null };
 
+  // "Complete your story" (Sept 2026 redesign) — the same real,
+  // already-computed-elsewhere signals /account uses for its own
+  // hasBackground / hasJathagam badges, fetched here too so the
+  // dashboard's completeness panel is never a guess. See
+  // ProfileProgress / computeStoryCompleteness for how these combine.
+  const { data: extendedBackground } = user
+    ? await supabase
+        .from("profiles")
+        .select("family_type, diet, native_district, community")
+        .eq("id", user.id)
+        .maybeSingle()
+    : { data: null };
+
+  const { data: jathagamData } = user
+    ? await supabase
+        .from("jathagam_details")
+        .select("birth_date, birth_star, birth_place, rasi")
+        .eq("profile_id", user.id)
+        .maybeSingle()
+    : { data: null };
+
+  const hasBackground = Boolean(
+    extendedBackground?.family_type ||
+      extendedBackground?.diet ||
+      extendedBackground?.native_district ||
+      extendedBackground?.community
+  );
+  const hasJathagam = Boolean(
+    jathagamData?.birth_date || jathagamData?.birth_star || jathagamData?.birth_place || jathagamData?.rasi
+  );
+
+  // "Your family" (Sept 2026 redesign) — the OWNER's side of family
+  // sharing (do I have a collaborator helping ME), the mirror image of
+  // the familyLink query above (am I helping someone else). Same
+  // account_links table, same query account/page.tsx already runs.
+  const { data: ownFamilyLink } = user
+    ? await supabase
+        .from("account_links")
+        .select("status, collaborator_name")
+        .eq("owner_id", user.id)
+        .in("status", ["pending", "active"])
+        .maybeSingle()
+    : { data: null };
+
   const isElite =
     subscription?.subscription_tier === "elite" &&
     (!subscription.subscription_expires_at ||
@@ -126,13 +178,39 @@ export default async function DashboardPage() {
       ? pickTodaysIntroduction(t, introCandidates as MaskedCandidate[], preferences)
       : null;
 
-  const introPhoto = todaysIntro
-    ? (
-        await getProfilePhotoUrls(supabase, [
-          { id: todaysIntro.candidate.id, hasPhoto: todaysIntro.candidate.has_photo },
-        ])
-      ).get(todaysIntro.candidate.id)
-    : null;
+  // "More people to consider" (Sept 2026 redesign) — up to 2 more
+  // candidates from the SAME already-fetched, already-hard-filtered
+  // get_match_candidates() list, never a second query. Reasons/
+  // compatibility use the exact same honest builders as the featured
+  // card and Browse itself.
+  const secondaryCandidatesRaw =
+    isVerified && preferences && introCandidates?.length && todaysIntro
+      ? (introCandidates as MaskedCandidate[])
+          .filter((c) => c.id !== todaysIntro.candidate.id)
+          .slice(0, 2)
+      : [];
+
+  const allPhotoTargets = [
+    ...(todaysIntro ? [{ id: todaysIntro.candidate.id, hasPhoto: todaysIntro.candidate.has_photo }] : []),
+    ...secondaryCandidatesRaw.map((c) => ({ id: c.id, hasPhoto: c.has_photo })),
+  ];
+  const introPhotos = allPhotoTargets.length
+    ? await getProfilePhotoUrls(supabase, allPhotoTargets)
+    : new Map<string, { url: string; isOriginal: boolean }>();
+
+  const introPhoto = todaysIntro ? introPhotos.get(todaysIntro.candidate.id) : null;
+
+  const secondaryCandidates: SecondaryCandidate[] = preferences
+    ? secondaryCandidatesRaw.map((candidate) => {
+        const reasons = buildMatchReasons(t, candidate, preferences);
+        return {
+          candidate,
+          photoUrl: introPhotos.get(candidate.id)?.url,
+          photoIsOriginal: introPhotos.get(candidate.id)?.isOriginal,
+          topReason: reasons[0],
+        };
+      })
+    : [];
 
   const nextDigestLabel = isVerified
     ? nextWeeklyDigestRun().toLocaleString(intlLocale(locale), {
@@ -145,6 +223,8 @@ export default async function DashboardPage() {
 
   const displayName = profile?.full_name;
   const displayInitial = profile?.full_name?.[0] ?? user?.email?.[0]?.toUpperCase() ?? "?";
+  const firstName = profile?.full_name?.split(" ")[0] ?? t.dashboard.greetingFallback;
+  const greetingKey = greetingKeyFor();
 
   return (
     <>
@@ -243,66 +323,20 @@ export default async function DashboardPage() {
           </>
         ) : (
           <>
-            <div className="flex items-center gap-3 mb-1">
-              <ProfilePhotoAvatar url={ownPhoto?.url} initial={profile.full_name[0] ?? ""} size={64} />
-              <h1
-                className="text-xl"
-                style={{ fontFamily: "var(--font-display)" }}
-              >
-                {profile.full_name}
-              </h1>
+            <WelcomeHeader t={t} greetingKey={greetingKey} firstName={firstName} ready={isVerified} />
+
+            <div className="mt-6 mb-5">
+              <TrustProfileSummary
+                t={t}
+                identityStatus={verification?.status}
+                employmentStatus={employmentVerification?.status}
+                phoneStatus={phoneVerification?.status}
+              />
             </div>
-            <p className="text-xs mb-5" style={{ color: "var(--text-soft)" }}>
-              {profile.profile_type === "groom" ? t.dashboard.groom : t.dashboard.bride} ·{" "}
-              {profile.age} {t.dashboard.years}
-            </p>
-            {profile.about_me && (
-              <p
-                className="text-sm mb-5 italic"
-                style={{ color: "var(--text-soft)" }}
-              >
-                &ldquo;{profile.about_me}&rdquo;
-              </p>
-            )}
-            <div
-              className="rounded-xl p-4 mb-6 text-sm"
-              style={{ background: "var(--bg-sunken)" }}
-            >
-              <div className="font-semibold mb-1">{t.dashboard.lookingFor}</div>
-              <div style={{ color: "var(--text-soft)" }}>
-                {preferences.age_min}–{preferences.age_max} {t.dashboard.years}
-                {preferences.preferred_locations?.length
-                  ? ` · ${preferences.preferred_locations.join(", ")}`
-                  : ""}
-                {" · "}
-                {preferences.education_level === "bachelors_plus"
-                  ? t.dashboard.bachelorsPlus
-                  : t.dashboard.anyEducation}
-              </div>
-            </div>
-            <div
-              className="rounded-xl p-3.5 mb-4 text-sm flex items-center justify-between gap-3"
-              style={{ background: "var(--bg-sunken)" }}
-            >
-              <span style={{ color: "var(--text-soft)" }}>
-                {t.dashboard.journeyPrefix}
-                <span className="font-semibold" style={{ color: "var(--text)" }}>
-                  {stageLabel(t, (profile.intent_stage as IntentStage) ?? "actively_looking")}
-                </span>
-              </span>
-              <Link href="/account" className="underline font-semibold shrink-0" style={{ color: "var(--accent-strong)" }}>
-                {t.dashboard.journeyUpdate}
-              </Link>
-            </div>
-            <TrustProfileSummary
-              t={t}
-              identityStatus={verification?.status}
-              employmentStatus={employmentVerification?.status}
-              phoneStatus={phoneVerification?.status}
-            />
+
             {verification?.status !== "verified" && (
               <div
-                className="rounded-xl p-4 mb-4 text-sm flex items-center justify-between gap-3"
+                className="rounded-xl p-4 mb-5 text-sm flex items-center justify-between gap-3"
                 style={{ background: "var(--accent-soft)", color: "var(--accent-strong)" }}
               >
                 <span className="font-semibold">
@@ -315,107 +349,74 @@ export default async function DashboardPage() {
                 </Link>
               </div>
             )}
-            {isVerified ? (
-              <>
-                {/* Activity strip — real, current counts (not a
-                    "since your last visit" delta, which would need
-                    new tracking this round doesn't add) linking
-                    straight to the two lists they summarize.
-                    Customer question (Sept 2026): "how will the
-                    customer get attracted, will it be interesting to
-                    him" — this and the two blocks below are the
-                    direct answer: outward-facing activity ahead of
-                    the member's own profile summary above. */}
-                <span
-                  className="text-xs uppercase tracking-wider font-semibold mb-2 block"
-                  style={{ color: "var(--accent-strong)" }}
-                >
-                  {t.dashboard.introductionsHeading}
-                </span>
-                <div className="grid grid-cols-2 gap-3 mb-4">
-                  <Link
-                    href="/matches/received"
-                    className="rounded-xl p-3.5 text-center"
-                    style={{ background: "var(--bg-sunken)" }}
-                  >
-                    <div className="text-2xl font-bold" style={{ fontFamily: "var(--font-display)" }}>
-                      {pendingReceivedCount}
-                    </div>
-                    <div className="text-xs mt-0.5" style={{ color: "var(--text-soft)" }}>
-                      {t.dashboard.waitingForResponse}
-                    </div>
-                  </Link>
-                  <Link
-                    href="/matches/mutual"
-                    className="rounded-xl p-3.5 text-center"
-                    style={{ background: "var(--bg-sunken)" }}
-                  >
-                    <div className="text-2xl font-bold" style={{ fontFamily: "var(--font-display)" }}>
-                      {mutualCount}
-                    </div>
-                    <div className="text-xs mt-0.5" style={{ color: "var(--text-soft)" }}>
-                      {t.dashboard.mutualMatchesLabel}
-                    </div>
-                  </Link>
-                </div>
 
+            {isVerified && (
+              <div className="mb-5">
                 {todaysIntro ? (
-                  <TodaysIntroCard
+                  <FeaturedIntroduction
                     candidate={todaysIntro.candidate}
                     photoUrl={introPhoto?.url}
                     photoIsOriginal={introPhoto?.isOriginal}
-                    reasons={todaysIntro.reasons}
+                    compatibility={todaysIntro.compatibility}
                     t={t}
                   />
                 ) : (
-                  <p className="text-xs mb-4" style={{ color: "var(--text-soft)" }}>
-                    {t.dashboard.noIntroToday}
-                  </p>
+                  <IntroductionEmptyState t={t} />
                 )}
-
-                <Link
-                  href="/matches"
-                  className="block text-center rounded-xl py-3 font-bold text-white text-sm mb-1.5"
-                  style={{
-                    background:
-                      "linear-gradient(135deg, var(--accent), var(--accent-strong))",
-                  }}
-                >
-                  {t.dashboard.browseMatches}
-                </Link>
-                {nextDigestLabel && (
-                  <p className="text-xs text-center mb-6" style={{ color: "var(--text-soft)" }}>
-                    {t.dashboard.digestNextPrefix}
-                    {nextDigestLabel}
-                  </p>
-                )}
-              </>
-            ) : (
-              <p className="text-xs mb-6" style={{ color: "var(--text-soft)" }}>
-                {t.dashboard.verifyToUnlock}
-              </p>
+              </div>
             )}
-            <div
-              className="rounded-xl p-4 mb-4 text-sm flex items-center justify-between gap-3"
-              style={
-                isElite
-                  ? { background: "var(--ok-soft)", color: "var(--ok)" }
-                  : { background: "var(--bg-sunken)", color: "var(--text-soft)" }
-              }
-            >
-              <span className="font-semibold">
-                {isElite
-                  ? `${t.dashboard.eliteUntilPrefix}${new Date(
-                      subscription!.subscription_expires_at!
-                    ).toLocaleDateString(intlLocale(locale))}${t.dashboard.eliteUntilSuffix}`
-                  : t.dashboard.freePlan}
-              </span>
-              {!isElite && (
-                <Link href="/upgrade" className="underline font-semibold">
-                  {t.dashboard.upgradeToElite}
-                </Link>
+
+            {secondaryCandidates.length > 0 && (
+              <div className="mb-5">
+                <SecondaryIntroductions items={secondaryCandidates} t={t} />
+              </div>
+            )}
+
+            <div className="flex flex-col gap-3 mb-5">
+              <ProfileProgress
+                t={t}
+                hasPhoto={Boolean(profile.has_photo)}
+                hasAboutMe={Boolean(profile.about_me)}
+                employmentVerified={employmentVerification?.status === "verified"}
+                hasBackground={hasBackground}
+                hasJathagam={hasJathagam}
+              />
+              {isVerified && (
+                <WeeklyActivity
+                  t={t}
+                  pendingReceivedCount={pendingReceivedCount}
+                  mutualCount={mutualCount}
+                  nextDigestLabel={nextDigestLabel}
+                />
               )}
+              <MembershipPanel
+                t={t}
+                locale={locale}
+                isElite={isElite}
+                expiresAt={subscription?.subscription_expires_at ?? null}
+              />
+              <FamilyPanel
+                t={t}
+                status={(ownFamilyLink?.status as "pending" | "active" | undefined) ?? "none"}
+                collaboratorName={ownFamilyLink?.collaborator_name ?? null}
+              />
             </div>
+
+            <div
+              className="rounded-xl p-3.5 mb-5 text-sm flex items-center justify-between gap-3"
+              style={{ background: "var(--bg-sunken)" }}
+            >
+              <span style={{ color: "var(--text-soft)" }}>
+                {t.dashboard.statusLabel}:{" "}
+                <span className="font-semibold" style={{ color: "var(--text)" }}>
+                  {stageLabel(t, (profile.intent_stage as IntentStage) ?? "actively_looking")}
+                </span>
+              </span>
+              <Link href="/account" className="underline font-semibold shrink-0" style={{ color: "var(--accent-strong)" }}>
+                {t.dashboard.statusChange}
+              </Link>
+            </div>
+
             <Link
               href="/onboarding/basic-info"
               className="block text-center rounded-xl py-2.5 text-sm font-semibold mb-3"
@@ -488,12 +489,11 @@ export default async function DashboardPage() {
       </div>
 
       {/* Desktop (md: and up) — a purpose-built layout, not the mobile
-          card stretched wide. Founder feedback (Sept 2026), comparing
-          a competitor's app: a large profile photo, the brand name, a
-          notification icon and a menu should all read clearly, and
-          the extra width should hold a real two-column layout rather
-          than a lot of empty margin either side of a narrow card.
-          Same data as the mobile block above — no new fetches, no new
+          card stretched wide. Sept 2026 redesign: the featured
+          introduction is the visual hero (≈70% column); the right
+          rail (≈30%) is compact status — trust, story completeness,
+          this week, membership, family — never a wall of cards. Same
+          data as the mobile block above — no new fetches, no new
           features, just a different arrangement of what's already
           there. */}
       <div
@@ -503,7 +503,7 @@ export default async function DashboardPage() {
             "radial-gradient(120% 70% at 50% -10%, #FFFFFF 0%, var(--bg) 55%)",
         }}
       >
-        <div className="max-w-5xl mx-auto">
+        <div className="max-w-6xl mx-auto">
           {!profile ? (
             <div
               className="max-w-md mx-auto rounded-2xl p-8 shadow-sm"
@@ -545,187 +545,104 @@ export default async function DashboardPage() {
               </Link>
             </div>
           ) : (
-            <div className="grid grid-cols-3 gap-6">
-              <div className="col-span-2 flex flex-col gap-5">
-                {/* Hero — the large profile photo the founder's
-                    feedback specifically called out (competitor
-                    screenshots show it as the dominant element of the
-                    home screen; the mobile view's 48px avatar was
-                    sized for a narrow card, not a wide desktop hero). */}
-                <div
-                  className="rounded-2xl p-6 shadow-sm"
-                  style={{ background: "var(--bg-raised)", border: "1px solid var(--line)" }}
-                >
-                  <div className="flex items-center gap-4">
-                    <ProfilePhotoAvatar url={ownPhoto?.url} initial={profile.full_name[0] ?? ""} size={88} />
-                    <div>
-                      <h1 className="text-2xl" style={{ fontFamily: "var(--font-display)" }}>
-                        {profile.full_name}
-                      </h1>
-                      <p className="text-sm" style={{ color: "var(--text-soft)" }}>
-                        {profile.profile_type === "groom" ? t.dashboard.groom : t.dashboard.bride} ·{" "}
-                        {profile.age} {t.dashboard.years}
-                      </p>
-                    </div>
-                  </div>
-                  {profile.about_me && (
-                    <p className="text-sm mt-4 italic" style={{ color: "var(--text-soft)" }}>
-                      &ldquo;{profile.about_me}&rdquo;
-                    </p>
-                  )}
-                </div>
+            <>
+              <div className="mb-8">
+                <WelcomeHeader t={t} greetingKey={greetingKey} firstName={firstName} ready={isVerified} />
+              </div>
 
-                <div className="grid grid-cols-2 gap-5">
-                  <div className="rounded-xl p-4 text-sm" style={{ background: "var(--bg-sunken)" }}>
-                    <div className="font-semibold mb-1">{t.dashboard.lookingFor}</div>
-                    <div style={{ color: "var(--text-soft)" }}>
-                      {preferences.age_min}–{preferences.age_max} {t.dashboard.years}
-                      {preferences.preferred_locations?.length
-                        ? ` · ${preferences.preferred_locations.join(", ")}`
-                        : ""}
-                      {" · "}
-                      {preferences.education_level === "bachelors_plus"
-                        ? t.dashboard.bachelorsPlus
-                        : t.dashboard.anyEducation}
+              <div className="grid grid-cols-3 gap-8">
+                <div className="col-span-2 flex flex-col gap-6">
+                  {verification?.status !== "verified" && (
+                    <div
+                      className="rounded-xl p-4 text-sm flex items-center justify-between gap-3"
+                      style={{ background: "var(--accent-soft)", color: "var(--accent-strong)" }}
+                    >
+                      <span className="font-semibold">
+                        {verification?.status === "pending"
+                          ? t.dashboard.identityPending
+                          : t.dashboard.identityNotVerified}
+                      </span>
+                      <Link href="/onboarding/verification" className="underline font-semibold">
+                        {verification?.status === "pending" ? t.dashboard.checkStatus : t.dashboard.verifyNow}
+                      </Link>
                     </div>
-                  </div>
+                  )}
+
+                  {isVerified &&
+                    (todaysIntro ? (
+                      <FeaturedIntroduction
+                        candidate={todaysIntro.candidate}
+                        photoUrl={introPhoto?.url}
+                        photoIsOriginal={introPhoto?.isOriginal}
+                        compatibility={todaysIntro.compatibility}
+                        t={t}
+                      />
+                    ) : (
+                      <IntroductionEmptyState t={t} />
+                    ))}
+
+                  {secondaryCandidates.length > 0 && (
+                    <SecondaryIntroductions items={secondaryCandidates} t={t} />
+                  )}
+
                   <div
                     className="rounded-xl p-4 text-sm flex items-center justify-between gap-3"
                     style={{ background: "var(--bg-sunken)" }}
                   >
                     <span style={{ color: "var(--text-soft)" }}>
-                      {t.dashboard.journeyPrefix}
+                      {t.dashboard.statusLabel}:{" "}
                       <span className="font-semibold" style={{ color: "var(--text)" }}>
                         {stageLabel(t, (profile.intent_stage as IntentStage) ?? "actively_looking")}
                       </span>
                     </span>
                     <Link href="/account" className="underline font-semibold shrink-0" style={{ color: "var(--accent-strong)" }}>
-                      {t.dashboard.journeyUpdate}
+                      {t.dashboard.statusChange}
                     </Link>
                   </div>
                 </div>
 
-                {isVerified ? (
-                  <>
-                    <span
-                      className="text-xs uppercase tracking-wider font-semibold block"
-                      style={{ color: "var(--accent-strong)" }}
-                    >
-                      {t.dashboard.introductionsHeading}
-                    </span>
-                    <div className="grid grid-cols-2 gap-5">
-                      <Link
-                        href="/matches/received"
-                        className="rounded-xl p-4 text-center"
-                        style={{ background: "var(--bg-sunken)" }}
-                      >
-                        <div className="text-2xl font-bold" style={{ fontFamily: "var(--font-display)" }}>
-                          {pendingReceivedCount}
-                        </div>
-                        <div className="text-xs mt-0.5" style={{ color: "var(--text-soft)" }}>
-                          {t.dashboard.waitingForResponse}
-                        </div>
-                      </Link>
-                      <Link
-                        href="/matches/mutual"
-                        className="rounded-xl p-4 text-center"
-                        style={{ background: "var(--bg-sunken)" }}
-                      >
-                        <div className="text-2xl font-bold" style={{ fontFamily: "var(--font-display)" }}>
-                          {mutualCount}
-                        </div>
-                        <div className="text-xs mt-0.5" style={{ color: "var(--text-soft)" }}>
-                          {t.dashboard.mutualMatchesLabel}
-                        </div>
-                      </Link>
-                    </div>
-
-                    {todaysIntro ? (
-                      <TodaysIntroCard
-                        candidate={todaysIntro.candidate}
-                        photoUrl={introPhoto?.url}
-                        photoIsOriginal={introPhoto?.isOriginal}
-                        reasons={todaysIntro.reasons}
-                        t={t}
-                      />
-                    ) : (
-                      <p className="text-xs" style={{ color: "var(--text-soft)" }}>
-                        {t.dashboard.noIntroToday}
-                      </p>
-                    )}
-
-                    <div>
-                      <Link
-                        href="/matches"
-                        className="inline-block text-center rounded-xl px-8 py-3 font-bold text-white text-sm"
-                        style={{ background: "linear-gradient(135deg, var(--accent), var(--accent-strong))" }}
-                      >
-                        {t.dashboard.browseMatches}
-                      </Link>
-                      {nextDigestLabel && (
-                        <p className="text-xs mt-2" style={{ color: "var(--text-soft)" }}>
-                          {t.dashboard.digestNextPrefix}
-                          {nextDigestLabel}
-                        </p>
-                      )}
-                    </div>
-                  </>
-                ) : (
-                  <p className="text-xs" style={{ color: "var(--text-soft)" }}>
-                    {t.dashboard.verifyToUnlock}
-                  </p>
-                )}
-              </div>
-
-              {/* Sidebar — trust, identity nudge, plan status, grouped
-                  together the way a desktop dashboard's status rail
-                  usually reads, rather than stacked one after another
-                  in a single narrow column. */}
-              <div className="col-span-1 flex flex-col gap-4">
-                <TrustProfileSummary
-                  t={t}
-                  identityStatus={verification?.status}
-                  employmentStatus={employmentVerification?.status}
-                  phoneStatus={phoneVerification?.status}
-                />
-                {verification?.status !== "verified" && (
-                  <div
-                    className="rounded-xl p-4 text-sm flex flex-col gap-2"
-                    style={{ background: "var(--accent-soft)", color: "var(--accent-strong)" }}
-                  >
-                    <span className="font-semibold">
-                      {verification?.status === "pending"
-                        ? t.dashboard.identityPending
-                        : t.dashboard.identityNotVerified}
-                    </span>
-                    <Link href="/onboarding/verification" className="underline font-semibold">
-                      {verification?.status === "pending" ? t.dashboard.checkStatus : t.dashboard.verifyNow}
-                    </Link>
-                  </div>
-                )}
-                <div
-                  className="rounded-xl p-4 text-sm flex items-center justify-between gap-3"
-                  style={
-                    isElite
-                      ? { background: "var(--ok-soft)", color: "var(--ok)" }
-                      : { background: "var(--bg-sunken)", color: "var(--text-soft)" }
-                  }
-                >
-                  <span className="font-semibold">
-                    {isElite
-                      ? `${t.dashboard.eliteUntilPrefix}${new Date(
-                          subscription!.subscription_expires_at!
-                        ).toLocaleDateString(intlLocale(locale))}${t.dashboard.eliteUntilSuffix}`
-                      : t.dashboard.freePlan}
-                  </span>
-                  {!isElite && (
-                    <Link href="/upgrade" className="underline font-semibold">
-                      {t.dashboard.upgradeToElite}
-                    </Link>
+                {/* Right rail — trust, story completeness, this
+                    week's activity, membership, family. Compact and
+                    consistent (same var(--bg-sunken) treatment, same
+                    padding) rather than five differently-styled
+                    widgets. */}
+                <div className="col-span-1 flex flex-col gap-4">
+                  <TrustProfileSummary
+                    t={t}
+                    identityStatus={verification?.status}
+                    employmentStatus={employmentVerification?.status}
+                    phoneStatus={phoneVerification?.status}
+                  />
+                  <ProfileProgress
+                    t={t}
+                    hasPhoto={Boolean(profile.has_photo)}
+                    hasAboutMe={Boolean(profile.about_me)}
+                    employmentVerified={employmentVerification?.status === "verified"}
+                    hasBackground={hasBackground}
+                    hasJathagam={hasJathagam}
+                  />
+                  {isVerified && (
+                    <WeeklyActivity
+                      t={t}
+                      pendingReceivedCount={pendingReceivedCount}
+                      mutualCount={mutualCount}
+                      nextDigestLabel={nextDigestLabel}
+                    />
                   )}
+                  <MembershipPanel
+                    t={t}
+                    locale={locale}
+                    isElite={isElite}
+                    expiresAt={subscription?.subscription_expires_at ?? null}
+                  />
+                  <FamilyPanel
+                    t={t}
+                    status={(ownFamilyLink?.status as "pending" | "active" | undefined) ?? "none"}
+                    collaboratorName={ownFamilyLink?.collaborator_name ?? null}
+                  />
                 </div>
               </div>
-            </div>
+            </>
           )}
         </div>
       </div>

@@ -2,9 +2,9 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getDictionary } from "@/lib/i18n/server";
 import { intlLocale } from "@/lib/i18n/locale";
-import { BrandMark } from "@/components/BrandMark";
-import { LocaleToggle } from "@/components/LocaleToggle";
+import { DashboardTopBar } from "@/components/DashboardTopBar";
 import { logout } from "@/app/actions/auth";
+import { getProfilePhotoUrl } from "@/lib/photo";
 import { milestoneLabel, type MessageMilestone } from "@/lib/milestones";
 
 type FamilyLink = {
@@ -40,9 +40,14 @@ export default async function FamilyPage() {
 
   const { data: ownProfile } = await supabase
     .from("profiles")
-    .select("id")
+    .select("id, full_name, has_photo, is_admin")
     .eq("id", user.id)
     .maybeSingle();
+
+  const ownPhoto = ownProfile
+    ? await getProfilePhotoUrl(supabase, user.id, ownProfile.has_photo)
+    : null;
+  const displayInitial = ownProfile?.full_name?.[0] ?? user.email?.[0]?.toUpperCase() ?? "?";
 
   const sharedByOwner = new Map<string, SharedMatch[]>();
   await Promise.all(
@@ -56,26 +61,34 @@ export default async function FamilyPage() {
 
   return (
     <div
-      className="min-h-screen w-full flex justify-center px-4 py-12"
+      className="min-h-screen w-full"
       style={{
         background:
           "radial-gradient(120% 70% at 50% -10%, #FFFFFF 0%, var(--bg) 55%)",
       }}
     >
-      <div className="w-full max-w-lg flex flex-col gap-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <BrandMark size={40} />
-            <span
-              className="text-xs tracking-widest uppercase font-medium"
-              style={{ color: "var(--text-soft)" }}
-            >
-              {t.common.brand}
-            </span>
-          </div>
-          <LocaleToggle locale={locale} />
-        </div>
+      {/* Same top-bar chrome as /dashboard, /matches, /account and
+          /admin (Sept 2026 consistency pass) — this page previously
+          drew its own ad hoc header (brand mark + wordmark on the
+          left here, oddly, unlike the others' right-aligned mark —
+          "logo one place in right and another place in left"). A pure
+          Family Collaborator often has no profiles row at all
+          (ownProfile can be null here, unlike every other
+          authenticated page), so name/photo/admin all gracefully fall
+          back the same way DashboardTopBar already handles a member
+          with no photo or display name. */}
+      <DashboardTopBar
+        t={t}
+        locale={locale}
+        name={ownProfile?.full_name ?? undefined}
+        initial={displayInitial}
+        photoUrl={ownPhoto?.url}
+        isAdmin={Boolean(ownProfile?.is_admin)}
+        hasFamilyLink={links.length > 0}
+      />
 
+      <div className="w-full flex justify-center px-4 py-12">
+      <div className="w-full max-w-lg flex flex-col gap-6">
         <h1
           className="text-2xl"
           style={{ fontFamily: "var(--font-display)", letterSpacing: "-0.01em" }}
@@ -193,6 +206,7 @@ export default async function FamilyPage() {
             </Link>
           </div>
         </div>
+      </div>
       </div>
     </div>
   );

@@ -41,6 +41,8 @@ export function AccountSection({
   badge,
   badgeTone = "neutral",
   danger = false,
+  variant = "card",
+  divider = false,
   children,
 }: {
   id?: string;
@@ -48,22 +50,40 @@ export function AccountSection({
   badge?: string;
   badgeTone?: BadgeTone;
   danger?: boolean;
+  /**
+   * "card" (default, unchanged) — the original standalone bordered/
+   * rounded/backgrounded box, for ungrouped items and the Delete
+   * Account danger zone. "row" — no background, border or radius of
+   * its own (the account-page redesign, Sept 2026: too many
+   * same-weight cards was the #1 IA complaint) — used stacked inside
+   * an AccountSectionGroup, which supplies the ONE shared card. Same
+   * accessible, no-JS <details> either way; only the shell changes.
+   */
+  variant?: "card" | "row";
+  /** "row" variant only — draws a top divider so stacked rows read as
+   * one list rather than each needing its own border. */
+  divider?: boolean;
   children: ReactNode;
 }) {
+  const isRow = variant === "row";
   return (
     <details
       id={id}
-      className="group rounded-2xl overflow-hidden scroll-mt-6"
-      style={{
-        background: danger ? "var(--accent-soft)" : "var(--bg-raised)",
-        border: "1px solid var(--line)",
-      }}
+      className={isRow ? "group scroll-mt-6" : "group rounded-2xl overflow-hidden scroll-mt-6"}
+      style={
+        isRow
+          ? { borderTop: divider ? "1px solid var(--line)" : undefined }
+          : {
+              background: danger ? "var(--accent-soft)" : "var(--bg-raised)",
+              border: "1px solid var(--line)",
+            }
+      }
     >
       <summary
         className="cursor-pointer select-none flex items-center justify-between gap-3 px-6 py-4 [&::-webkit-details-marker]:hidden [&::marker]:hidden"
       >
         <span
-          className="text-base font-bold"
+          className={isRow ? "text-sm font-semibold" : "text-base font-bold"}
           style={{ color: danger ? "var(--accent-strong)" : "var(--text)" }}
         >
           {title}
@@ -83,7 +103,7 @@ export function AccountSection({
           </span>
         </span>
       </summary>
-      <div className="px-6 pb-6 pt-0">{children}</div>
+      <div className={isRow ? "px-6 pb-5 pt-0" : "px-6 pb-6 pt-0"}>{children}</div>
     </details>
   );
 }
