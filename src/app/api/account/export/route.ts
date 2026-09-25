@@ -45,7 +45,9 @@ export async function GET() {
       .maybeSingle(),
     supabase
       .from("identity_verifications")
-      .select("status, method, aadhaar_last4, submitted_at, verified_at")
+      .select(
+        "status, method, aadhaar_last4, submitted_at, consent_at, consent_version, verified_at"
+      )
       .eq("profile_id", user.id)
       .maybeSingle(),
     supabase

@@ -13,7 +13,7 @@ const inputStyle: CSSProperties = {
   border: "1px solid var(--line)",
   borderRadius: "12px",
   padding: "10px 14px",
-  fontSize: "14px",
+  fontSize: "15px",
   color: "var(--text)",
   width: "100%",
 };

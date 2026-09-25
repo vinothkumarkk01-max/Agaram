@@ -9,7 +9,7 @@ import { priorityFocusOptions } from "@/lib/priorityFocus";
 import type { Dictionary } from "@/lib/i18n/dictionary";
 
 const fieldLabel: CSSProperties = {
-  fontSize: "11px",
+  fontSize: "12px",
   letterSpacing: "0.05em",
   textTransform: "uppercase",
   color: "var(--text-soft)",
@@ -22,7 +22,7 @@ const inputStyle: CSSProperties = {
   border: "1px solid var(--line)",
   borderRadius: "14px",
   padding: "14px 16px",
-  fontSize: "14.5px",
+  fontSize: "16px",
   color: "var(--text)",
   width: "100%",
 };

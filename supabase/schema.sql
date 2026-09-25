@@ -3272,3 +3272,22 @@ alter table public.profiles
       'values', 'education', 'career', 'family',
       'location', 'lifestyle', 'religion', 'jathagam'
     ]::text[]);
+
+-- ============================================================
+-- Phase 33 (V1) — Aadhaar consent timestamp + policy version
+-- ============================================================
+--
+-- Security audit finding (Sept 2026, §25 Consent Management): despite
+-- Phase 17's comment claiming Aadhaar verification already had its
+-- own consent capture, identity_verifications never actually gained a
+-- consent_at column — only submitted_at, which conflates "member hit
+-- submit" with "member consented," and is the more sensitive of the
+-- two checks here (a government ID) to be vague about. employment_
+-- verifications (Phase 18) got this right from the start — this adds
+-- the same column here, plus consent_version (missing on BOTH
+-- tables), so a later Privacy Policy text change has a durable record
+-- of which version a member actually agreed to, not just a bare
+-- boolean/timestamp with no way to tell what it applied to.
+alter table public.identity_verifications
+  add column if not exists consent_at timestamptz,
+  add column if not exists consent_version text;

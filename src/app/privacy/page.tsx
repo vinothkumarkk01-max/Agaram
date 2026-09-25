@@ -68,10 +68,9 @@ export default function PrivacyPage() {
               <h2 className="text-base font-bold mb-2">1. Who this covers</h2>
               <p>
                 This policy covers Agaramiya (&ldquo;we&rdquo;), a
-                matrimonial platform for the Tamil community, at{" "}
-                <span className="font-mono text-xs">agaram-ten.vercel.app</span>{" "}
-                (a placeholder domain — this changes once a permanent one is
-                registered). It applies to anyone who creates an account.
+                matrimonial platform for the Tamil community, live at{" "}
+                <span className="font-mono text-xs">agaramiya.com</span>. It
+                applies to anyone who creates an account.
               </p>
             </section>
 
@@ -248,15 +247,19 @@ export default function PrivacyPage() {
                 Officer
                 <br />
                 Email:{" "}
-                <a href="mailto:privacy@agaram.app" className="underline">
-                  privacy@agaram.app
+                <a href="mailto:support@agaramiya.com" className="underline">
+                  support@agaramiya.com
                 </a>
               </p>
               <p>
                 We aim to acknowledge every grievance and respond within 30
-                days. This is a dedicated inbox set up for exactly this
-                purpose — not a personal address — and is monitored
-                regularly once real members are using the app.
+                days. This is Agaramiya&rsquo;s general support address —
+                not a personal address — also shown on the{" "}
+                <Link href="/support" className="underline">
+                  Support page
+                </Link>
+                . A dedicated grievance-only inbox may be set up separately
+                as the platform grows.
               </p>
             </section>
 

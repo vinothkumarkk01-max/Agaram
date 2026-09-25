@@ -48,6 +48,14 @@ export async function updateSession(request: NextRequest) {
     request.nextUrl.pathname.startsWith("/upgrade") ||
     request.nextUrl.pathname.startsWith("/admin") ||
     request.nextUrl.pathname.startsWith("/account") ||
+    // Deliberately NOT in isAuthRoute below — a visitor lands here
+    // with a session already (it's the second leg of /auth/callback's
+    // code exchange for a recovery link, see requestPasswordReset in
+    // actions/auth.ts), and isAuthRoute's "signed-in -> /dashboard"
+    // redirect would bounce them away before they can set a new
+    // password. Requiring a session here at all just means a direct,
+    // no-code visit lands on /login instead of a broken form.
+    request.nextUrl.pathname.startsWith("/reset-password") ||
     // Exactly "/family", never "/family/join" — that invite-landing
     // page renders its own signed-out state (an explanation plus
     // sign-up/log-in links carrying the invite code through), so it

@@ -1,5 +1,16 @@
 @import "tailwindcss";
 
+/* Founder feedback (Sept 2026): overall type felt small — bumps the
+   root size every rem-based Tailwind text-* utility inherits from
+   (16px -> 18px, +12.5%), so every page's whole type scale grows
+   together, preserving the existing hierarchy rather than just
+   bumping one class. The handful of components with hardcoded pixel
+   font sizes (form inputs/labels, global-error.tsx) don't inherit
+   this and are bumped individually alongside it. */
+html {
+  font-size: 112.5%;
+}
+
 :root {
   /* Agaram "warm ivory" design tokens (see Design System v1) */
   --bg: #faf7f2;

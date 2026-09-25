@@ -36,12 +36,16 @@ import { buildTestAvatar } from "@/lib/testData/avatar";
  * (profiles/preferences/verifications/storage objects all cascade or
  * are cleaned up by their own `on delete cascade` / the photo upload
  * path being keyed by the now-deleted user id.)
+ *
+ * Sept 2026 — same hard production block as seed-test-data (see that
+ * file's comment): this route now refuses to run at all when
+ * VERCEL_ENV is "production", independent of DEV_SEED_SECRET.
  */
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-const TEST_PASSWORD = "AgaramiyaBulkTest#2026";
+const TEST_PASSWORD = process.env.DEV_SEED_BULK_TEST_PASSWORD?.trim() || "AgaramiyaBulkTest#2026";
 const TOTAL_PER_GENDER = 100;
 const DEFAULT_BATCH_COUNT = 20;
 const ONE_YEAR_FROM_NOW = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();
@@ -153,6 +157,12 @@ async function seedOneProfile(
 }
 
 export async function GET(request: Request) {
+  // See seed-test-data/route.ts's comment on this same check — VERCEL_ENV,
+  // not NODE_ENV, and checked before the secret.
+  if (process.env.VERCEL_ENV === "production") {
+    return Response.json({ error: "Not found." }, { status: 404 });
+  }
+
   const expectedSecret = process.env.DEV_SEED_SECRET?.trim();
   if (!expectedSecret) {
     return Response.json(

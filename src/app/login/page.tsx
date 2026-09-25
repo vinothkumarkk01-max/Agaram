@@ -6,7 +6,7 @@ export default async function LoginPage({
   searchParams,
 }: PageProps<"/login">) {
   const { locale, t } = await getDictionary();
-  const { next } = await searchParams;
+  const { next, error } = await searchParams;
   return (
     <AuthForm
       mode="login"
@@ -14,6 +14,7 @@ export default async function LoginPage({
       locale={locale}
       t={t}
       next={typeof next === "string" ? next : undefined}
+      oauthError={error === "oauth"}
     />
   );
 }

@@ -1,0 +1,52 @@
+name: CI
+
+# Runs on every push and PR so a broken build, a lint error, or a
+# newly-flagged high/critical dependency vulnerability shows up as a
+# red X before it reaches main -- there's no other gate on this repo
+# today (solo founder, no code review), so this is the whole safety
+# net.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Cancel a superseded run on the same branch/PR instead of letting an
+# old push's CI keep running after a newer push already exists.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run lint
+
+      - run: npm run typecheck
+
+      # Placeholder values -- this only needs to prove the app
+      # compiles and every page/route builds without crashing, not
+      # actually reach a real Supabase project. Same placeholder
+      # pattern used for local pre-commit verification.
+      - name: Build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-anon-key
+          SUPABASE_SERVICE_ROLE_KEY: placeholder-service-role-key
+        run: npm run build
+
+      # Fails the run on any HIGH or CRITICAL advisory in the
+      # dependency tree (moderate/low still show in the log but don't
+      # block) -- this is what actually catches a vulnerable package
+      # between Dependabot's weekly sweeps.
+      - name: Audit dependencies (high/critical)
+        run: npm audit --audit-level=high

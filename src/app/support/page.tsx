@@ -11,13 +11,17 @@ import { getDictionary } from "@/lib/i18n/server";
  * ticketing system that doesn't exist would be less honest than a
  * plain mailto.
  *
- * Uses vinothkumarkk01@gmail.com, per the founder's standing
- * instruction never to use the netradyne.com address anywhere in this
- * project.
+ * Sept 2026 — now uses support@agaramiya.com, the real address on the
+ * newly-registered agaramiya.com domain, replacing the earlier
+ * vinothkumarkk01@gmail.com placeholder (itself standing in for the
+ * founder's netradyne.com work address, which is never used anywhere
+ * in this project — that standing instruction is unaffected by this
+ * change, it's just superseded by a better, permanent address now
+ * that one exists).
  */
 export default async function SupportPage() {
   const { t } = await getDictionary();
-  const SUPPORT_EMAIL = "vinothkumarkk01@gmail.com";
+  const SUPPORT_EMAIL = "support@agaramiya.com";
 
   return (
     <div className="min-h-screen w-full flex items-center justify-center px-4 py-16">

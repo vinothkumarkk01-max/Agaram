@@ -1,0 +1,31 @@
+version: 2
+updates:
+  # Keep npm dependencies current and get PRs for known-vulnerable
+  # packages. Grouped + weekly so this doesn't spam a solo founder
+  # with a dozen individual PRs every day — one Monday batch instead.
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 10
+    groups:
+      # Patch/minor bumps of unrelated packages get bundled into one
+      # PR; a major bump (more likely to break something) still gets
+      # its own PR so it's easy to review in isolation.
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+    commit-message:
+      prefix: "chore(deps)"
+
+  # Dependabot also scans GitHub Actions versions used in
+  # .github/workflows/*.yml — same weekly cadence.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    commit-message:
+      prefix: "chore(ci)"

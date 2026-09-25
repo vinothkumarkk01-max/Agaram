@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
-import { CandidateCard, type MaskedCandidate } from "@/components/CandidateCard";
+import type { MaskedCandidate } from "@/components/CandidateCard";
+import { BrowseCandidateList } from "@/components/matches/BrowseCandidateList";
 import { getDictionary } from "@/lib/i18n/server";
 import { getProfilePhotoUrls } from "@/lib/photo";
 import { buildMatchReasons, buildCompatibilityBreakdown } from "@/lib/matchReasons";
@@ -50,23 +51,15 @@ export default async function BrowseMatchesPage() {
     list.map((c) => ({ id: c.id, hasPhoto: c.has_photo }))
   );
 
-  return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-      {list.map((candidate) => (
-        <CandidateCard
-          key={candidate.id}
-          candidate={candidate}
-          photoUrl={photos.get(candidate.id)?.url}
-          photoIsOriginal={photos.get(candidate.id)?.isOriginal}
-          reasons={
-            myPreferences ? buildMatchReasons(t, candidate, myPreferences) : undefined
-          }
-          compatibility={
-            myPreferences ? buildCompatibilityBreakdown(t, candidate, myPreferences) : undefined
-          }
-          t={t}
-        />
-      ))}
-    </div>
-  );
+  const items = list.map((candidate) => ({
+    candidate,
+    photoUrl: photos.get(candidate.id)?.url,
+    photoIsOriginal: photos.get(candidate.id)?.isOriginal,
+    reasons: myPreferences ? buildMatchReasons(t, candidate, myPreferences) : undefined,
+    compatibility: myPreferences
+      ? buildCompatibilityBreakdown(t, candidate, myPreferences)
+      : undefined,
+  }));
+
+  return <BrowseCandidateList items={items} t={t} />;
 }

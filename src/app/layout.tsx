@@ -21,9 +21,10 @@ const DESCRIPTION = "A verified, Tamil-first matrimonial platform.";
 export const metadata: Metadata = {
   // Required for the auto-generated opengraph-image / twitter-image
   // <meta> tags to be absolute URLs rather than relative ones (social
-  // crawlers won't resolve a relative image URL). Update
-  // NEXT_PUBLIC_SITE_URL once agaramiya.com is registered — see
-  // src/lib/site.ts.
+  // crawlers won't resolve a relative image URL). agaramiya.com is
+  // registered and confirmed live as of Sept 25, 2026 — see
+  // src/lib/site.ts for the one remaining step (a fresh deploy so this
+  // value is actually baked into the build).
   metadataBase: new URL(SITE_URL),
   title: "Agaramiya",
   description: DESCRIPTION,

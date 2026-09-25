@@ -3,10 +3,12 @@
 import Link from "next/link";
 import { useActionState } from "react";
 import type { AuthFormState } from "@/app/actions/auth";
+import { signInWithGoogle, signInWithApple } from "@/app/actions/auth";
 import type { Dictionary } from "@/lib/i18n/dictionary";
 import type { Locale } from "@/lib/i18n/locale";
 import { LocaleToggle } from "@/components/LocaleToggle";
 import { BrandMark } from "@/components/BrandMark";
+import { OAuthButtons } from "@/components/OAuthButtons";
 
 type Props = {
   mode: "login" | "signup";
@@ -32,9 +34,41 @@ type Props = {
    *  Omitted (as on the login page) renders nothing here. */
   onBack?: () => void;
   backLabel?: string;
+  /** Login page only — set when `/auth/callback` (or a Google/Apple
+   *  sign-in action) bounced back with `?error=oauth`. Not modeled as
+   *  `state.error` because it arrives via a redirect query param, not
+   *  the login action's own state, so both are checked below. */
+  oauthError?: boolean;
+  /** Default true. SignupWizard's step 2 (email/password, reached only
+   *  by someone who already answered SignupIntentStep and tapped
+   *  Continue — i.e. explicitly chose the manual path) sets this
+   *  false. Sept 2026 founder feedback: showing "Continue with
+   *  Google/Apple" a SECOND time here read as an inconsistent,
+   *  mismatched flow — the "or" divider on the intent screen leads to
+   *  questions, not a form, so repeating the same OAuth-then-or
+   *  pattern here implied something it doesn't deliver. It was also a
+   *  real trap: tapping Google/Apple from this screen starts a fresh
+   *  OAuth sign-in that carries no memory of the answers just given
+   *  (see signInWithGoogle/signInWithApple and the SIGNUP_INTENT_COOKIE
+   *  comment in actions/auth.ts — that cookie is only ever set by the
+   *  email/password `signup` action below), so those answers would be
+   *  silently lost. The login page never passes this, so it keeps
+   *  showing OAuth as its primary, first-class entry point. */
+  showOAuth?: boolean;
 };
 
-export function AuthForm({ mode, action, locale, t, next, signupIntent, onBack, backLabel }: Props) {
+export function AuthForm({
+  mode,
+  action,
+  locale,
+  t,
+  next,
+  signupIntent,
+  onBack,
+  backLabel,
+  oauthError,
+  showOAuth = true,
+}: Props) {
   const [state, formAction, pending] = useActionState(action, undefined);
   const isSignup = mode === "signup";
   const switchHref = `${isSignup ? "/login" : "/signup"}${
@@ -84,6 +118,31 @@ export function AuthForm({ mode, action, locale, t, next, signupIntent, onBack, 
             {isSignup ? t.auth.createSubtitle : t.auth.loginSubtitle}
           </p>
 
+          {oauthError && (
+            <p className="text-sm mb-4" style={{ color: "var(--accent-strong)" }}>
+              {t.auth.oauthErrorMessage}
+            </p>
+          )}
+
+          {showOAuth && (
+            <>
+              <OAuthButtons
+                t={t}
+                next={next}
+                googleAction={signInWithGoogle}
+                appleAction={signInWithApple}
+              />
+
+              <div className="flex items-center gap-3 my-5">
+                <div className="flex-1 h-px" style={{ background: "var(--line)" }} />
+                <span className="text-xs" style={{ color: "var(--text-soft)" }}>
+                  {t.auth.orDivider}
+                </span>
+                <div className="flex-1 h-px" style={{ background: "var(--line)" }} />
+              </div>
+            </>
+          )}
+
           <form action={formAction} className="flex flex-col gap-4">
             {next && <input type="hidden" name="next" value={next} />}
             {signupIntent && (
@@ -117,13 +176,26 @@ export function AuthForm({ mode, action, locale, t, next, signupIntent, onBack, 
             </div>
 
             <div>
-              <label
-                htmlFor="password"
-                className="block text-xs font-semibold mb-1.5"
-                style={{ color: "var(--text-soft)" }}
-              >
-                {t.auth.password}
-              </label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label
+                  htmlFor="password"
+                  className="block text-xs font-semibold"
+                  style={{ color: "var(--text-soft)" }}
+                >
+                  {t.auth.password}
+                </label>
+                {/* Login only — a signup form has no existing password
+                    to have forgotten yet. */}
+                {!isSignup && (
+                  <Link
+                    href="/forgot-password"
+                    className="text-xs font-semibold"
+                    style={{ color: "var(--accent-strong)" }}
+                  >
+                    {t.auth.forgotPasswordLink}
+                  </Link>
+                )}
+              </div>
               <input
                 id="password"
                 name="password"

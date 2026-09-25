@@ -21,11 +21,24 @@ import { createAdminClient } from "@/lib/supabase/admin";
  * private, and remove this route (or the env var) before you'd be
  * uncomfortable with anyone who guessed the secret being able to
  * (re)create these fake profiles on your live database.
+ *
+ * Sept 2026 — hard production block added below, independent of the
+ * secret. A security audit flagged that the secret was the ONLY thing
+ * standing between this route and real production data if
+ * DEV_SEED_SECRET ever ended up set in the Production Vercel
+ * environment (which it was) — belt-and-suspenders now: this route
+ * refuses to run at all when VERCEL_ENV is "production", no matter
+ * what secret is supplied. See ../../../../README.md's dev-seed
+ * section for the removal steps once you're done testing.
  */
 
 export const dynamic = "force-dynamic";
 
-const TEST_PASSWORD = "AgaramiyaTest#2026";
+// Overridable via env so the password isn't a fixed, source-committed
+// string — falls back to the original value for local/preview
+// convenience, since the production guard below is now the real
+// safety boundary, not secrecy of this password.
+const TEST_PASSWORD = process.env.DEV_SEED_TEST_PASSWORD?.trim() || "AgaramiyaTest#2026";
 const ONE_YEAR_FROM_NOW = new Date(
   Date.now() + 365 * 24 * 60 * 60 * 1000
 ).toISOString();
@@ -156,6 +169,16 @@ async function findUserByEmail(
 }
 
 export async function GET(request: Request) {
+  // VERCEL_ENV (not NODE_ENV — Vercel sets NODE_ENV=production for
+  // Preview deployments too, so that check would also block testing
+  // on a preview URL, which defeats the point of this route). This is
+  // the one signal that's actually Production and nothing else, and
+  // it's checked before the secret so a leaked/misconfigured
+  // DEV_SEED_SECRET can no longer do anything there.
+  if (process.env.VERCEL_ENV === "production") {
+    return Response.json({ error: "Not found." }, { status: 404 });
+  }
+
   // .trim() on both sides guards against the single most common way
   // this mismatches even when it "should" work: a stray trailing
   // space or newline left over from copy-pasting the secret into

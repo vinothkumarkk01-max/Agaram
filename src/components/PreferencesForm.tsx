@@ -6,7 +6,7 @@ import { PillGroup } from "@/components/PillGroup";
 import type { Dictionary } from "@/lib/i18n/dictionary";
 
 const fieldLabel: CSSProperties = {
-  fontSize: "11px",
+  fontSize: "12px",
   letterSpacing: "0.03em",
   textTransform: "uppercase",
   color: "var(--text-soft)",
@@ -19,7 +19,7 @@ const inputStyle: CSSProperties = {
   border: "1px solid var(--line)",
   borderRadius: "12px",
   padding: "12px 14px",
-  fontSize: "14px",
+  fontSize: "15px",
   color: "var(--text)",
   width: "100%",
 };

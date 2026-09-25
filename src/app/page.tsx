@@ -39,23 +39,36 @@ export default async function Home() {
           </div>
 
           {/*
-            The full brand lockup (monogram + wordmark + "A good
-            beginning matters." tagline) already carries the tagline as
-            part of the artwork itself — see public/brand/README-ish
-            note in the icon-generation script's comment for where this
-            asset came from. t.landing.tagline below is a second,
-            descriptive line, not a duplicate of the image's own tagline.
+            Hero positioning (Sept 2026, this round) — founder gap
+            analysis: a first-time visitor couldn't tell within a few
+            seconds that this is a matrimonial platform. The old single
+            supporting line under the logo ("Verified members,
+            thoughtful introductions, no endless browsing.") read as
+            premium but category-vague.
+            Uses agaramiya-lockup.png — the existing wordmark-only
+            asset (monogram + "AGARAMIYA", no baked-in tagline), not
+            agaramiya-logo.png, which bakes "A good beginning matters."
+            into the artwork itself. That same tagline now appears
+            again below as real text (t.landing.heroTagline) rather
+            than pixels, so it survives independent of any single
+            image and isn't shown twice.
           */}
           <Image
-            src="/brand/agaramiya-logo.png"
+            src="/brand/agaramiya-lockup.png"
             alt={t.common.brand}
             width={1536}
-            height={586}
+            height={463}
             priority
-            className="w-full max-w-sm mx-auto mb-6 h-auto"
+            className="w-full max-w-xs mx-auto mb-5 h-auto"
           />
-          <p className="text-base mb-8" style={{ color: "var(--text-soft)" }}>
-            {t.landing.tagline}
+          <h1
+            className="text-2xl sm:text-3xl font-semibold mb-3"
+            style={{ fontFamily: "var(--font-display)", color: "var(--text)" }}
+          >
+            {t.landing.heroHeadline}
+          </h1>
+          <p className="text-base mb-7" style={{ color: "var(--text-soft)" }}>
+            {t.landing.heroDescription}
           </p>
           <div className="flex gap-3 justify-center">
             <Link
@@ -80,8 +93,52 @@ export default async function Home() {
               {t.landing.signIn}
             </Link>
           </div>
-          <div className="flex justify-center mt-6">
+          <div className="flex justify-center mt-6 mb-7">
             <LocaleToggle locale={locale} />
+          </div>
+
+          {/*
+            Trust strip (Sept 2026) — names the app's real differentiator
+            (independent Identity/Employment/Phone checks, not one
+            generic checkmark) right in the hero, instead of only after
+            signup. Deliberately the same 3 signals as LandingTrustSection
+            below and TrustProfileSummary on the dashboard — never a
+            4th ("Education") that isn't actually implemented; see
+            those two components' own comments for why. Reuses their
+            existing title strings rather than inventing new copy.
+          */}
+          <div
+            className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 text-xs sm:text-sm font-semibold mb-8"
+            style={{ color: "var(--text-soft)" }}
+          >
+            {[t.landing.trustIdentityTitle, t.landing.trustEmploymentTitle, t.landing.trustPhoneTitle].map(
+              (label) => (
+                <span key={label} className="inline-flex items-center gap-1.5">
+                  <span aria-hidden="true" style={{ color: "var(--accent)" }}>
+                    ✓
+                  </span>
+                  {label}
+                </span>
+              )
+            )}
+          </div>
+
+          {/*
+            Brand signature (Sept 2026) — "A good beginning matters." is
+            the emotional brand line, kept distinct from the product
+            positioning above rather than replacing it. Flanking
+            hairlines echo the same treatment the wordmark artwork
+            itself uses around this exact line.
+          */}
+          <div className="flex items-center justify-center gap-3">
+            <span aria-hidden="true" className="h-px w-8" style={{ background: "var(--gold)", opacity: 0.55 }} />
+            <p
+              className="text-sm italic"
+              style={{ fontFamily: "var(--font-display)", color: "var(--text-soft)" }}
+            >
+              {t.landing.heroTagline}
+            </p>
+            <span aria-hidden="true" className="h-px w-8" style={{ background: "var(--gold)", opacity: 0.55 }} />
           </div>
 
           {/*
@@ -94,7 +151,7 @@ export default async function Home() {
           */}
           <a
             href="#trust"
-            className="inline-flex flex-col items-center gap-1.5 mt-12 sm:mt-14 text-sm font-semibold motion-safe:animate-bounce"
+            className="inline-flex flex-col items-center gap-1.5 mt-10 sm:mt-12 text-sm font-semibold motion-safe:animate-bounce"
             style={{ color: "var(--text-soft)" }}
           >
             {t.landing.scrollHint}

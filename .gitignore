@@ -32,6 +32,11 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+# ...except the checked-in reference of which vars exist (no real
+# secrets in it) — the broad .env* pattern above was silently
+# excluding this from version control too, so past edits to it
+# (documenting new env vars) never actually reached the repo.
+!.env.local.example
 
 # vercel
 .vercel

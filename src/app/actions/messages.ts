@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { isMessageMilestone, type MessageMilestone } from "@/lib/milestones";
 import { sendPushNotification } from "@/lib/push/send";
+import { checkRateLimit } from "@/lib/rateLimit";
 
 /**
  * Push-notifies the OTHER match participant about a new message —
@@ -65,6 +66,15 @@ export async function sendMessage(
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
+
+  // By the sender's own id, not IP -- this is an already-authenticated
+  // action, so the member is the stable identifier (unlike login/
+  // signup above, which happen before there's an account to key on).
+  // See lib/rateLimit.ts for the "not configured -> fails open" note.
+  const { limited } = await checkRateLimit("message", user.id);
+  if (limited) {
+    return { error: "You're sending messages too quickly. Please slow down and try again." };
+  }
 
   const { error } = await supabase.from("messages").insert({
     match_id: matchId,

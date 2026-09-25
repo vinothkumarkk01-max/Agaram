@@ -60,10 +60,10 @@ export default function GlobalError({
               objectFit: "cover",
             }}
           />
-          <h1 style={{ fontSize: 22, marginBottom: 8 }}>
+          <h1 style={{ fontSize: 24, marginBottom: 8 }}>
             {t.errors.couldntLoad}
           </h1>
-          <p style={{ fontSize: 14, color: "#716b70", marginBottom: 28 }}>
+          <p style={{ fontSize: 15, color: "#716b70", marginBottom: 28 }}>
             {t.errors.errorSubtitleBase}
             {error.digest
               ? `${t.errors.errorSubtitleReferencePrefix}${error.digest}${t.errors.errorSubtitleReferenceSuffix}`
@@ -74,7 +74,7 @@ export default function GlobalError({
             style={{
               borderRadius: 12,
               padding: "10px 20px",
-              fontSize: 14,
+              fontSize: 15,
               fontWeight: 700,
               color: "#fff",
               border: "none",

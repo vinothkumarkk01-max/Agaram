@@ -24,6 +24,7 @@ import { getSiteOrigin } from "@/lib/site-url";
 import { getProfilePhotoUrl } from "@/lib/photo";
 import { DashboardTopBar } from "@/components/DashboardTopBar";
 import { ProfilePhotoAvatar } from "@/components/ProfilePhotoAvatar";
+import { ConnectedAccounts } from "@/components/ConnectedAccounts";
 
 type BlockedMember = {
   blocked_id: string;
@@ -869,6 +870,29 @@ export default async function AccountPage() {
             divider={Boolean(user?.email)}
           />
         </AccountSectionGroup>
+
+        {/* Connected accounts (Sept 2026) — Google/Apple sign-in's
+            counterpart on /account: add or remove a provider from THIS
+            already-signed-in account (linkIdentity/unlinkIdentity), as
+            opposed to the sign-IN buttons on /login and /signup which
+            start a brand-new session. See ConnectedAccounts.tsx. */}
+        {user && (
+          <AccountSection title={t.account.connectedAccountsHeading}>
+            <p className="text-sm mb-4" style={{ color: "var(--text-soft)" }}>
+              {t.account.connectedAccountsDesc}
+            </p>
+            <ConnectedAccounts
+              t={t}
+              linkedProviders={
+                (user.identities
+                  ?.map((i) => i.provider)
+                  .filter((p): p is "email" | "google" | "apple" =>
+                    p === "email" || p === "google" || p === "apple"
+                  )) ?? []
+              }
+            />
+          </AccountSection>
+        )}
 
         <AccountSection danger title={t.account.deleteAccount}>
           <p className="text-sm mb-4" style={{ color: "var(--text-soft)" }}>

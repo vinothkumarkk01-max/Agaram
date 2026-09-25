@@ -44,7 +44,21 @@ const en = {
     no: "No",
   },
   landing: {
-    tagline: "Verified members, thoughtful introductions, no endless browsing.",
+    // Hero positioning (Sept 2026) — a first-time visitor couldn't tell
+    // within a few seconds that this is a matrimonial platform; the old
+    // single tagline below read as premium-but-vague. Three distinct
+    // lines now, each with a different job — see page.tsx's hero for
+    // how they're laid out:
+    //   heroHeadline    — the actual product-category statement.
+    //   heroDescription — what makes it different (was `tagline`).
+    //   heroTagline     — the brand's emotional signature, now real
+    //                     text near the foot of the hero rather than
+    //                     baked into the logo image (see the lockup.png
+    //                     swap in page.tsx's own comment).
+    heroHeadline: "A trusted matrimonial platform for Tamil-speaking families.",
+    heroDescription:
+      "Verified profiles. Thoughtful introductions. A more meaningful way to find your life partner.",
+    heroTagline: "A good beginning matters.",
     createAccount: "Create account",
     signIn: "Sign in",
 
@@ -147,11 +161,47 @@ const en = {
     // See SignupIntentStep.tsx / SignupWizard.tsx.
     signupIntroTitle: "Let's begin well.",
     signupIntroSubtitle: "Tell us a little about yourself.",
+    // Sept 2026 — founder feedback: the bare "or" divider here reused
+    // login's wording, but what follows it isn't an alternative sign-in
+    // form like on /login — it's two quick questions. Reusing the same
+    // label implied the same kind of thing would follow, which read as
+    // an inconsistent, mismatched switch once you hit "I am looking
+    // for:" instead of an email field. This line sits right under the
+    // divider on SignupIntentStep only, to name what's actually coming.
+    signupIntentOrHint: "Or answer two quick questions to get started:",
     lookingForQuestion: "I am looking for:",
     lookingForSelf: "A partner for myself",
     lookingForChild: "A partner for my son or daughter",
     lookingForFamily: "Helping a family member",
     backToIntro: "← Back",
+    // Google/Apple sign-in (Sept 2026) — see OAuthButtons.tsx / the
+    // signInWithGoogle/signInWithApple actions in actions/auth.ts.
+    continueWithGoogle: "Continue with Google",
+    continueWithApple: "Continue with Apple",
+    orDivider: "or",
+    oauthErrorMessage: "Something went wrong signing you in. Please try again.",
+    // Self-service password reset (Sept 2026) — the login page's
+    // "Forgot password?" link, plus /forgot-password and
+    // /reset-password (ForgotPasswordForm.tsx / ResetPasswordForm.tsx).
+    // Flagged in the security audit as the single biggest missing
+    // account-recovery feature.
+    forgotPasswordLink: "Forgot password?",
+    forgotPasswordTitle: "Reset your password",
+    forgotPasswordSubtitle:
+      "Enter your email and we'll send you a link to reset your password.",
+    sendResetLinkBtn: "Send reset link",
+    backToLoginLink: "← Back to sign in",
+    resetEmailSentTitle: "Check your email",
+    resetEmailSentBody:
+      "If an account exists for that email, we've sent a link to reset your password. It may take a few minutes to arrive.",
+    resetPasswordTitle: "Choose a new password",
+    resetPasswordSubtitle: "Enter a new password for your account.",
+    newPassword: "New password",
+    confirmPassword: "Confirm new password",
+    passwordMismatchError: "Passwords don't match.",
+    updatePasswordBtn: "Update password",
+    resetLinkExpiredError:
+      "This reset link has expired or has already been used. Request a new one.",
   },
   dashboard: {
     signedIn: "Signed in",
@@ -436,6 +486,20 @@ const en = {
     justMatchedBodyLocked:
       "You're both interested. Upgrade to Agaramiya Elite to see their name and start messaging.",
     justMatchedDismiss: "Keep browsing",
+    // Browse filters (Sept 2026) — founder feedback: the Browse list
+    // was getting long enough to make scrolling to find someone
+    // relevant tedious, even though get_match_candidates() already
+    // narrows by the viewer's own saved age/location preference.
+    // These narrow the already-fetched list further, client-side.
+    filtersHeading: "Filters",
+    filtersVerifiedOnly: "Verified only",
+    filtersLocationLabel: "Location",
+    filtersLocationPlaceholder: "e.g. Chennai",
+    filtersClear: "Clear filters",
+    filtersNoResults: "No one matches these filters — try widening them.",
+    filtersShowingPrefix: "Showing ",
+    filtersShowingOf: " of ",
+    filtersShowingSuffix: "",
   },
   account: {
     yourAccount: "Your account",
@@ -629,6 +693,18 @@ const en = {
     groupSafetyPrivacy: "Safety & privacy",
     groupAccount: "Account",
     signedInAsPrefix: "Signed in as ",
+    // Connected accounts (Sept 2026) — see ConnectedAccounts.tsx.
+    connectedAccountsHeading: "Connected accounts",
+    connectedAccountsDesc: "Sign in faster next time — connect Google or Apple to this account.",
+    connectedProviderEmail: "Email & password",
+    connectedProviderGoogle: "Google",
+    connectedProviderApple: "Apple",
+    connectedBadgeConnected: "Connected",
+    connectedBadgeNotConnected: "Not connected",
+    connectedConnectBtn: "Connect",
+    connectedDisconnectBtn: "Disconnect",
+    connectedDisconnectConfirm: "Disconnect this sign-in method from your account?",
+    connectedError: "Couldn't connect that account. Please try again.",
   },
   family: {
     title: "Family access",
@@ -771,8 +847,10 @@ const ta: Dictionary = {
     no: "இல்லை",
   },
   landing: {
-    tagline:
-      "சரிபார்க்கப்பட்ட உறுப்பினர்கள், சிந்தனையுடன் கூடிய அறிமுகங்கள்.",
+    heroHeadline: "தமிழ் பேசும் குடும்பங்களுக்கான நம்பகமான திருமண தளம்.",
+    heroDescription:
+      "சரிபார்க்கப்பட்ட சுயவிவரங்கள். சிந்தனையுடன் கூடிய அறிமுகங்கள். உங்கள் வாழ்க்கைத் துணையைக் கண்டறிய ஒரு அர்த்தமுள்ள வழி.",
+    heroTagline: "நல்ல தொடக்கம் முக்கியமானது.",
     createAccount: "கணக்கு உருவாக்கு",
     signIn: "உள்நுழை",
 
@@ -867,11 +945,33 @@ const ta: Dictionary = {
     agreeToPolicySuffix: "-ஐ ஏற்றுக்கொள்கிறீர்கள்.",
     signupIntroTitle: "நன்றாகத் தொடங்குவோம்.",
     signupIntroSubtitle: "உங்களைப் பற்றி கொஞ்சம் சொல்லுங்கள்.",
+    signupIntentOrHint: "அல்லது தொடங்க இரண்டு சிறு கேள்விகளுக்கு பதிலளிக்கவும்:",
     lookingForQuestion: "நான் தேடுவது:",
     lookingForSelf: "எனக்கான ஒரு துணை",
     lookingForChild: "என் மகன்/மகளுக்கான ஒரு துணை",
     lookingForFamily: "ஒரு குடும்ப உறுப்பினருக்கு உதவுதல்",
     backToIntro: "← பின்",
+    continueWithGoogle: "Google மூலம் தொடரவும்",
+    continueWithApple: "Apple மூலம் தொடரவும்",
+    orDivider: "அல்லது",
+    oauthErrorMessage: "உள்நுழைவதில் சிக்கல் ஏற்பட்டது. மீண்டும் முயற்சிக்கவும்.",
+    forgotPasswordLink: "கடவுச்சொல் மறந்துவிட்டதா?",
+    forgotPasswordTitle: "உங்கள் கடவுச்சொல்லை மீட்டமைக்கவும்",
+    forgotPasswordSubtitle:
+      "உங்கள் மின்னஞ்சலை உள்ளிடவும், கடவுச்சொல்லை மீட்டமைக்க ஒரு இணைப்பை அனுப்புவோம்.",
+    sendResetLinkBtn: "மீட்டமைப்பு இணைப்பை அனுப்பவும்",
+    backToLoginLink: "← உள்நுழைவுக்குத் திரும்பு",
+    resetEmailSentTitle: "உங்கள் மின்னஞ்சலைச் சரிபார்க்கவும்",
+    resetEmailSentBody:
+      "அந்த மின்னஞ்சலுக்கு ஒரு கணக்கு இருந்தால், கடவுச்சொல்லை மீட்டமைக்க ஒரு இணைப்பை அனுப்பியுள்ளோம். வர சில நிமிடங்கள் ஆகலாம்.",
+    resetPasswordTitle: "புதிய கடவுச்சொல்லைத் தேர்ந்தெடுக்கவும்",
+    resetPasswordSubtitle: "உங்கள் கணக்கிற்கான புதிய கடவுச்சொல்லை உள்ளிடவும்.",
+    newPassword: "புதிய கடவுச்சொல்",
+    confirmPassword: "புதிய கடவுச்சொல்லை உறுதிப்படுத்தவும்",
+    passwordMismatchError: "கடவுச்சொற்கள் பொருந்தவில்லை.",
+    updatePasswordBtn: "கடவுச்சொல்லைப் புதுப்பிக்கவும்",
+    resetLinkExpiredError:
+      "இந்த மீட்டமைப்பு இணைப்பு காலாவதியானது அல்லது ஏற்கனவே பயன்படுத்தப்பட்டது. புதிய இணைப்பைக் கோரவும்.",
   },
   dashboard: {
     signedIn: "உள்நுழைந்துள்ளீர்கள்",
@@ -1136,6 +1236,15 @@ const ta: Dictionary = {
     justMatchedBodyLocked:
       "இருவரும் ஆர்வமாக உள்ளீர்கள். அவர்களின் பெயரைப் பார்க்கவும் செய்திகள் அனுப்பவும் Agaramiya Elite-க்கு மேம்படுத்தவும்.",
     justMatchedDismiss: "தேடுவதைத் தொடரவும்",
+    filtersHeading: "வடிகட்டிகள்",
+    filtersVerifiedOnly: "உறுதிசெய்யப்பட்டவர்கள் மட்டும்",
+    filtersLocationLabel: "இடம்",
+    filtersLocationPlaceholder: "எ.கா. சென்னை",
+    filtersClear: "வடிகட்டிகளை அழி",
+    filtersNoResults: "இந்த வடிகட்டிகளுக்கு யாரும் பொருந்தவில்லை — விரிவாக்கி முயற்சிக்கவும்.",
+    filtersShowingPrefix: "காட்டப்படுவது ",
+    filtersShowingOf: " / ",
+    filtersShowingSuffix: "",
   },
   account: {
     yourAccount: "உங்கள் கணக்கு",
@@ -1324,6 +1433,17 @@ const ta: Dictionary = {
     groupSafetyPrivacy: "பாதுகாப்பு & தனியுரிமை",
     groupAccount: "கணக்கு",
     signedInAsPrefix: "உள்நுழைந்துள்ளீர்கள்: ",
+    connectedAccountsHeading: "இணைக்கப்பட்ட கணக்குகள்",
+    connectedAccountsDesc: "அடுத்த முறை வேகமாக உள்நுழைய Google அல்லது Apple-ஐ இணைக்கவும்.",
+    connectedProviderEmail: "மின்னஞ்சல் & கடவுச்சொல்",
+    connectedProviderGoogle: "Google",
+    connectedProviderApple: "Apple",
+    connectedBadgeConnected: "இணைக்கப்பட்டது",
+    connectedBadgeNotConnected: "இணைக்கப்படவில்லை",
+    connectedConnectBtn: "இணை",
+    connectedDisconnectBtn: "துண்டி",
+    connectedDisconnectConfirm: "இந்த உள்நுழைவு முறையை உங்கள் கணக்கிலிருந்து துண்டிக்கவா?",
+    connectedError: "அந்த கணக்கை இணைக்க முடியவில்லை. மீண்டும் முயற்சிக்கவும்.",
   },
   family: {
     title: "குடும்ப அணுகல்",

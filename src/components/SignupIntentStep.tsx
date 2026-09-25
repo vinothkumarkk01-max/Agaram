@@ -7,7 +7,9 @@ import type { Locale } from "@/lib/i18n/locale";
 import { BrandMark } from "@/components/BrandMark";
 import { LocaleToggle } from "@/components/LocaleToggle";
 import { MultiPillGroup } from "@/components/MultiPillGroup";
+import { OAuthButtons } from "@/components/OAuthButtons";
 import { priorityFocusOptions } from "@/lib/priorityFocus";
+import { signInWithGoogle, signInWithApple } from "@/app/actions/auth";
 
 export type SignupIntent = {
   lookingFor: "self" | "child" | "family";
@@ -39,10 +41,14 @@ export type SignupIntent = {
 export function SignupIntentStep({
   locale,
   t,
+  next,
   onContinue,
 }: {
   locale: Locale;
   t: Dictionary;
+  /** Where to land after Google/Apple sign-in — same `next` AuthForm
+   *  already threads through for email/password. See safeNextPath. */
+  next?: string;
   onContinue: (intent: SignupIntent) => void;
 }) {
   const [lookingFor, setLookingFor] = useState<SignupIntent["lookingFor"]>("self");
@@ -85,6 +91,36 @@ export function SignupIntentStep({
           </h1>
           <p className="text-sm mb-6" style={{ color: "var(--text-soft)" }}>
             {t.auth.signupIntroSubtitle}
+          </p>
+
+          {/* Google/Apple (Sept 2026) — deliberately the fastest path
+              through this whole screen: tapping either skips both
+              questions below AND the email/password step after this
+              one, going straight to the provider's consent screen.
+              "Who's this for" / "what matters most" aren't lost — the
+              first is asked again, in more detail, on basic-info right
+              after (see its relationDefaultFromLookingFor comment);
+              the second stays a gap for now, same as any other signal
+              this app already asks about progressively rather than at
+              signup. */}
+          <OAuthButtons t={t} next={next} googleAction={signInWithGoogle} appleAction={signInWithApple} />
+
+          <div className="flex items-center gap-3 my-5">
+            <div className="flex-1 h-px" style={{ background: "var(--line)" }} />
+            <span className="text-xs" style={{ color: "var(--text-soft)" }}>
+              {t.auth.orDivider}
+            </span>
+            <div className="flex-1 h-px" style={{ background: "var(--line)" }} />
+          </div>
+
+          {/* Sept 2026 — founder feedback: this "or" divider looks
+              identical to the one on /login, but what follows it isn't
+              an alternative sign-in form like login's — it's two quick
+              questions, not an email field. Reusing the bare "or" with
+              no explanation made that switch feel like a mismatch. This
+              line names what's actually coming before it arrives. */}
+          <p className="text-xs font-semibold mb-4" style={{ color: "var(--text-soft)" }}>
+            {t.auth.signupIntentOrHint}
           </p>
 
           <div className="flex flex-col gap-6">

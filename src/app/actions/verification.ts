@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { PRIVACY_POLICY_VERSION } from "@/lib/consent";
 
 export type VerificationFormState = {
   error?: string;
@@ -48,15 +49,25 @@ export async function submitIdentityVerification(
     return { error: "Please enter a valid 12-digit Aadhaar number." };
   }
 
+  // consent_at/consent_version (Phase 33, supabase/schema.sql) record
+  // the moment consent was actually given, separately from
+  // submitted_at -- before this, the two were conflated, which a
+  // security audit flagged as a real gap given Aadhaar is the more
+  // sensitive of the two verification checks. Both are re-stamped on
+  // every resubmission (this upsert runs again if a member retries),
+  // which is correct: a resubmission is a fresh consent event.
+  const now = new Date().toISOString();
   const { error } = await supabase.from("identity_verifications").upsert({
     profile_id: user.id,
     status: "pending",
     method: "aadhaar",
     provider: "mock",
     aadhaar_last4: aadhaarDigits.slice(-4),
-    submitted_at: new Date().toISOString(),
+    submitted_at: now,
+    consent_at: now,
+    consent_version: PRIVACY_POLICY_VERSION,
     verified_at: null,
-    updated_at: new Date().toISOString(),
+    updated_at: now,
   });
 
   if (error) {

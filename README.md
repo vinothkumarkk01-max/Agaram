@@ -799,7 +799,7 @@ even if Agaramiya isn't open in a tab.
   NEXT_PUBLIC_VAPID_PUBLIC_KEY=<the public key>
   VAPID_PUBLIC_KEY=<the same public key>
   VAPID_PRIVATE_KEY=<the private key — keep this one secret>
-  VAPID_SUBJECT=mailto:you@example.com
+  VAPID_SUBJECT=mailto:support@agaramiya.com
   ```
   (The public key needs both names because the browser reads the
   `NEXT_PUBLIC_` one and the server reads the plain one — same value,
@@ -933,6 +933,23 @@ members; right now it's correct copy on a page still marked "draft,
 not yet reviewed by a lawyer," same as the rest of `/privacy`. The
 `[DATE]` and `[When live]` placeholders elsewhere on that page are
 unrelated and still open, per the Phase 8 privacy-policy note above.
+
+**Update, Sept 25, 2026:** `agaramiya.com` is now registered, with a
+real `support@agaramiya.com` inbox — the founder confirmed both. The
+`privacy@agaram.app` placeholder above is now `support@agaramiya.com`
+on both `/privacy`'s Grievance Officer contact and the new `/support`
+page (which didn't exist yet when this section was first written —
+see "Landing page" below). It's the one confirmed real inbox right
+now, reused for both general support and DPDP grievances rather than
+inventing a separate `privacy@agaramiya.com` that hasn't been
+confirmed to exist — worth splitting into a dedicated grievance-only
+inbox later if that's wanted. **`agaramiya.com` itself is registered
+but not yet live** — not added as a custom domain in the Vercel
+project, DNS not pointed at the deployment (confirmed: it doesn't
+currently resolve) — so `SITE_URL` (`src/lib/site.ts`) still falls
+back to the Vercel URL. Once the domain is added in Vercel and DNS is
+live, set `NEXT_PUBLIC_SITE_URL=https://agaramiya.com` as a Vercel
+project env var to flip OG tags/sitemap/robots.txt over.
 
 **A related but separate DPDP gap, also closed this round: consent
 was never actually captured at account creation.** Section 7 of
@@ -2106,6 +2123,26 @@ Founder direction, after a grounded go-live checklist review: "start working on 
 Not done in this round, and worth knowing why: Sentry's DSN (needs a real account, not a code change), a distinct Royal Concierge dashboard state (a separate, larger feature), and the CSP `Content-Security-Policy` enforcement flag (already implemented as a documented env var — flipping it needs one real signup→verification→checkout→messaging run-through with the browser console open, not a code change). See the go-live checklist artifact for the full picture.
 
 No database changes this round.
+
+## Security audit follow-through: CI/Dependabot, Aadhaar consent tracking & self-service password reset (Sept 2026)
+
+A full 37-section security & privacy audit (see the project's `Agaram_Security_Audit_Full` doc) turned up a short, concrete punch list. This round closes three of the four items that didn't need a founder decision or a vendor account first — the fourth, rate limiting on login/signup/messages, is documented separately below once a vendor (Upstash vs. Arcjet) is chosen.
+
+- **Dependabot + CI (`.github/`).** This repo had no CI at all before this round — the first commit to `.github/`. `dependabot.yml` checks npm dependencies and GitHub Actions versions weekly (Mondays), grouping routine minor/patch bumps into one PR so a solo founder isn't fielding a dozen individual PRs. `workflows/ci.yml` runs on every push to `main` and every PR: `npm run lint`, a new `npm run typecheck` script (`tsc --noEmit` — didn't exist as a named script before), a full `npm run build` (against placeholder Supabase env vars, same pattern as local pre-commit verification — it only needs to prove the app compiles, not reach a real project), and `npm audit --audit-level=high`, which fails the run on any high/critical dependency vulnerability.
+- **Aadhaar consent tracking (`identity_verifications`).** A real inconsistency the audit's Consent Management section (§25) flagged: `employment_verifications` has always stamped a `consent_at` timestamp separately from `submitted_at`; `identity_verifications` — for Aadhaar, the more sensitive of the two checks — only ever had `submitted_at`, conflating "hit submit" with "consented." Fixed with two new columns (`consent_at`, `consent_version` — the latter missing on *both* tables before this, so a future Privacy Policy text change now has something to point at) and a new `PRIVACY_POLICY_VERSION` constant (`src/lib/consent.ts`) that `submitIdentityVerification` (`actions/verification.ts`) stamps on every submission. Also added to the member's own data export (`/api/account/export`), since a consent record is squarely "their own data."
+- **Self-service password reset (`/forgot-password`, `/reset-password`).** Named in the audit as the single biggest missing account-recovery feature — before this, a member who forgot their password had no way back into their account at all. `requestPasswordReset` / `updatePassword` (`actions/auth.ts`) wrap Supabase Auth's own `resetPasswordForEmail()` / `updateUser()` — deliberately thin, since Supabase already handles the secure token generation and one-time-use enforcement. The recovery link reuses the existing `/auth/callback` route (same code-exchange handler the Google/Apple sign-in flows use) rather than a new callback, landing on `/reset-password` once exchanged. **Important operational note:** the reset email itself is sent by Supabase Auth's own mail delivery — configured under Supabase Dashboard → Authentication → Emails/SMTP — not by this app's `RESEND_API_KEY` (that only powers work-email OTPs and the weekly digest, both sent directly via Resend's HTTP API from app code). Supabase's built-in sender works for testing but is rate-limited; set up custom SMTP there before relying on this for real volume — Resend's own SMTP credentials would be one option, configured Supabase-side, separate from this app's existing Resend integration. Also deliberately does *not* reveal whether a submitted email has an account — `resetPasswordForEmail` itself never leaks that, and the UI shows the same "check your email" message either way, to avoid email enumeration.
+
+No new environment variables required for any of the three items above.
+
+## Rate limiting on login, signup & message-send (Sept 2026)
+
+The fourth security-audit punch-list item — the one that needed a vendor decision first. Upstash Ratelimit, backed by Upstash's serverless Redis (`@upstash/ratelimit` + `@upstash/redis`), the founder's chosen vendor over Arcjet.
+
+`src/lib/rateLimit.ts` is the one file this touches conceptually: a `checkRateLimit(action, identifier)` helper, with a separate sliding-window limiter per action — login is checked by **both** IP (10/min — stops one source brute-forcing many accounts) and email (5/min — stops a targeted brute-force against one account spread across many IPs), signup by IP only (5/hour — signup abuse looks like one source creating many different accounts, not many attempts against one), and message-send by the sender's own id (30/min — sized to stop scripted flooding, not to slow down a real fast-moving conversation). Wired into `login()` / `signup()` (`actions/auth.ts`) and `sendMessage()` (`actions/messages.ts`).
+
+**Same optional-integration shape as Resend/Razorpay auto-renew/VAPID push, with one important difference: this fails OPEN.** With `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` unset, every check simply passes — login/signup/messaging work exactly as they did before this file existed, just with no abuse protection. That's deliberate (an unconfigured limiter should never be the reason a member can't sign in) but also means **this is a no-op until those two env vars are actually set.** See `.env.local.example` for where to get them (a free Upstash account and Redis database — the REST URL/token from its "REST API" tab, not the Redis connection string) — set them locally and in Vercel to actually turn this on.
+
+No database changes. `package.json` gained two new dependencies (`@upstash/ratelimit`, `@upstash/redis`).
 
 ## What's next
 

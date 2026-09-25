@@ -15,6 +15,14 @@ import type { Locale } from "@/lib/i18n/locale";
  * fields so the `signup` action can remember them for onboarding.
  * The login page is untouched — it renders AuthForm directly and
  * never sees this wizard.
+ *
+ * AuthForm renders here with showOAuth={false} (Sept 2026 founder
+ * feedback: reaching step 2 already means the person answered the
+ * intent questions and tapped Continue — i.e. explicitly chose the
+ * manual path over Google/Apple, which is offered up front on
+ * SignupIntentStep. Repeating "Continue with Google/Apple" here read
+ * as an inconsistent flow, and tapping it would have silently thrown
+ * away the answers just given — see AuthForm's showOAuth comment).
  */
 export function SignupWizard({
   locale,
@@ -33,6 +41,7 @@ export function SignupWizard({
       <SignupIntentStep
         locale={locale}
         t={t}
+        next={next}
         onContinue={(answers) => {
           setIntent(answers);
           setStep(2);
@@ -51,6 +60,7 @@ export function SignupWizard({
       signupIntent={intent}
       onBack={() => setStep(1)}
       backLabel={t.auth.backToIntro}
+      showOAuth={false}
     />
   );
 }

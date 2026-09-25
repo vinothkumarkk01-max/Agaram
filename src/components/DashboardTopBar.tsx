@@ -75,7 +75,11 @@ export function DashboardTopBar({
       style={{ background: "var(--bg-raised)", borderBottom: "1px solid var(--line)" }}
     >
       <div className="flex items-center gap-2.5 md:gap-8">
-        <div className="flex items-center gap-2.5">
+        {/* Logo -> /dashboard (Sept 2026 — founder feedback: clicking
+            the brand mark did nothing). This top bar only renders on
+            already-authenticated pages, so "home" here is the member's
+            dashboard, not the public marketing landing page at "/". */}
+        <Link href="/dashboard" className="flex items-center gap-2.5">
           <BrandMark size={32} />
           <span
             className="text-base font-bold"
@@ -83,7 +87,7 @@ export function DashboardTopBar({
           >
             {t.common.brand}
           </span>
-        </div>
+        </Link>
 
         {/* Curated-first navigation (Sept 2026 redesign) — Introductions
             leads, Discover (Browse) follows: the product is a curated
