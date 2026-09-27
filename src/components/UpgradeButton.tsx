@@ -53,7 +53,14 @@ export function UpgradeButton({
   const [autoRenew, setAutoRenew] = useState(true);
 
   async function handleOneTimeCheckout() {
-    const order = await createEliteOrder();
+    let order;
+    try {
+      order = await createEliteOrder();
+    } catch {
+      setError(t.upgrade.checkoutLoadError);
+      setLoading(false);
+      return;
+    }
     if ("error" in order) {
       setError(order.error);
       setLoading(false);
@@ -81,17 +88,28 @@ export function UpgradeButton({
         razorpay_payment_id: string;
         razorpay_signature: string;
       }) => {
-        const result = await verifyElitePayment(
-          response.razorpay_order_id,
-          response.razorpay_payment_id,
-          response.razorpay_signature
-        );
-        if (result.success) {
-          router.refresh();
-        } else {
-          setError(result.error);
+        // Razorpay's checkout.js calls this handler outside of React's
+        // control and doesn't await or catch anything it returns — an
+        // uncaught throw in here (a network blip, a 500 from the
+        // verify action) used to leave `loading` stuck true forever,
+        // with the button frozen on "Opening checkout..." and no
+        // visible error. try/finally guarantees loading always clears.
+        try {
+          const result = await verifyElitePayment(
+            response.razorpay_order_id,
+            response.razorpay_payment_id,
+            response.razorpay_signature
+          );
+          if (result.success) {
+            router.refresh();
+          } else {
+            setError(result.error);
+          }
+        } catch {
+          setError(t.upgrade.checkoutLoadError);
+        } finally {
+          setLoading(false);
         }
-        setLoading(false);
       },
       modal: {
         ondismiss: () => setLoading(false),
@@ -102,7 +120,14 @@ export function UpgradeButton({
   }
 
   async function handleSubscriptionCheckout() {
-    const subscription = await createEliteSubscription();
+    let subscription;
+    try {
+      subscription = await createEliteSubscription();
+    } catch {
+      setError(t.upgrade.checkoutLoadError);
+      setLoading(false);
+      return;
+    }
     if ("error" in subscription) {
       setError(subscription.error);
       setLoading(false);
@@ -128,17 +153,27 @@ export function UpgradeButton({
         razorpay_payment_id: string;
         razorpay_signature: string;
       }) => {
-        const result = await verifySubscriptionPayment(
-          response.razorpay_subscription_id,
-          response.razorpay_payment_id,
-          response.razorpay_signature
-        );
-        if (result.success) {
-          router.refresh();
-        } else {
-          setError(result.error);
+        // Same reasoning as handleOneTimeCheckout's handler above —
+        // checkout.js invokes this outside React and never catches
+        // what it throws, so without try/finally an error here left
+        // the button frozen on "Opening checkout..." with no
+        // indication anything had gone wrong.
+        try {
+          const result = await verifySubscriptionPayment(
+            response.razorpay_subscription_id,
+            response.razorpay_payment_id,
+            response.razorpay_signature
+          );
+          if (result.success) {
+            router.refresh();
+          } else {
+            setError(result.error);
+          }
+        } catch {
+          setError(t.upgrade.checkoutLoadError);
+        } finally {
+          setLoading(false);
         }
-        setLoading(false);
       },
       modal: {
         ondismiss: () => setLoading(false),

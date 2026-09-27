@@ -3,6 +3,7 @@ import { Newsreader, Catamaran } from "next/font/google";
 import "./globals.css";
 import { getLocale } from "@/lib/i18n/server";
 import { SITE_URL } from "@/lib/site";
+import { PreviewEnvironmentBanner } from "@/components/PreviewEnvironmentBanner";
 
 const newsreader = Newsreader({
   variable: "--font-newsreader",
@@ -66,7 +67,10 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
       lang={locale}
       className={`${newsreader.variable} ${catamaran.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        {process.env.VERCEL_ENV !== "production" && <PreviewEnvironmentBanner />}
+        {children}
+      </body>
     </html>
   );
 }

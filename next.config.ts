@@ -78,47 +78,58 @@ const nextConfig: NextConfig = {
     },
   },
   async headers() {
-    return [
+    const headers: { key: string; value: string }[] = [
+      // HTTPS is already enforced by Vercel; this additionally
+      // tells browsers to never even attempt plain HTTP for this
+      // host again, including on the next visit.
       {
-        source: "/:path*",
-        headers: [
-          // HTTPS is already enforced by Vercel; this additionally
-          // tells browsers to never even attempt plain HTTP for this
-          // host again, including on the next visit.
-          {
-            key: "Strict-Transport-Security",
-            value: "max-age=63072000; includeSubDomains; preload",
-          },
-          // Stops a browser from guessing a response's content type
-          // away from what the server actually declared.
-          { key: "X-Content-Type-Options", value: "nosniff" },
-          // No legitimate reason for this app to ever render inside
-          // someone else's frame (also set via frame-ancestors above,
-          // kept here too for older browsers that predate CSP).
-          { key: "X-Frame-Options", value: "DENY" },
-          // Don't leak full referrer URLs (which can carry match IDs,
-          // report IDs, etc.) to third-party destinations.
-          {
-            key: "Referrer-Policy",
-            value: "strict-origin-when-cross-origin",
-          },
-          // This app never uses the camera, microphone, or
-          // geolocation — say so explicitly so an embedded/compromised
-          // third-party script can't silently request them either.
-          {
-            key: "Permissions-Policy",
-            value: "camera=(), microphone=(), geolocation=()",
-          },
-          {
-            key:
-              process.env.CSP_ENFORCE === "true"
-                ? "Content-Security-Policy"
-                : "Content-Security-Policy-Report-Only",
-            value: buildCsp(),
-          },
-        ],
+        key: "Strict-Transport-Security",
+        value: "max-age=63072000; includeSubDomains; preload",
+      },
+      // Stops a browser from guessing a response's content type
+      // away from what the server actually declared.
+      { key: "X-Content-Type-Options", value: "nosniff" },
+      // No legitimate reason for this app to ever render inside
+      // someone else's frame (also set via frame-ancestors above,
+      // kept here too for older browsers that predate CSP).
+      { key: "X-Frame-Options", value: "DENY" },
+      // Don't leak full referrer URLs (which can carry match IDs,
+      // report IDs, etc.) to third-party destinations.
+      {
+        key: "Referrer-Policy",
+        value: "strict-origin-when-cross-origin",
+      },
+      // This app never uses the camera, microphone, or
+      // geolocation — say so explicitly so an embedded/compromised
+      // third-party script can't silently request them either.
+      {
+        key: "Permissions-Policy",
+        value: "camera=(), microphone=(), geolocation=()",
+      },
+      {
+        key:
+          process.env.CSP_ENFORCE === "true"
+            ? "Content-Security-Policy"
+            : "Content-Security-Policy-Report-Only",
+        value: buildCsp(),
       },
     ];
+
+    // Belt-and-suspenders against a Preview deployment (or a stray
+    // local build) ever showing up in search results: robots.ts
+    // already returns a disallow-all on non-production, but that's
+    // only a *request* search engines can choose to honor. This
+    // header is the actual instruction a crawler that already indexed
+    // a URL will respect. VERCEL_ENV is "production" only for the one
+    // deployment attached to the Production domain(s) — every Preview
+    // deployment (any branch/PR) and local `next dev`/`next build`
+    // gets "preview"/undefined here, so this fires everywhere except
+    // the real site.
+    if (process.env.VERCEL_ENV !== "production") {
+      headers.push({ key: "X-Robots-Tag", value: "noindex, nofollow" });
+    }
+
+    return [{ source: "/:path*", headers }];
   },
 };
 

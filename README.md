@@ -2144,6 +2144,16 @@ The fourth security-audit punch-list item — the one that needed a vendor decis
 
 No database changes. `package.json` gained two new dependencies (`@upstash/ratelimit`, `@upstash/redis`).
 
+## Environments: Preview vs Production (Sept 2026)
+
+Vercel already gives every project two kinds of deployment for free — this section is about actually using that split deliberately, rather than everything (real launch work and half-finished R&D alike) landing on the one Production domain.
+
+**How Vercel splits deployments.** Push to `main` and Vercel builds the **Production** deployment — the one served at `agaramiya.com`/`www.agaramiya.com`. Push to any *other* branch, or open a PR, and Vercel builds a separate **Preview** deployment at its own auto-generated URL (`agaram-git-<branch>-<team>.vercel.app`), completely isolated from Production — different build, different runtime, and (once set up per the next section) different data. `process.env.VERCEL_ENV` is how code tells the two apart at runtime: `"production"` only for the real deployment, `"preview"` for every Preview one, unset for local `next dev`. Two things in this codebase already key off it: the `/api/dev/seed-*` test-data routes hard-refuse to run when `VERCEL_ENV === "production"` (added during the security audit, see above), and — new in this round — a **visible "PREVIEW ENVIRONMENT" banner** (`src/components/PreviewEnvironmentBanner.tsx`, wired into the root layout) on anything that isn't Production, plus an `X-Robots-Tag: noindex` header and an all-disallow `robots.txt` (`next.config.ts`, `src/app/robots.ts`) so a Preview URL can never end up in search results.
+
+**Recommended workflow.** Do R&D and testing on a long-lived branch (`preview` works well) instead of directly on `main`. Push experimental work there, test it at that branch's Preview URL — with the safety of a separate Supabase project and Razorpay TEST-mode keys (see below), so nothing touches real member data or moves real money — and only merge to `main` (which redeploys Production) once it's actually verified. Any other branch or PR also gets its own throwaway Preview URL automatically, which is useful for reviewing a specific change in isolation without disturbing the `preview` branch's own testing.
+
+**What has to be set up for this to actually be "clean and restricted" (not just a URL split)** — see "Action items" for the exact dashboard steps, but in short: a **second, separate Supabase project** for Preview (so R&D never reads or writes real members' data), **Razorpay TEST-mode keys** in Preview vs **LIVE keys** only in Production, and every secret in `.env.local.example` scoped per-environment in Vercel's dashboard rather than left on "All Environments." None of that is a code change — Vercel lets every env var be scoped to Production only, Preview only, or both, and the app already just reads `process.env.X` without caring which project/mode those values point at.
+
 ## What's next
 
 All 8 V0 build-plan phases are live, plus thirty V1 features now:
