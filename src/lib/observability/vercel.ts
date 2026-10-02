@@ -17,7 +17,19 @@
  */
 
 const VERCEL_API = "https://api.vercel.com";
-const TAIL_WINDOW_MS = 8000;
+
+// How long this waits on Vercel's live stream before giving up and
+// rendering whatever arrived. This is the main reason /admin/failures
+// feels slow to open — the page can't render until every source
+// (including this one) has returned, and this is the one source with
+// no fast path: it's a deliberate wait, not a timeout being hit. 8s
+// was the original value (more time to catch something); shortened to
+// 2s because a snappy page the founder actually opens is worth more
+// than a slightly better chance of catching a live error in this
+// specific few-second window — see the file comment above for why
+// this source can't do better than "whatever showed up just now"
+// either way.
+const TAIL_WINDOW_MS = 2000;
 
 export type VercelLogLine = {
   level: string;
