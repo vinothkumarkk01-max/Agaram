@@ -31,6 +31,17 @@ jobs:
 
       - run: npm run lint
 
+      # Next.js 16's typed routes (PageProps<"/...">, used on every
+      # page) are generated, not hand-written -- normally `next build`
+      # writes them as a side effect, but typecheck runs here before
+      # build (fail fast on the cheaper check first), so on a fresh
+      # checkout with no prior build the generated types don't exist
+      # yet and `tsc` fails with "Cannot find name 'PageProps'" on
+      # every typed page. `next typegen` generates just those types,
+      # without a full build, so typecheck has something to check
+      # against.
+      - run: npx next typegen
+
       - run: npm run typecheck
 
       # Placeholder values -- this only needs to prove the app

@@ -97,14 +97,22 @@ export async function fetchAuthLogErrors(ref: string): Promise<FetchResult<AuthL
   const end = new Date();
   const start = new Date(end.getTime() - 24 * 60 * 60 * 1000);
 
+  // Every log event lives in one generic `logs` table — there's no
+  // separate `auth_logs` table to select from (that name is only a
+  // `source` value, same as `edge_logs` / `postgres_logs` / etc. —
+  // see the Log field reference). Querying `from auth_logs` directly
+  // fails with "Table 'auth_logs' does not exist".
   const sql = `
     select timestamp, event_message
-    from auth_logs
-    where event_message ilike '%error%'
-       or event_message ilike '%could not%'
-       or event_message ilike '%failed%'
-       or event_message ilike '%invalid%'
-       or event_message ilike '%exceeded%'
+    from logs
+    where source = 'auth_logs'
+      and (
+        event_message ilike '%error%'
+        or event_message ilike '%could not%'
+        or event_message ilike '%failed%'
+        or event_message ilike '%invalid%'
+        or event_message ilike '%exceeded%'
+      )
     order by timestamp desc
     limit 50
   `.trim();
