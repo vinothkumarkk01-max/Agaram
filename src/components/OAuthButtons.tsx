@@ -1,4 +1,5 @@
 import type { Dictionary } from "@/lib/i18n/dictionary";
+import { APPLE_SIGNIN_ENABLED } from "@/lib/featureFlags";
 
 /**
  * Shared "Continue with Google" / "Continue with Apple" buttons — used
@@ -38,17 +39,19 @@ export function OAuthButtons({
           {t.auth.continueWithGoogle}
         </button>
       </form>
-      <form action={appleAction}>
-        {next && <input type="hidden" name="next" value={next} />}
-        <button
-          type="submit"
-          className="w-full flex items-center justify-center gap-2.5 rounded-xl py-3 text-sm font-semibold"
-          style={{ background: "#000000", color: "#FFFFFF" }}
-        >
-          <AppleIcon />
-          {t.auth.continueWithApple}
-        </button>
-      </form>
+      {APPLE_SIGNIN_ENABLED && (
+        <form action={appleAction}>
+          {next && <input type="hidden" name="next" value={next} />}
+          <button
+            type="submit"
+            className="w-full flex items-center justify-center gap-2.5 rounded-xl py-3 text-sm font-semibold"
+            style={{ background: "#000000", color: "#FFFFFF" }}
+          >
+            <AppleIcon />
+            {t.auth.continueWithApple}
+          </button>
+        </form>
+      )}
     </div>
   );
 }

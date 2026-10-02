@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { Dictionary } from "@/lib/i18n/dictionary";
+import { APPLE_SIGNIN_ENABLED } from "@/lib/featureFlags";
 
 type Provider = "email" | "google" | "apple";
 
@@ -76,10 +77,14 @@ export function ConnectedAccounts({
     setProviders((prev) => prev.filter((p) => p !== provider));
   }
 
+  // Apple isn't offered yet — see featureFlags.ts for why — so there's
+  // no connected-accounts row for a provider nobody can actually link.
   const rows: { provider: Provider; label: string }[] = [
     { provider: "email", label: t.account.connectedProviderEmail },
     { provider: "google", label: t.account.connectedProviderGoogle },
-    { provider: "apple", label: t.account.connectedProviderApple },
+    ...(APPLE_SIGNIN_ENABLED
+      ? [{ provider: "apple" as const, label: t.account.connectedProviderApple }]
+      : []),
   ];
 
   return (
