@@ -17,6 +17,8 @@
  * rather than throwing, so a caller can show a clear "isn't set up
  * yet" message instead of crashing.
  */
+import { logFailure } from "@/lib/failureLog";
+
 export type SendEmailResult =
   | { sent: true }
   | { sent: false; reason: "not_configured" | "send_failed"; error?: string };
@@ -31,6 +33,11 @@ export async function sendEmail(params: {
   const from = process.env.RESEND_FROM_ADDRESS;
 
   if (!apiKey || !from) {
+    void logFailure({
+      source: "email_resend",
+      message: "RESEND_API_KEY / RESEND_FROM_ADDRESS not configured",
+      detail: { subject: params.subject },
+    });
     return { sent: false, reason: "not_configured" };
   }
 
@@ -52,15 +59,27 @@ export async function sendEmail(params: {
 
     if (!response.ok) {
       const body = await response.text().catch(() => "");
-      return { sent: false, reason: "send_failed", error: body || response.statusText };
+      const error = body || response.statusText;
+      void logFailure({
+        source: "email_resend",
+        message: `Resend API rejected a send (${response.status})`,
+        detail: { subject: params.subject, status: response.status, body: error.slice(0, 500) },
+      });
+      return { sent: false, reason: "send_failed", error };
     }
 
     return { sent: true };
   } catch (err) {
+    const error = err instanceof Error ? err.message : "Unknown error";
+    void logFailure({
+      source: "email_resend",
+      message: "Resend API call threw",
+      detail: { subject: params.subject, error },
+    });
     return {
       sent: false,
       reason: "send_failed",
-      error: err instanceof Error ? err.message : "Unknown error",
+      error,
     };
   }
 }

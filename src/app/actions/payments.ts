@@ -3,6 +3,7 @@
 import crypto from "crypto";
 import Razorpay from "razorpay";
 import { createClient } from "@/lib/supabase/server";
+import { logFailure } from "@/lib/failureLog";
 
 // ₹15,000 / 6 months, per the PRD's Elite tier (§11). Razorpay wants
 // amounts in the smallest currency unit — paise for INR.
@@ -48,12 +49,15 @@ export async function createEliteOrder(): Promise<CreateOrderResult> {
       notes: { profile_id: user.id, plan: "elite" },
     });
   } catch (err) {
-    return {
-      error:
-        err instanceof Error
-          ? err.message
-          : "Could not start checkout — please try again.",
-    };
+    const error =
+      err instanceof Error ? err.message : "Could not start checkout — please try again.";
+    void logFailure({
+      source: "razorpay_order",
+      message: "razorpay.orders.create() threw",
+      detail: { error },
+      profileId: user.id,
+    });
+    return { error };
   }
 
   const { error: dbError } = await supabase.from("payments").insert({
@@ -123,6 +127,12 @@ export async function verifyElitePayment(
     await supabase.rpc("mark_payment_failed", {
       p_order_id: razorpayOrderId,
     });
+    void logFailure({
+      source: "razorpay_order",
+      message: "One-time payment signature mismatch",
+      detail: { orderId: razorpayOrderId },
+      profileId: user.id,
+    });
     return { success: false, error: "Payment verification failed." };
   }
 
@@ -136,6 +146,12 @@ export async function verifyElitePayment(
   );
 
   if (rpcError) {
+    void logFailure({
+      source: "razorpay_order",
+      message: "finalize_elite_payment() RPC failed",
+      detail: { orderId: razorpayOrderId, error: rpcError.message },
+      profileId: user.id,
+    });
     return { success: false, error: rpcError.message };
   }
   if (!finalized) {
@@ -203,12 +219,15 @@ export async function createEliteSubscription(): Promise<CreateSubscriptionResul
       notes: { profile_id: user.id, plan: "elite" },
     });
   } catch (err) {
-    return {
-      error:
-        err instanceof Error
-          ? err.message
-          : "Could not start checkout — please try again.",
-    };
+    const error =
+      err instanceof Error ? err.message : "Could not start checkout — please try again.";
+    void logFailure({
+      source: "razorpay_subscription",
+      message: "razorpay.subscriptions.create() threw",
+      detail: { error },
+      profileId: user.id,
+    });
+    return { error };
   }
 
   const { error: rpcError } = await supabase.rpc("start_elite_subscription", {
@@ -257,6 +276,12 @@ export async function verifySubscriptionPayment(
     .digest("hex");
 
   if (expectedSignature !== razorpaySignature) {
+    void logFailure({
+      source: "razorpay_subscription",
+      message: "Subscription payment signature mismatch",
+      detail: { subscriptionId: razorpaySubscriptionId },
+      profileId: user.id,
+    });
     return { success: false, error: "Payment verification failed." };
   }
 
@@ -307,10 +332,14 @@ export async function cancelSubscription(): Promise<CancelSubscriptionResult> {
   try {
     await razorpay.subscriptions.cancel(profile.razorpay_subscription_id, true);
   } catch (err) {
-    return {
-      success: false,
-      error: err instanceof Error ? err.message : "Could not cancel — please try again.",
-    };
+    const error = err instanceof Error ? err.message : "Could not cancel — please try again.";
+    void logFailure({
+      source: "razorpay_subscription",
+      message: "razorpay.subscriptions.cancel() threw",
+      detail: { error },
+      profileId: user.id,
+    });
+    return { success: false, error };
   }
 
   const { error: rpcError } = await supabase.rpc(

@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { logFailure } from "@/lib/failureLog";
 
 // Same six-month period the one-time Elite order uses
 // (src/app/actions/payments.ts) — kept as a plain constant here too
@@ -74,6 +75,17 @@ export async function POST(request: Request) {
     );
 
   if (!signatureValid) {
+    void logFailure({
+      source: "razorpay_webhook",
+      message: "Webhook signature verification failed",
+      detail: { event: (() => {
+        try {
+          return (JSON.parse(rawBody) as { event?: string }).event ?? "unknown";
+        } catch {
+          return "unparseable";
+        }
+      })() },
+    });
     return Response.json({ error: "Invalid signature" }, { status: 400 });
   }
 
@@ -120,6 +132,12 @@ export async function POST(request: Request) {
         if (insertError.code === "23505") {
           return Response.json({ received: true, duplicate: true });
         }
+        void logFailure({
+          source: "razorpay_webhook",
+          message: "Failed to record a payments row for subscription.charged",
+          detail: { subscriptionId, profileId, error: insertError.message },
+          profileId,
+        });
         throw new Error(insertError.message);
       }
 

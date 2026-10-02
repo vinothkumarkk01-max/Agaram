@@ -3291,3 +3291,59 @@ alter table public.profiles
 alter table public.identity_verifications
   add column if not exists consent_at timestamptz,
   add column if not exists consent_version text;
+
+--
+-- Phase 34 — Unified admin failure log (Sept 2026)
+--
+-- Born from a real debugging session: Razorpay webhook rejections,
+-- Resend send failures and Supabase Auth's own SMTP errors each lived
+-- in a different place (this table, Resend's dashboard, Supabase's
+-- Auth Logs), so answering "is anything broken right now" meant
+-- checking three-plus consoles by hand. This table is the first-party
+-- half of the fix: the app's own code writes here the moment it
+-- catches a failure it already knows about (Razorpay signature/RPC
+-- errors, a failed Resend send). It deliberately does NOT try to
+-- capture Supabase Auth's internal SMTP failures — the app never sees
+-- those (Supabase Auth emails straight over SMTP, bypassing the app
+-- entirely, per Agaram_Environments docs) — /admin/failures pulls
+-- those separately, live, via the Supabase Management API.
+--
+-- `environment` is written as whichever value VERCEL_ENV had at the
+-- moment of the failure ("production" / "preview"), not looked up
+-- later, since Preview and Production are two entirely separate
+-- Supabase projects/databases — a row here only ever describes
+-- whichever project it was inserted into. /admin/failures reads BOTH
+-- projects' copies of this table remotely (Management API), so one
+-- admin view still shows both environments regardless of which one
+-- is actually serving that page request.
+--
+-- Insert-only from the app's service-role client (src/lib/failureLog.ts)
+-- — deliberately no insert policy below, since RLS never applies to
+-- the service role anyway, and no ordinary member client should ever
+-- be able to write here. Read access is admin-only, same as
+-- admin_actions (Phase 16) above.
+create table if not exists public.app_failure_logs (
+  id uuid primary key default gen_random_uuid(),
+  environment text not null check (environment in ('production', 'preview')),
+  source text not null,
+  message text not null,
+  detail jsonb,
+  profile_id uuid references public.profiles (id) on delete set null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists app_failure_logs_created_at_idx
+  on public.app_failure_logs (created_at desc);
+
+alter table public.app_failure_logs enable row level security;
+
+drop policy if exists "Admins can view failure logs" on public.app_failure_logs;
+create policy "Admins can view failure logs"
+  on public.app_failure_logs for select
+  to authenticated
+  using (
+    exists (
+      select 1 from public.profiles
+      where profiles.id = auth.uid() and profiles.is_admin
+    )
+  );
